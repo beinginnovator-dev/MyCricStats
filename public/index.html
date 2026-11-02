@@ -23,17 +23,19 @@ body.theme-night{--bg:#0b1020;--bg2:#151b2e;--card:#1c2438}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
 .app{max-width:480px;margin:0 auto;padding-bottom:32px;min-height:100vh}
-.broadcast{position:relative;background:#01002C;border-bottom:1px solid var(--line);padding:12px 14px 14px;overflow:hidden;min-height:28vh;display:flex;flex-direction:column;justify-content:center}
+.broadcast{position:relative;background:#01002C;border-bottom:1px solid var(--line);padding:0 0 14px;overflow:hidden;min-height:28vh;display:flex;flex-direction:column;justify-content:flex-start}
 .broadcast .bg-layer{position:absolute;inset:0;background-size:cover;background-position:center;z-index:0}
 .broadcast .bg-overlay{position:absolute;inset:0;background:#01002C;z-index:1}
-.broadcast .bc-content{position:relative;z-index:2}
-.bar{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:6px;min-height:34px}
+.broadcast .bc-content{position:relative;z-index:2;display:flex;flex-direction:column;flex:1}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0;padding:8px 12px 6px;min-height:40px;position:relative;z-index:5}
+.bar .icon-btn{width:36px;height:36px;font-size:15px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.35);backdrop-filter:blur(4px)}
+.scoreboard-body{padding:4px 14px 8px;flex:1;display:flex;flex-direction:column;justify-content:center}
 .live-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(255,15,80,.2);border:1px solid rgba(255,15,80,.5);color:#fecdd3;font-size:11px;font-weight:900;padding:4px 10px;border-radius:999px;margin-right:auto}
 .live-pill i{width:7px;height:7px;border-radius:50%;background:#FF0F50;animation:pulse 1.4s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 .done-pill{font-size:10px;font-weight:800;color:#94a3b8;background:rgba(148,163,184,.15);padding:4px 10px;border-radius:999px;margin-right:auto}
 .icon-btn{border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);color:#fff;border-radius:999px;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-family:inherit}
-.view-badge{font-size:10px;font-weight:800;background:rgba(255,15,80,.2);color:#F78DA7;padding:3px 8px;border-radius:999px;margin-right:auto}
+.brand-chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:900;letter-spacing:.06em;color:#fff}.brand-chip img{width:22px;height:22px;border-radius:6px}.view-badge{font-size:10px;font-weight:800;background:rgba(255,15,80,.2);color:#F78DA7;padding:3px 8px;border-radius:999px;margin-right:auto}
 .match-header{text-align:center;padding:2px 4px 4px}
 .match-header .title{font-size:14px;font-weight:900;color:var(--gold);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .match-header .sub{font-size:11px;font-weight:700;color:#cbd5e1;margin-top:2px}
@@ -82,7 +84,7 @@ body.theme-light .match-card{background:#fff}
 .error-bar{background:#3b0715;color:#fecaca;font-size:13px;padding:10px 14px;text-align:center;font-weight:600;line-height:1.4}
 body.theme-light .error-bar{background:#fef2f2;color:#991b1b}
 .footer{text-align:center;padding:16px;font-size:11px;color:var(--muted)}
-.settings-dd{position:fixed;right:12px;top:12px;z-index:9999;background:var(--bg2);border:1px solid var(--line);border-radius:14px;min-width:280px;max-width:92vw;max-height:80vh;overflow:auto;padding:8px;box-shadow:0 16px 40px rgba(0,0,0,.5)}
+.settings-dd{position:fixed;right:10px;top:48px;z-index:9999;background:var(--bg2);border:1px solid var(--line);border-radius:14px;min-width:280px;max-width:92vw;max-height:80vh;overflow:auto;padding:8px;box-shadow:0 16px 40px rgba(0,0,0,.5)}
 .settings-dd .dd-title{font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:6px 12px}
 .settings-dd button{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--text);font-weight:700;font-size:13px;padding:11px 12px;border-radius:10px;cursor:pointer;font-family:inherit}
 .settings-dd button:hover,.settings-dd button.on{background:rgba(255,15,80,.15)}
@@ -199,6 +201,58 @@ function fmtWhen(iso){
   try{var d=new Date(iso);if(isNaN(d))return String(iso).slice(0,16);return d.toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});}catch(e){return String(iso).slice(0,16);}
 }
 
+
+function speakText(text, lang){
+  try{
+    if(!window.speechSynthesis||!text)return;
+    window.speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance(String(text));
+    u.lang=lang==='hi'?'hi-IN':'en-IN';
+    u.rate=lang==='hi'?0.95:1;
+    var voices=window.speechSynthesis.getVoices()||[];
+    var prefer=voices.find(function(v){return (lang==='hi'?/hi/i:/en/i).test(v.lang);});
+    if(prefer)u.voice=prefer;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+function stadBeep(kind){
+  try{
+    var Ctx=window.AudioContext||window.webkitAudioContext;if(!Ctx)return;
+    var ctx=new Ctx();
+    var o=ctx.createOscillator();var g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    var now=ctx.currentTime;
+    if(kind==='four'||kind==='six'){o.frequency.value=kind==='six'?660:520;g.gain.setValueAtTime(0.12,now);g.gain.exponentialRampToValueAtTime(0.001,now+0.35);o.start(now);o.stop(now+0.35);}
+    else if(kind==='wicket'){o.type='square';o.frequency.value=180;g.gain.setValueAtTime(0.1,now);g.gain.exponentialRampToValueAtTime(0.001,now+0.5);o.start(now);o.stop(now+0.5);}
+    else{o.frequency.value=320;g.gain.setValueAtTime(0.04,now);g.gain.exponentialRampToValueAtTime(0.001,now+0.15);o.start(now);o.stop(now+0.15);}
+  }catch(e){}
+}
+function ballToComment(b, lang){
+  if(!b)return'';
+  var score=b.score||{};
+  var runs=score.runs!=null?score.runs:(b.runs!=null?b.runs:0);
+  var name=score.name||b.score_name||'';
+  var isW=!!(score.is_wicket||b.is_wicket);
+  var ball=b.ball!=null?b.ball:'';
+  if(lang==='hi'){
+    if(isW)return 'विकेट! बॉल '+ball;
+    if(runs===6)return 'छक्का! बॉल '+ball;
+    if(runs===4)return 'चौका! बॉल '+ball;
+    if(runs===0)return 'डॉट बॉल '+ball;
+    return runs+' रन, बॉल '+ball+(name?' · '+name:'');
+  }
+  if(isW)return 'WICKET! Ball '+ball;
+  if(runs===6)return 'SIX! Ball '+ball;
+  if(runs===4)return 'FOUR! Ball '+ball;
+  if(runs===0)return 'Dot ball '+ball;
+  return runs+' run'+(runs===1?'':'s')+', ball '+ball+(name?' · '+name:'');
+}
+function ballsList(d){
+  var arr=d&&d.balls?d.balls.slice():[];
+  arr.sort(function(a,b){return (b.ball||0)-(a.ball||0);});
+  return arr;
+}
+
 function App(){
   var viewOnly=isViewMode();
   var shareId=qs().get('match')||'';
@@ -218,13 +272,27 @@ function App(){
   var bgUrl=_bg[0],setBgUrl=_bg[1];
   var _op=useState(function(){return parseFloat(lsGet('op_cricket','0.55'))||0.55;});
   var bgOp=_op[0],setBgOp=_op[1];
-  var _ads=useState(function(){return lsJSON('cric_ads_v1',{enabled:true,items:[{event:'wicket',image:'',text:'Sponsor',duration:4}]});});
+  var _ads=useState(function(){return lsJSON('cric_ads_v1',{enabled:true,items:[
+    {event:'wicket',image:'',video:'',text:'Sponsor · WICKET!',duration:4},
+    {event:'four',image:'',video:'',text:'Sponsor · FOUR!',duration:3},
+    {event:'six',image:'',video:'',text:'Sponsor · SIX!',duration:4},
+    {event:'boundary',image:'',video:'',text:'Sponsor · Boundary',duration:3},
+    {event:'end_over',image:'',video:'',text:'Sponsor · End of over',duration:3}
+  ]});});
   var ads=_ads[0],setAds=_ads[1];
   var _adShow=useState(null);var adShow=_adShow[0],setAdShow=_adShow[1];
   var _toast=useState(null);var toast=_toast[0],setToast=_toast[1];
   var _modal=useState(null);var modal=_modal[0],setModal=_modal[1];
   var _modalVal=useState('');var modalVal=_modalVal[0],setModalVal=_modalVal[1];
   var _adminAds=useState(false);var adminAds=_adminAds[0],setAdminAds=_adminAds[1];
+  var _ttsOn=useState(function(){return lsGet('tts_on','1')==='1';});
+  var ttsOn=_ttsOn[0],setTtsOn=_ttsOn[1];
+  var _ttsLang=useState(function(){return lsGet('tts_lang','en');});
+  var ttsLang=_ttsLang[0],setTtsLang=_ttsLang[1];
+  var _stadOn=useState(function(){return lsGet('stad_on','1')==='1';});
+  var stadOn=_stadOn[0],setStadOn=_stadOn[1];
+  var lastBallKey=React.useRef('');
+
 
   useEffect(function(){document.body.className='theme-'+theme;},[theme]);
 
@@ -290,10 +358,16 @@ function App(){
     }else{setModalVal(link);setModal('share');}
   };
 
-  function triggerAd(){
+  function triggerAd(eventName){
     if(!ads.enabled||adShow)return;
-    var item=(ads.items||[])[0];
-    if(!item||(!item.image&&!item.text))return;
+    var items=ads.items||[];
+    var item=null;
+    if(eventName){
+      item=items.find(function(x){return x.event===eventName;});
+      if(!item&&(eventName==='four'||eventName==='six'))item=items.find(function(x){return x.event==='boundary';});
+    }
+    if(!item)item=items[0];
+    if(!item||(!item.image&&!item.video&&!item.text))return;
     setAdShow(item);
     setTimeout(function(){setAdShow(null);},(item.duration||4)*1000);
   }
@@ -312,25 +386,31 @@ function App(){
     return statusOf(m)===filter;
   });
 
-  var tabs=[['matches','Matches'],['schedule','Schedule'],['scorecard','Scorecard'],['batting','Batting'],['bowling','Bowling'],['info','Info']];
+  var tabs=[['matches','Matches'],['schedule','Schedule'],['scorecard','Scorecard'],['commentary','Commentary'],['batting','Batting'],['bowling','Bowling'],['info','Info']];
 
   return h('div',{className:'app'},
     error?h('div',{className:'error-bar'},error):null,
 
-    // SCOREBOARD — content only (no MCS logo)
+    // SCOREBOARD — MCS logo + controls on top
     h('div',{className:'broadcast'},
       bgUrl?h('div',{className:'bg-layer',style:{backgroundImage:'url('+bgUrl+')'}}):null,
       h('div',{className:'bg-overlay',style:{opacity:bgUrl?bgOp:0.92}}),
       h('div',{className:'bc-content'},
         h('div',{className:'bar'},
-          viewOnly?h('span',{className:'view-badge'},'VIEW ONLY'):
-            (selected?(st==='live'?h('span',{className:'live-pill'},h('i'),'LIVE'):h('span',{className:'done-pill'},st==='finished'?'FINISHED':'UPCOMING')):h('span',{className:'done-pill'},'CRICKET')),
+          h('div',{style:{display:'flex',alignItems:'center',gap:8,marginRight:'auto'}},
+            !viewOnly?h('span',{className:'brand-chip',style:{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,fontWeight:900,letterSpacing:'.06em',color:'#fff'}},
+              h('img',{src:'/icons/icon-192.png',alt:'MCS',style:{width:22,height:22,borderRadius:6}}),
+              'MCS'
+            ):h('span',{className:'view-badge'},'VIEW ONLY'),
+            selected?(st==='live'?h('span',{className:'live-pill'},h('i'),'LIVE'):h('span',{className:'done-pill'},st==='finished'?'FINISHED':'UPCOMING')):null
+          ),
           h('div',{style:{display:'flex',gap:8}},
-            !viewOnly?h('button',{className:'icon-btn',onClick:shareView},'↗'):null,
-            h('button',{className:'icon-btn',onClick:function(){loadList(true);}},loading?'…':'↻'),
-            !viewOnly?h('button',{className:'icon-btn',onClick:function(){setSettingsOpen(!settingsOpen);}},'⚙'):null
+            !viewOnly?h('button',{className:'icon-btn',title:'Share',onClick:shareView},'↗'):null,
+            h('button',{className:'icon-btn',title:'Refresh',onClick:function(){loadList(true);if(selected)loadDetail(selected);}},loading?'…':'↻'),
+            !viewOnly?h('button',{className:'icon-btn',title:'Settings',onClick:function(){setSettingsOpen(!settingsOpen);}},'⚙'):null
           )
         ),
+        h('div',{className:'scoreboard-body'},
         selected?h(React.Fragment,null,
           h('div',{className:'match-header'},
             h('div',{className:'title'},league||'Match'),
@@ -358,6 +438,7 @@ function App(){
           h('div',{className:'title'},'Cricket Live'),
           h('div',{className:'sub'},token?'Pick a match below':'Add token in ⚙ Settings')
         )
+        )
       )
     ),
 
@@ -372,6 +453,11 @@ function App(){
         h('button',{onClick:function(){setModal('bgpanel');setSettingsOpen(false);}},'Image & opacity'),
         h('div',{className:'dd-title'},'Admin'),
         h('button',{onClick:function(){setAdminAds(true);setSettingsOpen(false);}},'Sponsor ads'),
+        h('div',{className:'dd-title'},'Audio'),
+        h('button',{onClick:function(){var v=!ttsOn;setTtsOn(v);lsSet('tts_on',v?'1':'0');}},ttsOn?'TTS: On':'TTS: Off'),
+        h('button',{onClick:function(){var L=ttsLang==='en'?'hi':'en';setTtsLang(L);lsSet('tts_lang',L);}},'TTS language: '+(ttsLang==='hi'?'हिन्दी':'English')),
+        h('button',{onClick:function(){var v=!stadOn;setStadOn(v);lsSet('stad_on',v?'1':'0');}},stadOn?'Stadium sounds: On':'Stadium sounds: Off'),
+
         h('button',{onClick:shareView},'Copy view-only link'),
         h('button',{onClick:function(){cacheClear();setSettingsOpen(false);loadList(true);}},'Clear cache & refresh')
       )
@@ -413,25 +499,30 @@ function App(){
 
     !viewOnly&&adminAds?h('div',{className:'modal-scrim',onClick:function(){setAdminAds(false);}},
       h('div',{className:'modal-card',onClick:function(e){e.stopPropagation();}},
-        h('h2',null,'Sponsor ads'),
+        h('h2',null,'Sponsor ads (event triggers)'),
+        h('div',{className:'hint'},'Shown to viewers when events happen (wicket, four, six, end of over). Set image/video URL and text per event.'),
         h('label',{style:{display:'flex',gap:8,fontWeight:700,marginBottom:12}},
-          h('input',{type:'checkbox',checked:!!ads.enabled,onChange:function(e){var n=Object.assign({},ads,{enabled:e.target.checked});setAds(n);lsJSONSet('cric_ads_v1',n);}}),' Enabled'
+          h('input',{type:'checkbox',checked:!!ads.enabled,onChange:function(e){var n=Object.assign({},ads,{enabled:e.target.checked});setAds(n);lsJSONSet('cric_ads_v1',n);}}),' Enabled for viewers'
         ),
         (ads.items||[]).map(function(item,idx){
           return h('div',{key:idx,className:'card'},
-            h('div',{className:'field'},h('label',null,'Image'),h('input',{value:item.image||'',onChange:function(e){var items=ads.items.slice();items[idx]=Object.assign({},item,{image:e.target.value});var n=Object.assign({},ads,{items:items});setAds(n);lsJSONSet('cric_ads_v1',n);}})),
+            h('h3',null,String(item.event||'event').replace('_',' ').toUpperCase()),
+            h('div',{className:'field'},h('label',null,'Image URL'),h('input',{value:item.image||'',placeholder:'https://...',onChange:function(e){var items=ads.items.slice();items[idx]=Object.assign({},item,{image:e.target.value});var n=Object.assign({},ads,{items:items});setAds(n);lsJSONSet('cric_ads_v1',n);}})),
+            h('div',{className:'field'},h('label',null,'Video URL (optional)'),h('input',{value:item.video||'',placeholder:'https://...mp4',onChange:function(e){var items=ads.items.slice();items[idx]=Object.assign({},item,{video:e.target.value});var n=Object.assign({},ads,{items:items});setAds(n);lsJSONSet('cric_ads_v1',n);}})),
             h('div',{className:'field'},h('label',null,'Text'),h('input',{value:item.text||'',onChange:function(e){var items=ads.items.slice();items[idx]=Object.assign({},item,{text:e.target.value});var n=Object.assign({},ads,{items:items});setAds(n);lsJSONSet('cric_ads_v1',n);}})),
-            h('button',{className:'btn',onClick:triggerAd},'Test')
+            h('div',{className:'field'},h('label',null,'Duration (seconds)'),h('input',{type:'number',value:item.duration||4,min:1,max:30,onChange:function(e){var items=ads.items.slice();items[idx]=Object.assign({},item,{duration:parseInt(e.target.value,10)||4});var n=Object.assign({},ads,{items:items});setAds(n);lsJSONSet('cric_ads_v1',n);}})),
+            h('button',{className:'btn',onClick:function(){triggerAd(item.event);}},'Test this event')
           );
         }),
-        h('button',{className:'btn primary',style:{width:'100%'},onClick:function(){setAdminAds(false);}},'Done')
+        h('button',{className:'btn primary',style:{width:'100%',marginTop:8},onClick:function(){setAdminAds(false);}},'Done')
       )
     ):null,
 
     adShow?h('div',{className:'ad-overlay',onClick:function(){setAdShow(null);}},
       h('div',{className:'ad-card',onClick:function(e){e.stopPropagation();}},
         h('button',{className:'ad-close',onClick:function(){setAdShow(null);}},'×'),
-        adShow.image?h('img',{src:adShow.image,alt:''}):null,
+        adShow.image?h('img',{src:adShow.image,alt:'Ad'}):null,
+        adShow.video?h('video',{src:adShow.video,autoPlay:true,controls:true,style:{maxWidth:'100%',maxHeight:220,borderRadius:10,margin:'8px auto',display:'block'}}):null,
         adShow.text?h('div',{style:{fontWeight:800,marginTop:8}},adShow.text):null
       )
     ):null,
@@ -441,7 +532,7 @@ function App(){
       tabs.map(function(p){
         return h('button',{key:p[0],className:tab===p[0]?'on':'',onClick:function(){
           setTab(p[0]);
-          if((p[0]==='scorecard'||p[0]==='batting'||p[0]==='bowling'||p[0]==='info')&&selected)loadDetail(selected);
+          if((p[0]==='scorecard'||p[0]==='commentary'||p[0]==='batting'||p[0]==='bowling'||p[0]==='info')&&selected)loadDetail(selected);
         }},p[1]);
       })
     ),
@@ -519,6 +610,55 @@ function App(){
       )):null,
 
       // BATTING
+      
+      tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(React.Fragment,null,
+        h('div',{className:'card'},
+          h('h3',null,'Commentary'),
+          h('div',{className:'btn-row'},
+            h('button',{className:'btn'+(ttsOn?' primary':''),onClick:function(){var v=!ttsOn;setTtsOn(v);lsSet('tts_on',v?'1':'0');}},ttsOn?'TTS On':'TTS Off'),
+            h('button',{className:'btn'+(ttsLang==='en'?' primary':''),onClick:function(){setTtsLang('en');lsSet('tts_lang','en');}},'English'),
+            h('button',{className:'btn'+(ttsLang==='hi'?' primary':''),onClick:function(){setTtsLang('hi');lsSet('tts_lang','hi');}},'हिन्दी'),
+            h('button',{className:'btn'+(stadOn?' primary':''),onClick:function(){var v=!stadOn;setStadOn(v);lsSet('stad_on',v?'1':'0');}},stadOn?'Stadium On':'Stadium Off')
+          ),
+          h('div',{className:'muted',style:{marginBottom:8}},'Ball-by-ball when Sportmonks provides balls data. TTS uses device voices (EN/HI). Stadium uses short tones for 4/6/wicket.'),
+          (function(){
+            var list=ballsList(d);
+            if(!list.length)return h('div',{className:'muted'},loading?'Loading…':'No ball commentary yet. Open a live/finished match and Refresh on Scorecard. Free plan may limit ball-by-ball.');
+            // auto speak newest
+            try{
+              var top=list[0];
+              var key=String(top.id||top.ball)+'-'+String((top.score&&top.score.runs)!=null?top.score.runs:top.runs);
+              if(key!==lastBallKey.current){
+                lastBallKey.current=key;
+                var line=ballToComment(top,ttsLang);
+                if(ttsOn)speakText(line,ttsLang);
+                if(stadOn){
+                  var runs=(top.score&&top.score.runs)!=null?top.score.runs:top.runs;
+                  var isW=!!(top.score&&top.score.is_wicket)||!!top.is_wicket;
+                  if(isW)stadBeep('wicket');else if(runs===6)stadBeep('six');else if(runs===4)stadBeep('four');
+                }
+                // Sponsor ads on events
+                try{
+                  var runs2=(top.score&&top.score.runs)!=null?top.score.runs:top.runs;
+                  var isW2=!!(top.score&&top.score.is_wicket)||!!top.is_wicket;
+                  if(isW2)triggerAd('wicket');
+                  else if(runs2===6)triggerAd('six');
+                  else if(runs2===4)triggerAd('four');
+                }catch(eAd){}
+              }
+            }catch(e){}
+            return list.slice(0,40).map(function(b,i){
+              var line=ballToComment(b,ttsLang);
+              return h('div',{key:b.id||i,className:'comm-item',style:{padding:'10px 0',borderBottom:'1px solid var(--line)',fontSize:14,lineHeight:1.45,cursor:'pointer'},
+                onClick:function(){if(ttsOn)speakText(line,ttsLang);}},
+                h('span',{style:{fontWeight:800,color:'var(--blue)',marginRight:8}},b.ball!=null?b.ball:''),
+                line
+              );
+            });
+          })()
+        )
+      )):null,
+
       tab==='batting'?(!selected?h('div',{className:'empty'},'Select a match'):h('div',{className:'card'},
         h('h3',null,'Batting'),
         (d&&d.batting&&d.batting.length)?h('table',{className:'table'},
