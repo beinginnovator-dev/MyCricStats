@@ -4,56 +4,60 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>MyCricStats</title>
-<meta name="theme-color" content="#0b1220"/>
+<meta name="theme-color" content="#01002C"/>
 <link rel="manifest" href="/manifest.webmanifest"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="MyCricStats"/>
-<link rel="apple-touch-icon" href="/icons/icon-192.png"/>
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"/>
 <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png"/>
 <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png"/>
-
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0b1220;--bg2:#111827;--card:#1a2336;--line:rgba(255,255,255,.1);--text:#f8fafc;--muted:#94a3b8;--red:#e11d48;--gold:#fbbf24;--blue:#38bdf8;--accent:#e11d48}
-body.theme-dark{--bg:#0b1220;--bg2:#111827;--card:#1e293b;--line:rgba(148,163,184,.2);--text:#e2e8f0;--muted:#94a3b8;--accent:#38bdf8;--blue:#38bdf8}
-body.theme-light{--bg:#f1f5f9;--bg2:#ffffff;--card:#ffffff;--line:rgba(15,23,42,.12);--text:#0f172a;--muted:#64748b;--accent:#0f766e;--blue:#0284c7;--gold:#b45309;--red:#dc2626}
-body.theme-ipl{--bg:#0c0a1a;--bg2:#16132a;--card:#221c40;--line:rgba(167,139,250,.2);--text:#f5f3ff;--muted:#a5b4fc;--accent:#7c3aed;--blue:#a78bfa;--gold:#fbbf24}
-body.theme-icc{--bg:#071a14;--bg2:#0c241c;--card:#134032;--line:rgba(52,211,153,.2);--text:#ecfdf5;--muted:#6ee7b7;--accent:#059669;--blue:#34d399;--gold:#fde68a}
-body.theme-navy{--bg:#12263d;--bg2:#1a3352;--card:#234064;--line:rgba(186,210,240,.28);--text:#ffffff;--muted:#dbe7f8;--accent:#7db7ff;--blue:#a8d0ff;--gold:#fde68a}
+/* Sportmonks-inspired: Torch Red #FF0F50, Stratos #01002C, pink accent */
+:root{
+  --bg:#01002C;--bg2:#0a0a3a;--card:#12123f;--line:rgba(255,255,255,.12);
+  --text:#f8fafc;--muted:#a8a8c8;--red:#FF0F50;--pink:#F78DA7;--gold:#fbbf24;
+  --blue:#7dd3fc;--accent:#FF0F50;--shine:linear-gradient(135deg,#FF0F50,#F78DA7);
+}
+body.theme-dark{--bg:#01002C;--bg2:#0a0a3a;--card:#12123f;--accent:#FF0F50;--blue:#7dd3fc}
+body.theme-light{--bg:#f4f4f8;--bg2:#ffffff;--card:#ffffff;--line:rgba(1,0,44,.12);--text:#01002C;--muted:#5c5c7a;--accent:#FF0F50;--blue:#0284c7;--gold:#b45309}
+body.theme-pitch{--bg:#062816;--bg2:#0c3d22;--card:#0f4a2a;--line:rgba(52,211,153,.2);--text:#ecfdf5;--muted:#6ee7b7;--accent:#10b981;--blue:#34d399;--gold:#fde68a}
+body.theme-night{--bg:#0b1020;--bg2:#151b2e;--card:#1c2438;--accent:#FF0F50;--blue:#38bdf8}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
 .app{max-width:480px;margin:0 auto;padding-bottom:32px;min-height:100vh}
 .sport-bar{display:flex;gap:6px;overflow-x:auto;padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--line)}
 .sport-bar button{flex:0 0 auto;border:1px solid var(--line);background:transparent;color:var(--muted);font-family:inherit;font-weight:800;font-size:11px;padding:8px 14px;border-radius:999px;cursor:pointer;text-transform:uppercase;letter-spacing:.04em}
-.sport-bar button.on{background:var(--accent);border-color:var(--accent);color:#fff}
-.broadcast{position:relative;background:#0b1220;border-bottom:1px solid var(--line);padding:14px;overflow:hidden;min-height:30vh;display:flex;flex-direction:column;justify-content:center}
+.sport-bar button.on{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 16px rgba(255,15,80,.35)}
+.broadcast{position:relative;background:#01002C;border-bottom:1px solid var(--line);padding:14px;overflow:hidden;min-height:30vh;display:flex;flex-direction:column;justify-content:center}
 .broadcast .bg-layer{position:absolute;inset:0;background-size:cover;background-position:center;z-index:0}
-.broadcast .bg-overlay{position:absolute;inset:0;background:#0b1220;z-index:1}
+.broadcast .bg-overlay{position:absolute;inset:0;background:#01002C;z-index:1}
 .broadcast .bc-content{position:relative;z-index:2}
 .bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
-.live-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(225,29,72,.18);border:1px solid rgba(225,29,72,.45);color:#fecdd3;font-size:11px;font-weight:900;padding:4px 10px;border-radius:999px}
-.live-pill i{width:7px;height:7px;border-radius:50%;background:var(--red);animation:pulse 1.4s ease-in-out infinite}
+.brand-chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:900;letter-spacing:.06em;color:#fff}
+.brand-chip img{width:22px;height:22px;border-radius:6px}
+.live-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(255,15,80,.2);border:1px solid rgba(255,15,80,.5);color:#fecdd3;font-size:11px;font-weight:900;padding:4px 10px;border-radius:999px}
+.live-pill i{width:7px;height:7px;border-radius:50%;background:#FF0F50;animation:pulse 1.4s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 .icon-btn{border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);color:#fff;border-radius:999px;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-family:inherit}
-.view-badge{font-size:10px;font-weight:800;background:rgba(56,189,248,.2);color:#7dd3fc;padding:3px 8px;border-radius:999px}
+.view-badge{font-size:10px;font-weight:800;background:rgba(255,15,80,.2);color:#F78DA7;padding:3px 8px;border-radius:999px}
 .match-header{text-align:center;padding:2px 4px 6px}
-.match-header .title{font-size:15px;font-weight:900;letter-spacing:.03em;color:var(--gold);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.match-header .title{font-size:15px;font-weight:900;color:var(--gold);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .match-header .sub{font-size:11px;font-weight:700;color:#cbd5e1;margin-top:3px}
 .match-header .status-line{font-size:12px;font-weight:700;color:#e2e8f0;margin-top:4px}
 .score-grid{display:grid;grid-template-columns:1fr 48px 1fr;gap:4px;align-items:center;margin-top:10px}
 .side{text-align:center;min-width:0;padding:0 4px}
-.tname{font-size:11px;font-weight:800;text-transform:uppercase;color:#f8fafc;display:flex;align-items:center;justify-content:center;gap:5px;min-height:18px}
+.tname{font-size:11px;font-weight:800;text-transform:uppercase;color:#f8fafc;display:flex;align-items:center;justify-content:center;gap:5px}
 .tname img{width:22px;height:15px;object-fit:cover;border-radius:2px}
 .tname span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .side-left .tname{justify-content:flex-start}
 .side-right .tname{justify-content:flex-end;flex-direction:row-reverse}
-.score-num{font-size:34px;font-weight:900;line-height:1.1;margin:6px 0 0;color:#fff;font-variant-numeric:tabular-nums}
-.overs{font-size:12px;color:#cbd5e1;margin-top:2px;font-weight:700}
+.score-num{font-size:34px;font-weight:900;line-height:1.1;margin:6px 0 0;color:#fff;font-variant-numeric:tabular-nums;text-shadow:0 0 20px rgba(255,15,80,.35)}
 .match-center .vs-label{font-size:12px;font-weight:900;letter-spacing:.14em;color:#94a3b8;text-align:center}
 .crr{display:flex;justify-content:center;gap:14px;margin-top:10px;font-size:11px;color:#cbd5e1;font-weight:600}
-.crr b{color:#fff;font-weight:800}
+.crr b{color:#fff}
 .tabs{display:flex;gap:0;overflow-x:auto;background:var(--bg2);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
 .tabs button{flex:0 0 auto;border:0;background:transparent;color:var(--muted);font-family:inherit;font-weight:800;font-size:12px;padding:13px 12px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
 .tabs button.on{color:var(--text);border-bottom-color:var(--accent)}
@@ -62,36 +66,32 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .card h3{margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:800}
 .muted{color:var(--muted);font-size:13px}
 .btn{border:1px solid var(--line);background:rgba(127,127,127,.08);color:var(--text);border-radius:999px;padding:8px 14px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit}
-.btn.on,.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.btn.primary,.btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .match-list{display:flex;flex-direction:column;gap:8px}
-.match-card{padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:rgba(15,23,42,.25);cursor:pointer}
+.match-card{padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.03);cursor:pointer}
 body.theme-light .match-card{background:#fff}
-.match-card.is-live{border-color:rgba(248,113,113,.5)}
-.match-card.is-sel{border-color:rgba(56,189,248,.55);background:rgba(56,189,248,.08)}
+.match-card.is-live{border-color:rgba(255,15,80,.45)}
+.match-card.is-sel{border-color:rgba(255,15,80,.6);background:rgba(255,15,80,.08)}
 .mc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
-.mc-live{font-size:10px;font-weight:900;color:#fecdd3;background:rgba(225,29,72,.25);padding:2px 8px;border-radius:999px}
-.mc-done{font-size:10px;font-weight:800;color:#94a3b8;background:rgba(148,163,184,.15);padding:2px 8px;border-radius:999px}
+.mc-live{font-size:10px;font-weight:900;color:#fecdd3;background:rgba(255,15,80,.25);padding:2px 8px;border-radius:999px}
+.mc-meta{font-size:11px;color:var(--muted)}
 .mc-teams{font-size:14px;font-weight:800;margin:2px 0}
-.mc-scores{font-size:18px;font-weight:900;margin:4px 0;color:var(--blue);font-variant-numeric:tabular-nums}
-.mc-meta{font-size:11px;color:var(--muted);margin-top:2px}
-.event-row{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px;line-height:1.4}
-.event-row .min{font-weight:900;color:var(--blue);min-width:36px;font-size:12px}
-.event-row .ico{font-size:14px}
+.mc-scores{font-size:18px;font-weight:900;margin:4px 0;color:var(--blue)}
+.event-row{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}
+.event-row .min{font-weight:900;color:var(--accent);min-width:36px;font-size:12px}
 .empty{text-align:center;padding:36px 16px;color:var(--muted);font-size:14px}
-.spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(127,127,127,.3);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(127,127,127,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.error-bar{background:#450a0a;color:#fecaca;font-size:13px;padding:10px 14px;text-align:center;font-weight:600;line-height:1.4}
+.error-bar{background:#3b0715;color:#fecaca;font-size:13px;padding:10px 14px;text-align:center;font-weight:600;line-height:1.4}
 body.theme-light .error-bar{background:#fef2f2;color:#991b1b}
 .footer{text-align:center;padding:16px;font-size:11px;color:var(--muted)}
-.footer a{color:var(--blue)}
-.settings-dd{position:fixed;right:12px;top:52px;z-index:9999;background:var(--bg2);border:1px solid var(--line);border-radius:14px;min-width:260px;max-width:92vw;max-height:80vh;overflow:auto;padding:8px;box-shadow:0 16px 40px rgba(0,0,0,.45)}
+.settings-dd{position:fixed;right:12px;top:52px;z-index:9999;background:var(--bg2);border:1px solid var(--line);border-radius:14px;min-width:280px;max-width:92vw;max-height:80vh;overflow:auto;padding:8px;box-shadow:0 16px 40px rgba(0,0,0,.5)}
 .settings-dd .dd-title{font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:6px 12px}
 .settings-dd button{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--text);font-weight:700;font-size:13px;padding:11px 12px;border-radius:10px;cursor:pointer;font-family:inherit}
-.settings-dd button:hover,.settings-dd button.on{background:rgba(56,189,248,.18)}
+.settings-dd button:hover,.settings-dd button.on{background:rgba(255,15,80,.15)}
 .settings-backdrop{position:fixed;inset:0;z-index:9998}
-.modal-scrim{position:fixed;inset:0;z-index:10050;background:rgba(2,6,23,.72);display:flex;align-items:center;justify-content:center;padding:16px}
-.modal-card{width:min(420px,94vw);background:var(--bg2);border:1px solid var(--line);border-radius:18px;padding:18px;color:var(--text);box-shadow:0 20px 50px rgba(0,0,0,.4)}
+.modal-scrim{position:fixed;inset:0;z-index:10050;background:rgba(1,0,44,.75);display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-card{width:min(420px,94vw);background:var(--bg2);border:1px solid var(--line);border-radius:18px;padding:18px;color:var(--text);box-shadow:0 20px 50px rgba(0,0,0,.45);max-height:90vh;overflow:auto}
 .modal-card h2{font-size:16px;font-weight:900;margin:0 0 6px}
 .modal-card .hint{font-size:12px;color:var(--muted);line-height:1.45;margin-bottom:12px}
 .modal-card .hint a{color:var(--blue)}
@@ -99,33 +99,23 @@ body.theme-light .error-bar{background:#fef2f2;color:#991b1b}
 .modal-card .field label{display:block;font-size:11px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
 .modal-card .field input,.modal-card .field select,.modal-card .field textarea{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;font-weight:600}
 .modal-card .actions{display:flex;gap:8px;margin-top:14px}
-.modal-card .actions .btn{flex:1;padding:12px;border-radius:12px;font-size:13px}
+.modal-card .actions .btn{flex:1;padding:12px;border-radius:12px}
+.opacity-row{display:flex;align-items:center;gap:10px;margin-top:8px}
+.opacity-row input[type=range]{flex:1}
 .kv{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .kv .item{background:rgba(127,127,127,.06);border:1px solid var(--line);border-radius:12px;padding:10px}
 .kv .item .k{font-size:10px;color:var(--muted);font-weight:800;text-transform:uppercase}
 .kv .item .v{font-size:13px;font-weight:800;margin-top:4px;word-break:break-word}
-.ad-overlay{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,.6);padding:16px}
-.ad-card{background:#0f172a;color:#fff;border-radius:16px;padding:14px;max-width:360px;width:100%;position:relative;text-align:center}
-body.theme-light .ad-card{background:#fff;color:#0f172a}
-.ad-card img,.ad-card video{max-width:100%;max-height:220px;border-radius:10px;margin:8px auto;display:block}
+.ad-overlay{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(1,0,44,.6);padding:16px}
+.ad-card{background:#0a0a3a;color:#fff;border-radius:16px;padding:14px;max-width:360px;width:100%;position:relative;text-align:center;border:1px solid rgba(255,15,80,.3)}
+.ad-card img{max-width:100%;max-height:220px;border-radius:10px;margin:8px auto;display:block}
 .ad-close{position:absolute;top:8px;right:10px;border:0;background:rgba(127,127,127,.3);color:inherit;width:28px;height:28px;border-radius:50%;cursor:pointer;font-weight:900}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:10001;background:#166534;color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;font-weight:700}
-/* Light theme readability */
-body.theme-light .sport-bar{background:#fff}
-body.theme-light .sport-bar button{color:#334155;border-color:rgba(15,23,42,.2)}
-body.theme-light .tabs{background:#fff}
-body.theme-light .tabs button{color:#64748b}
-body.theme-light .tabs button.on{color:#0f172a}
-body.theme-light .settings-dd{background:#fff;border-color:rgba(15,23,42,.2);color:#0f172a}
-body.theme-light .settings-dd button{color:#0f172a}
-body.theme-light .settings-dd button:hover{background:rgba(15,118,110,.12)}
-body.theme-light .btn{border-color:rgba(15,23,42,.2);color:#0f172a;background:rgba(15,23,42,.04)}
-body.theme-light .modal-card{background:#fff}
-body.theme-light .modal-card .field input,body.theme-light .modal-card .field select,body.theme-light .modal-card .field textarea{background:#f8fafc;color:#0f172a}
+body.theme-light .sport-bar,body.theme-light .tabs,body.theme-light .settings-dd,body.theme-light .modal-card{background:#fff}
+body.theme-light .settings-dd button,body.theme-light .sport-bar button{color:#01002C}
 body.theme-light .broadcast .icon-btn{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.15);color:#fff}
 body.theme-light .broadcast .title,body.theme-light .broadcast .sub,body.theme-light .broadcast .status-line,
-body.theme-light .broadcast .tname,body.theme-light .broadcast .score-num,body.theme-light .broadcast .overs,
-body.theme-light .broadcast .crr,body.theme-light .broadcast .crr b,body.theme-light .broadcast .vs-label{color:#f8fafc!important}
+body.theme-light .broadcast .tname,body.theme-light .broadcast .score-num,body.theme-light .broadcast .crr,body.theme-light .broadcast .crr b,body.theme-light .broadcast .vs-label{color:#f8fafc!important}
 </style>
 </head>
 <body class="theme-dark">
@@ -135,56 +125,48 @@ body.theme-light .broadcast .crr,body.theme-light .broadcast .crr b,body.theme-l
 <script>
 (function(){
 'use strict';
-
-if('serviceWorker' in navigator){
-  window.addEventListener('load',function(){
-    navigator.serviceWorker.register('/sw.js').catch(function(){});
-  });
-}
-
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}
 if(!window.React||!window.ReactDOM){document.getElementById('root').innerHTML='<div style="padding:20px;color:#fecaca">React failed to load</div>';return;}
 var h=React.createElement,useState=React.useState,useEffect=React.useEffect,useRef=React.useRef,useCallback=React.useCallback;
-var THEMES=['dark','light','ipl','icc','navy'];
+var THEMES=['dark','light','pitch','night'];
 var CACHE_MS=45000;
 var memCache={};
+/* Default stadium/pitch images (Unsplash) */
+var DEFAULT_BG={
+  football:'https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=1200&q=60',
+  cricket:'https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=1200&q=60'
+};
 
 function qs(){try{return new URLSearchParams(location.search);}catch(e){return new URLSearchParams();}}
-function isViewMode(){var q=qs();return q.get('view')==='1'||q.get('mode')==='view';}
+function isViewMode(){var q=qs();return q.get('view')==='1';}
 function lsGet(k,fb){try{var v=localStorage.getItem(k);return v==null?fb:v;}catch(e){return fb;}}
 function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
 function lsJSON(k,fb){try{var v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch(e){return fb;}}
 function lsJSONSet(k,o){try{localStorage.setItem(k,JSON.stringify(o));}catch(e){}}
-function cacheGet(key){
-  var m=memCache[key];if(m&&Date.now()-m.t<m.ttl)return m.d;
-  try{var raw=localStorage.getItem('sm_cache_'+key);if(raw){var o=JSON.parse(raw);if(o&&Date.now()-o.t<o.ttl){memCache[key]=o;return o.d;}}}catch(e){}
-  return null;
-}
+function cacheGet(key){var m=memCache[key];if(m&&Date.now()-m.t<m.ttl)return m.d;try{var raw=localStorage.getItem('sm_cache_'+key);if(raw){var o=JSON.parse(raw);if(o&&Date.now()-o.t<o.ttl){memCache[key]=o;return o.d;}}}catch(e){}return null;}
 function cacheSet(key,data,ttl){var o={t:Date.now(),ttl:ttl||CACHE_MS,d:data};memCache[key]=o;try{localStorage.setItem('sm_cache_'+key,JSON.stringify(o));}catch(e){}}
 function cacheClear(){memCache={};try{Object.keys(localStorage).forEach(function(k){if(k.indexOf('sm_cache_')===0)localStorage.removeItem(k);});}catch(e){}}
 
 async function fetchJson(url){
   var res=await fetch(url);
-  if(!res.ok){var t='';try{t=await res.text();}catch(e){} throw new Error('HTTP '+res.status+(t?': '+String(t).slice(0,100):''));}
+  if(!res.ok){
+    var t='';try{t=await res.text();}catch(e){}
+    if(res.status===404)throw new Error('HTTP 404 — API proxy missing. Redeploy with functions/api/proxy.js (Pages output dir = public).');
+    throw new Error('HTTP '+res.status+(t?': '+String(t).slice(0,100):''));
+  }
   return res.json();
 }
-/** Sportmonks fetch with CORS proxy fallback */
 async function smGet(url){
   var cacheKey=url.replace(/api_token=[^&]+/,'api_token=***');
   var cached=cacheGet(cacheKey);
   if(cached)return{data:cached,fromCache:true};
-  var json;
-  try{
-    json=await fetchJson(url);
-  }catch(e){
-    throw new Error((e&&e.message)||'Fetch failed. Open /api/proxy?path=livescores/inplay&api_token=TOKEN — if 404, redeploy with functions/api/proxy.js');
-  }
+  var json=await fetchJson(url);
   if(json.message&&json.data==null&&!Array.isArray(json.data))throw new Error(json.message);
   if(json.error)throw new Error(typeof json.error==='string'?json.error:(json.error.message||JSON.stringify(json.error)));
   var data=json.data!=null?json.data:json;
   cacheSet(cacheKey,data,CACHE_MS);
   return{data:data,fromCache:false,meta:json.meta};
 }
-
 function fbUrl(path,token,include){
   var u='/api/proxy?sport=football&path='+encodeURIComponent(path.replace(/^\//,''))+'&api_token='+encodeURIComponent(token);
   if(include)u+='&include='+encodeURIComponent(include);
@@ -195,7 +177,6 @@ function ckUrl(path,token,include){
   if(include)u+='&include='+encodeURIComponent(include);
   return u;
 }
-
 function parseFbScores(scores,participants){
   var home=0,away=0;
   (scores||[]).forEach(function(s){
@@ -206,47 +187,28 @@ function parseFbScores(scores,participants){
       if(s.score.participant==='away')away=s.score.goals||0;
     }
   });
-  // fallback: last goals by participant_id
-  if(home===0&&away===0&&participants&&participants.length){
-    var hid=null,aid=null;
-    participants.forEach(function(p){
-      if(p.meta&&p.meta.location==='home')hid=p.id;
-      if(p.meta&&p.meta.location==='away')aid=p.id;
-    });
-    (scores||[]).forEach(function(s){
-      if(s.score&&s.score.goals!=null){
-        if(s.participant_id===hid)home=s.score.goals;
-        if(s.participant_id===aid)away=s.score.goals;
-      }
-    });
-  }
   return{home:home,away:away};
 }
 function fbTeams(participants){
-  var home={name:'Home',id:null,image:null},away={name:'Away',id:null,image:null};
+  var home={name:'Home',image:null},away={name:'Away',image:null};
   (participants||[]).forEach(function(p){
     var loc=p.meta&&p.meta.location;
-    var obj={name:p.name||p.short_code||'Team',id:p.id,image:p.image_path||null};
+    var obj={name:p.name||p.short_code||'Team',image:p.image_path||null};
     if(loc==='home')home=obj;else if(loc==='away')away=obj;
   });
-  if((!participants||!participants.length))return{home:home,away:away};
-  if(home.name==='Home'&&participants[0])home={name:participants[0].name,id:participants[0].id,image:participants[0].image_path};
-  if(away.name==='Away'&&participants[1])away={name:participants[1].name,id:participants[1].id,image:participants[1].image_path};
+  if(home.name==='Home'&&participants&&participants[0])home={name:participants[0].name,image:participants[0].image_path};
+  if(away.name==='Away'&&participants&&participants[1])away={name:participants[1].name,image:participants[1].image_path};
   return{home:home,away:away};
 }
 function eventLabel(ev){
-  var t=ev.type_id;
-  // common: 14 goal, 15 own goal, 16 penalty, 17 miss pen, 18 yellow, 19 second yellow, 20 red, 21 sub
   var map={14:'⚽ Goal',15:'⚽ OG',16:'⚽ Pen',18:'🟨 Yellow',19:'🟨→🟥',20:'🟥 Red',21:'🔄 Sub'};
-  return map[t]||(ev.info||'Event');
+  return map[ev.type_id]||(ev.info||'Event');
 }
 function shortName(n){if(!n)return'—';n=String(n);return n.length>14?n.slice(0,13)+'…':n;}
 
 function App(){
   var viewOnly=isViewMode();
-  var q=qs();
-  var shareId=q.get('match')||'';
-
+  var shareId=qs().get('match')||'';
   var _token=useState(function(){return lsGet('sportmonks_token','');});
   var token=_token[0],setToken=_token[1];
   var _sport=useState(function(){return lsGet('sm_sport','football');});
@@ -260,14 +222,17 @@ function App(){
   var _settings=useState(false);var settingsOpen=_settings[0],setSettingsOpen=_settings[1];
   var _theme=useState(function(){return lsGet('cric_theme','dark');});
   var theme=_theme[0],setTheme=_theme[1];
-  var _bgUrl=useState(function(){return lsGet('cric_bg_url','');});
-  var bgUrl=_bgUrl[0],setBgUrl=_bgUrl[1];
-  var _bgOp=useState(function(){return parseFloat(lsGet('cric_bg_op','0.55'))||0.55;});
-  var bgOp=_bgOp[0],setBgOp=_bgOp[1];
+  var _bgFb=useState(function(){return lsGet('bg_football',DEFAULT_BG.football);});
+  var bgFb=_bgFb[0],setBgFb=_bgFb[1];
+  var _bgCk=useState(function(){return lsGet('bg_cricket',DEFAULT_BG.cricket);});
+  var bgCk=_bgCk[0],setBgCk=_bgCk[1];
+  var _opFb=useState(function(){return parseFloat(lsGet('op_football','0.55'))||0.55;});
+  var opFb=_opFb[0],setOpFb=_opFb[1];
+  var _opCk=useState(function(){return parseFloat(lsGet('op_cricket','0.55'))||0.55;});
+  var opCk=_opCk[0],setOpCk=_opCk[1];
   var _ads=useState(function(){return lsJSON('cric_ads_v1',{enabled:true,items:[
-    {event:'goal',image:'',video:'',text:'Sponsor · GOAL!',duration:4},
-    {event:'card',image:'',video:'',text:'Sponsor · Card',duration:3},
-    {event:'ht',image:'',video:'',text:'Sponsor · Half-time',duration:4}
+    {event:'goal',image:'',text:'Sponsor · GOAL!',duration:4},
+    {event:'card',image:'',text:'Sponsor · Card',duration:3}
   ]});});
   var ads=_ads[0],setAds=_ads[1];
   var _adShow=useState(null);var adShow=_adShow[0],setAdShow=_adShow[1];
@@ -277,17 +242,19 @@ function App(){
   var _adminAds=useState(false);var adminAds=_adminAds[0],setAdminAds=_adminAds[1];
   var prevGoals=useRef(null);
 
+  var bgUrl=sport==='cricket'?bgCk:bgFb;
+  var bgOp=sport==='cricket'?opCk:opFb;
+
   useEffect(function(){document.body.className='theme-'+theme;},[theme]);
 
   var loadList=useCallback(function(force){
-    if(!token){setError('Add your Sportmonks API token in Settings.');return;}
+    if(!token){setError('Add Sportmonks token in ⚙ Settings.');return;}
     setLoading(true);setError(null);
     if(force)cacheClear();
     var p;
     if(sport==='cricket'){
-      p=smGet(ckUrl('livescores',token,'localteam,visitorteam,runs,league,venue,status'));
+      p=smGet(ckUrl('livescores',token,'localteam,visitorteam,runs,league,venue'));
     }else{
-      // football: inplay first, fallback to all livescores
       p=smGet(fbUrl('livescores/inplay',token,'participants;scores;state;league;venue;events'))
         .then(function(r){
           if(Array.isArray(r.data)&&r.data.length)return r;
@@ -309,80 +276,57 @@ function App(){
 
   var selectMatch=function(m){
     setSelected(m);setDetail(m);setTab('live');
-    // detect goals for ads
     if(sport==='football'){
       var sc=parseFbScores(m.scores,m.participants);
-      var prev=prevGoals.current;
-      prevGoals.current=sc;
+      var prev=prevGoals.current;prevGoals.current=sc;
       if(prev&&(sc.home+sc.away)>(prev.home+prev.away))triggerAd('goal');
     }
   };
-
   var loadDetail=function(m){
     if(!token||!m)return;
     setLoading(true);setError(null);
-    var p;
-    if(sport==='cricket'){
-      p=smGet(ckUrl('fixtures/'+m.id,token,'localteam,visitorteam,runs,batting,bowling,scoreboards,league,venue,lineup,balls'));
-    }else{
-      p=smGet(fbUrl('fixtures/'+m.id,token,'participants;scores;events;state;league;venue;lineups;statistics;periods'));
-    }
-    p.then(function(r){
-      setDetail(r.data||m);setSelected(r.data||m);
-    }).catch(function(e){setError(e.message);})
+    var p=sport==='cricket'
+      ?smGet(ckUrl('fixtures/'+m.id,token,'localteam,visitorteam,runs,batting,bowling,league,venue,lineup'))
+      :smGet(fbUrl('fixtures/'+m.id,token,'participants;scores;events;state;league;venue;lineups'));
+    p.then(function(r){setDetail(r.data||m);setSelected(r.data||m);})
+     .catch(function(e){setError(e.message);})
      .finally(function(){setLoading(false);});
   };
-
   function triggerAd(event){
     if(!ads.enabled||adShow)return;
     var item=(ads.items||[]).find(function(x){return x.event===event;});
-    if(!item||(!item.image&&!item.video&&!item.text))return;
+    if(!item||(!item.image&&!item.text))return;
     setAdShow(item);
     setTimeout(function(){setAdShow(null);},(item.duration||4)*1000);
   }
-
   var shareView=function(){
-    if(!selected){setToast('Select a match first');setTimeout(function(){setToast(null);},2000);return;}
-    var u=new URL(location.href);
-    u.searchParams.set('view','1');
-    u.searchParams.set('match',selected.id);
+    if(!selected){setToast('Select a match');setTimeout(function(){setToast(null);},2000);return;}
+    var u=new URL(location.href);u.searchParams.set('view','1');u.searchParams.set('match',selected.id);
     var link=u.toString();
     if(navigator.clipboard&&navigator.clipboard.writeText){
-      navigator.clipboard.writeText(link).then(function(){setToast('View-only link copied');setTimeout(function(){setToast(null);},2500);})
+      navigator.clipboard.writeText(link).then(function(){setToast('Link copied');setTimeout(function(){setToast(null);},2000);})
         .catch(function(){setModalVal(link);setModal('share');});
     }else{setModalVal(link);setModal('share');}
   };
 
-  // Derive display fields
   var d=detail||selected;
-  var homeName='—',awayName='—',homeScore='—',awayScore='—',status='',venue='',league='',homeImg=null,awayImg=null;
-  var events=[];
+  var homeName='—',awayName='—',homeScore='—',awayScore='—',status='',venue='',league='',homeImg=null,awayImg=null,events=[];
   if(d&&sport==='football'){
-    var teams=fbTeams(d.participants);
-    homeName=teams.home.name;awayName=teams.away.name;homeImg=teams.home.image;awayImg=teams.away.image;
-    var sc=parseFbScores(d.scores,d.participants);
-    homeScore=sc.home;awayScore=sc.away;
-    status=(d.state&&d.state.name)||d.result_info||'';
-    venue=(d.venue&&d.venue.name)||'';
-    league=(d.league&&d.league.name)||'';
+    var teams=fbTeams(d.participants);homeName=teams.home.name;awayName=teams.away.name;homeImg=teams.home.image;awayImg=teams.away.image;
+    var sc=parseFbScores(d.scores,d.participants);homeScore=sc.home;awayScore=sc.away;
+    status=(d.state&&d.state.name)||d.result_info||'';venue=(d.venue&&d.venue.name)||'';league=(d.league&&d.league.name)||'';
     events=(d.events||[]).slice().sort(function(a,b){return(a.sort_order||0)-(b.sort_order||0);});
   }else if(d&&sport==='cricket'){
-    homeName=(d.localteam&&d.localteam.name)||d.localteam_id||'Home';
-    awayName=(d.visitorteam&&d.visitorteam.name)||d.visitorteam_id||'Away';
-    status=d.status||d.note||'';
-    venue=(d.venue&&d.venue.name)||'';
-    league=(d.league&&d.league.name)||d.type||'';
+    homeName=(d.localteam&&d.localteam.name)||'Home';awayName=(d.visitorteam&&d.visitorteam.name)||'Away';
+    status=d.status||d.note||'';venue=(d.venue&&d.venue.name)||'';league=(d.league&&d.league.name)||d.type||'';
     var runs=d.runs||[];
-    if(runs.length){
-      homeScore=(runs[0]&&(runs[0].score!=null))?runs[0].score+(runs[0].wickets!=null?'/'+runs[0].wickets:''):'—';
-      awayScore=(runs[1]&&(runs[1].score!=null))?runs[1].score+(runs[1].wickets!=null?'/'+runs[1].wickets:''):'—';
-    }
+    if(runs[0])homeScore=runs[0].score+(runs[0].wickets!=null?'/'+runs[0].wickets:'');
+    if(runs[1])awayScore=runs[1].score+(runs[1].wickets!=null?'/'+runs[1].wickets:'');
   }
 
   var tabs=[['matches','Matches'],['live','Live'],['events','Events'],['lineups','Lineups'],['info','Info']];
 
   return h('div',{className:'app'},
-    // Sport switch
     !viewOnly?h('div',{className:'sport-bar'},
       h('button',{className:sport==='football'?'on':'',onClick:function(){setSport('football');lsSet('sm_sport','football');setSelected(null);setDetail(null);setTab('matches');}},'Football'),
       h('button',{className:sport==='cricket'?'on':'',onClick:function(){setSport('cricket');lsSet('sm_sport','cricket');setSelected(null);setDetail(null);setTab('matches');}},'Cricket')
@@ -390,16 +334,16 @@ function App(){
 
     error?h('div',{className:'error-bar'},error):null,
 
-    // Scoreboard
     h('div',{className:'broadcast'},
       bgUrl?h('div',{className:'bg-layer',style:{backgroundImage:'url('+bgUrl+')'}}):null,
       h('div',{className:'bg-overlay',style:{opacity:bgUrl?bgOp:0.92}}),
       h('div',{className:'bc-content'},
         h('div',{className:'bar'},
           viewOnly?h('span',{className:'view-badge'},'VIEW ONLY'):
-            (selected?h('span',{className:'live-pill'},h('i'),'LIVE'):h('span',{className:'mc-done',style:{padding:'4px 10px'}},'SportMonks')),
+            (selected?h('span',{className:'live-pill'},h('i'),'LIVE'):
+              h('span',{className:'brand-chip'},h('img',{src:'/icons/icon-192.png',alt:''}),'MCS')),
           h('div',{style:{display:'flex',gap:8}},
-            !viewOnly?h('button',{className:'icon-btn',title:'Share',onClick:shareView},'↗'):null,
+            !viewOnly?h('button',{className:'icon-btn',onClick:shareView},'↗'):null,
             h('button',{className:'icon-btn',onClick:function(){loadList(true);}},loading?'…':'↻'),
             !viewOnly?h('button',{className:'icon-btn',onClick:function(){setSettingsOpen(!settingsOpen);}},'⚙'):null
           )
@@ -421,30 +365,24 @@ function App(){
               h('div',{className:'score-num'},awayScore)
             )
           ),
-          h('div',{className:'crr'},
-            h('span',null,sport==='football'?'Football':'Cricket'),
-            d.starting_at?h('span',null,String(d.starting_at).replace('T',' ').slice(0,16)):null
-          )
+          h('div',{className:'crr'},h('span',null,sport==='football'?'Football':'Cricket'),
+            d.starting_at?h('span',null,String(d.starting_at).replace('T',' ').slice(0,16)):null)
         ):h('div',{className:'match-header'},
-          h('div',{className:'title'},sport==='football'?'Football Live':'Cricket Live'),
-          h('div',{className:'sub'},token?'Tap a match below':'Add Sportmonks token in ⚙ Settings')
+          h('div',{className:'title'},'MyCricStats'),
+          h('div',{className:'sub'},token?'Tap a match':'Add token in Settings ⚙')
         )
       )
     ),
 
-    // Settings
     !viewOnly&&settingsOpen?h(React.Fragment,null,
       h('div',{className:'settings-backdrop',onClick:function(){setSettingsOpen(false);}}),
       h('div',{className:'settings-dd'},
         h('div',{className:'dd-title'},'API'),
-        h('button',{onClick:function(){setModalVal(token);setModal('token');setSettingsOpen(false);}},token?'Change Sportmonks token':'Add Sportmonks token'),
+        h('button',{onClick:function(){setModalVal(token);setModal('token');setSettingsOpen(false);}},token?'Change token':'Add Sportmonks token'),
         h('div',{className:'dd-title'},'Theme'),
-        THEMES.map(function(t){
-          return h('button',{key:t,className:theme===t?'on':'',onClick:function(){setTheme(t);lsSet('cric_theme',t);}},t.charAt(0).toUpperCase()+t.slice(1));
-        }),
+        THEMES.map(function(t){return h('button',{key:t,className:theme===t?'on':'',onClick:function(){setTheme(t);lsSet('cric_theme',t);}},t.charAt(0).toUpperCase()+t.slice(1));}),
         h('div',{className:'dd-title'},'Scoreboard background'),
-        h('button',{onClick:function(){setModalVal(bgUrl);setModal('bg');setSettingsOpen(false);}},'Background image URL'),
-        h('button',{onClick:function(){setModalVal(String(bgOp));setModal('opacity');setSettingsOpen(false);}},'Overlay opacity ('+Math.round(bgOp*100)+'%)'),
+        h('button',{onClick:function(){setModal('bgpanel');setSettingsOpen(false);}},'Football & Cricket images'),
         h('div',{className:'dd-title'},'Admin'),
         h('button',{onClick:function(){setAdminAds(true);setSettingsOpen(false);}},'Sponsor ads'),
         h('button',{onClick:shareView},'Copy view-only link'),
@@ -452,64 +390,71 @@ function App(){
       )
     ):null,
 
-    // Token / BG / Opacity / Share modals
-    modal?h('div',{className:'modal-scrim',onClick:function(){setModal(null);}},
+    /* Combined BG + opacity panel for both sports */
+    modal==='bgpanel'?h('div',{className:'modal-scrim',onClick:function(){setModal(null);}},
       h('div',{className:'modal-card',onClick:function(e){e.stopPropagation();}},
-        h('h2',null,
-          modal==='token'?'Sportmonks token':
-          modal==='bg'?'Background image':
-          modal==='opacity'?'Overlay opacity':
-          modal==='share'?'Share link':'Settings'
-        ),
-        h('div',{className:'hint'},
-          modal==='token'?h(React.Fragment,null,'Get a free token at ',h('a',{href:'https://my.sportmonks.com',target:'_blank',rel:'noreferrer'},'my.sportmonks.com'),'. Free football/cricket coverage is plan-limited.'):
-          modal==='bg'?'Paste any image URL for the scoreboard backdrop.':
-          modal==='opacity'?'0.2 = more image, 0.95 = darker overlay.':
-          modal==='share'?'Viewers will not see Settings or token.':' '
+        h('h2',null,'Scoreboard backgrounds'),
+        h('div',{className:'hint'},'Separate images for Football and Cricket. Opacity slider sits under each image URL.'),
+        h('div',{className:'field'},
+          h('label',null,'Football image URL'),
+          h('input',{type:'url',value:bgFb,onChange:function(e){setBgFb(e.target.value);lsSet('bg_football',e.target.value);}}),
+          h('div',{className:'opacity-row'},
+            h('span',{style:{fontSize:11,fontWeight:700,minWidth:70}},Math.round(opFb*100)+'%'),
+            h('input',{type:'range',min:0.2,max:0.95,step:0.05,value:opFb,onChange:function(e){var v=parseFloat(e.target.value);setOpFb(v);lsSet('op_football',String(v));}})
+          )
         ),
         h('div',{className:'field'},
-          h('label',null,modal==='opacity'?'Opacity (0.2–0.95)':modal==='share'?'Link':'Value'),
-          h('input',{
-            type:modal==='token'?'password':(modal==='opacity'?'number':'text'),
-            value:modalVal,
-            min:modal==='opacity'?0.2:undefined,
-            max:modal==='opacity'?0.95:undefined,
-            step:modal==='opacity'?0.05:undefined,
-            readOnly:modal==='share',
-            onChange:function(e){setModalVal(e.target.value);},
-            onFocus:function(e){if(modal==='share')e.target.select();}
-          })
+          h('label',null,'Cricket image URL'),
+          h('input',{type:'url',value:bgCk,onChange:function(e){setBgCk(e.target.value);lsSet('bg_cricket',e.target.value);}}),
+          h('div',{className:'opacity-row'},
+            h('span',{style:{fontSize:11,fontWeight:700,minWidth:70}},Math.round(opCk*100)+'%'),
+            h('input',{type:'range',min:0.2,max:0.95,step:0.05,value:opCk,onChange:function(e){var v=parseFloat(e.target.value);setOpCk(v);lsSet('op_cricket',String(v));}})
+          )
         ),
         h('div',{className:'actions'},
-          h('button',{className:'btn',onClick:function(){setModal(null);}},'Cancel'),
-          modal==='share'?
-            h('button',{className:'btn primary',onClick:function(){
-              if(navigator.clipboard)navigator.clipboard.writeText(modalVal);
-              setToast('Copied');setTimeout(function(){setToast(null);},2000);setModal(null);
-            }},'Copy')
-          :
-            h('button',{className:'btn primary',onClick:function(){
-              var v=String(modalVal||'').trim();
-              if(modal==='token'){if(!v)return;lsSet('sportmonks_token',v);setToken(v);setModal(null);setToast('Token saved');setTimeout(function(){setToast(null);},2000);}
-              else if(modal==='bg'){lsSet('cric_bg_url',v);setBgUrl(v);setModal(null);}
-              else if(modal==='opacity'){var o=parseFloat(v);if(isNaN(o))o=0.55;o=Math.min(0.95,Math.max(0.2,o));lsSet('cric_bg_op',String(o));setBgOp(o);setModal(null);}
-            }},'Save')
+          h('button',{className:'btn',onClick:function(){
+            setBgFb(DEFAULT_BG.football);setBgCk(DEFAULT_BG.cricket);setOpFb(0.55);setOpCk(0.55);
+            lsSet('bg_football',DEFAULT_BG.football);lsSet('bg_cricket',DEFAULT_BG.cricket);
+            lsSet('op_football','0.55');lsSet('op_cricket','0.55');
+          }},'Reset defaults'),
+          h('button',{className:'btn primary',onClick:function(){setModal(null);}},'Done')
         )
       )
     ):null,
 
-    // Sponsor admin
+    modal&&modal!=='bgpanel'?h('div',{className:'modal-scrim',onClick:function(){setModal(null);}},
+      h('div',{className:'modal-card',onClick:function(e){e.stopPropagation();}},
+        h('h2',null,modal==='token'?'Sportmonks token':modal==='share'?'Share link':'Settings'),
+        h('div',{className:'hint'},
+          modal==='token'?h(React.Fragment,null,'Token from ',h('a',{href:'https://my.sportmonks.com',target:'_blank',rel:'noreferrer'},'my.sportmonks.com'),'. Free plan = limited leagues.'):
+          modal==='share'?'Viewers do not see Settings.':''
+        ),
+        h('div',{className:'field'},
+          h('label',null,modal==='share'?'Link':'Token'),
+          h('input',{type:modal==='token'?'password':'text',value:modalVal,readOnly:modal==='share',
+            onChange:function(e){setModalVal(e.target.value);},onFocus:function(e){if(modal==='share')e.target.select();}})
+        ),
+        h('div',{className:'actions'},
+          h('button',{className:'btn',onClick:function(){setModal(null);}},'Cancel'),
+          modal==='share'?h('button',{className:'btn primary',onClick:function(){if(navigator.clipboard)navigator.clipboard.writeText(modalVal);setModal(null);}},'Copy'):
+          h('button',{className:'btn primary',onClick:function(){
+            var v=String(modalVal||'').trim();if(!v)return;
+            lsSet('sportmonks_token',v);setToken(v);setModal(null);setToast('Saved');setTimeout(function(){setToast(null);},2000);
+          }},'Save')
+        )
+      )
+    ):null,
+
     !viewOnly&&adminAds?h('div',{className:'modal-scrim',onClick:function(){setAdminAds(false);}},
-      h('div',{className:'modal-card',style:{maxHeight:'85vh',overflow:'auto'},onClick:function(e){e.stopPropagation();}},
+      h('div',{className:'modal-card',onClick:function(e){e.stopPropagation();}},
         h('h2',null,'Sponsor ads'),
-        h('div',{className:'hint'},'Shown to viewers on goals / cards (when score updates).'),
-        h('label',{style:{display:'flex',gap:8,alignItems:'center',fontWeight:700,marginBottom:12}},
+        h('label',{style:{display:'flex',gap:8,fontWeight:700,marginBottom:12}},
           h('input',{type:'checkbox',checked:!!ads.enabled,onChange:function(e){var n=Object.assign({},ads,{enabled:e.target.checked});setAds(n);lsJSONSet('cric_ads_v1',n);}}),' Enabled'
         ),
         (ads.items||[]).map(function(item,idx){
           return h('div',{key:idx,className:'card'},
             h('h3',null,item.event.toUpperCase()),
-            h('div',{className:'field'},h('label',null,'Image URL'),h('input',{value:item.image||'',onChange:function(e){
+            h('div',{className:'field'},h('label',null,'Image'),h('input',{value:item.image||'',onChange:function(e){
               var items=ads.items.slice();items[idx]=Object.assign({},item,{image:e.target.value});var n=Object.assign({},ads,{items:items});setAds(n);lsJSONSet('cric_ads_v1',n);
             }})),
             h('div',{className:'field'},h('label',null,'Text'),h('input',{value:item.text||'',onChange:function(e){
@@ -518,36 +463,32 @@ function App(){
             h('button',{className:'btn',onClick:function(){triggerAd(item.event);}},'Test')
           );
         }),
-        h('button',{className:'btn primary',style:{width:'100%',marginTop:8},onClick:function(){setAdminAds(false);}},'Done')
+        h('button',{className:'btn primary',style:{width:'100%'},onClick:function(){setAdminAds(false);}},'Done')
       )
     ):null,
 
     adShow?h('div',{className:'ad-overlay',onClick:function(){setAdShow(null);}},
       h('div',{className:'ad-card',onClick:function(e){e.stopPropagation();}},
         h('button',{className:'ad-close',onClick:function(){setAdShow(null);}},'×'),
-        adShow.image?h('img',{src:adShow.image,alt:'Ad'}):null,
+        adShow.image?h('img',{src:adShow.image,alt:''}):null,
         adShow.text?h('div',{style:{fontWeight:800,marginTop:8}},adShow.text):null
       )
     ):null,
-
     toast?h('div',{className:'toast'},toast):null,
 
     h('div',{className:'tabs'},
       tabs.map(function(p){
         return h('button',{key:p[0],className:tab===p[0]?'on':'',onClick:function(){
-          setTab(p[0]);
-          if((p[0]==='events'||p[0]==='lineups'||p[0]==='live')&&selected&&!detail)loadDetail(selected);
-          if(p[0]==='events'&&selected)loadDetail(selected);
+          setTab(p[0]);if((p[0]==='events'||p[0]==='lineups')&&selected)loadDetail(selected);
         }},p[1]);
       })
     ),
 
     h('div',{className:'panel'},
-      // MATCHES
       tab==='matches'?h(React.Fragment,null,
-        !token?h('div',{className:'empty'},'Open ⚙ and add your Sportmonks token to load live matches.'):null,
+        !token?h('div',{className:'empty'},'⚙ → Add Sportmonks token'):null,
         loading&&!matches.length?h('div',{className:'empty'},h('span',{className:'spinner'}),' Loading…'):null,
-        !loading&&token&&!matches.length?h('div',{className:'empty'},'No live matches right now. Free plans only cover selected leagues. Try refresh later.'):null,
+        !loading&&token&&!matches.length?h('div',{className:'empty'},'No live matches on your plan right now.'):null,
         h('div',{className:'match-list'},
           matches.map(function(m){
             var hn,an,hs,as,st,lg;
@@ -560,7 +501,7 @@ function App(){
               var runs=m.runs||[];hs=runs[0]?runs[0].score:'—';as=runs[1]?runs[1].score:'—';
               st=m.status||'';lg=(m.league&&m.league.name)||m.type||'';
             }
-            return h('div',{key:m.id,className:'match-card'+(selected&&selected.id===m.id?' is-sel':'')+' is-live',onClick:function(){selectMatch(m);}},
+            return h('div',{key:m.id,className:'match-card is-live'+(selected&&selected.id===m.id?' is-sel':''),onClick:function(){selectMatch(m);}},
               h('div',{className:'mc-top'},h('span',{className:'mc-live'},'LIVE'),h('span',{className:'mc-meta'},lg)),
               h('div',{className:'mc-teams'},hn+' vs '+an),
               h('div',{className:'mc-scores'},hs+' — '+as),
@@ -570,73 +511,45 @@ function App(){
         )
       ):null,
 
-      // LIVE
-      tab==='live'?(
-        !selected?h('div',{className:'empty'},'Select a match')
-        :h(React.Fragment,null,
-          h('div',{className:'card'},
-            h('h3',null,'Score'),
-            h('div',{style:{fontSize:28,fontWeight:900,textAlign:'center'}},homeScore+'  –  '+awayScore),
-            h('div',{className:'muted',style:{textAlign:'center',marginTop:6}},status)
-          ),
-          h('div',{className:'btn-row'},
-            h('button',{className:'btn',onClick:function(){loadDetail(selected);}},'Refresh detail'),
-            !viewOnly?h('button',{className:'btn',onClick:function(){triggerAd('goal');}},'Test goal ad'):null
-          )
-        )
-      ):null,
+      tab==='live'?(!selected?h('div',{className:'empty'},'Select a match'):h(React.Fragment,null,
+        h('div',{className:'card'},h('h3',null,'Score'),
+          h('div',{style:{fontSize:28,fontWeight:900,textAlign:'center'}},homeScore+'  –  '+awayScore),
+          h('div',{className:'muted',style:{textAlign:'center',marginTop:6}},status)),
+        h('button',{className:'btn',onClick:function(){loadDetail(selected);}},'Refresh detail')
+      )):null,
 
-      // EVENTS
-      tab==='events'?(
-        !selected?h('div',{className:'empty'},'Select a match')
-        :h('div',{className:'card'},
-          h('h3',null,sport==='football'?'Match events':'Balls / note'),
-          sport==='football'?(
-            events.length?events.map(function(ev,i){
-              return h('div',{key:ev.id||i,className:'event-row'},
-                h('span',{className:'min'},(ev.minute!=null?ev.minute+"'":'—')+(ev.extra_minute?'+'+ev.extra_minute:'')),
-                h('span',{className:'ico'},eventLabel(ev)),
-                h('span',null,ev.player_name||ev.info||'')
-              );
-            }):h('div',{className:'muted'},loading?'Loading…':'No events yet. Open this tab after selecting a live match, or your plan may not include events.')
-          ):h('div',{className:'muted'},d&&d.note?d.note:'Cricket ball-by-ball needs batting/bowling includes on a paid-capable plan.')
-        )
-      ):null,
+      tab==='events'?(!selected?h('div',{className:'empty'},'Select a match'):h('div',{className:'card'},
+        h('h3',null,'Events'),
+        events.length?events.map(function(ev,i){
+          return h('div',{key:ev.id||i,className:'event-row'},
+            h('span',{className:'min'},(ev.minute!=null?ev.minute+"'":'—')),
+            h('span',null,eventLabel(ev)+' '+(ev.player_name||''))
+          );
+        }):h('div',{className:'muted'},loading?'Loading…':'No events yet')
+      )):null,
 
-      // LINEUPS
-      tab==='lineups'?(
-        !selected?h('div',{className:'empty'},'Select a match')
-        :h('div',{className:'card'},
-          h('h3',null,'Lineups'),
-          (d&&d.lineups&&d.lineups.length)?d.lineups.slice(0,30).map(function(p,i){
-            return h('div',{key:i,style:{padding:'6px 0',borderBottom:'1px solid var(--line)',fontSize:13,fontWeight:600}},
-              (p.player_name||(p.player&&p.player.name)||'Player')+(p.jersey_number!=null?' · #'+p.jersey_number:'')
-            );
-          }):h('div',{className:'muted'},'Lineups not available yet or not in your plan. Tap Refresh detail on Live tab.')
-        )
-      ):null,
+      tab==='lineups'?(!selected?h('div',{className:'empty'},'Select a match'):h('div',{className:'card'},
+        h('h3',null,'Lineups'),
+        (d&&d.lineups&&d.lineups.length)?d.lineups.slice(0,30).map(function(p,i){
+          return h('div',{key:i,style:{padding:'6px 0',borderBottom:'1px solid var(--line)',fontSize:13,fontWeight:600}},
+            p.player_name||(p.player&&p.player.name)||'Player');
+        }):h('div',{className:'muted'},'Lineups unavailable or not in plan')
+      )):null,
 
-      // INFO
-      tab==='info'?(
-        !selected?h('div',{className:'empty'},'Select a match')
-        :h('div',{className:'card'},
-          h('h3',null,'Match info'),
-          h('div',{className:'kv'},
-            h('div',{className:'item'},h('div',{className:'k'},'Home'),h('div',{className:'v'},homeName)),
-            h('div',{className:'item'},h('div',{className:'k'},'Away'),h('div',{className:'v'},awayName)),
-            h('div',{className:'item'},h('div',{className:'k'},'League'),h('div',{className:'v'},league||'—')),
-            h('div',{className:'item'},h('div',{className:'k'},'Venue'),h('div',{className:'v'},venue||'—')),
-            h('div',{className:'item'},h('div',{className:'k'},'Status'),h('div',{className:'v'},status||'—')),
-            h('div',{className:'item'},h('div',{className:'k'},'Sport'),h('div',{className:'v'},sport))
-          )
+      tab==='info'?(!selected?h('div',{className:'empty'},'Select a match'):h('div',{className:'card'},
+        h('h3',null,'Info'),
+        h('div',{className:'kv'},
+          h('div',{className:'item'},h('div',{className:'k'},'Home'),h('div',{className:'v'},homeName)),
+          h('div',{className:'item'},h('div',{className:'k'},'Away'),h('div',{className:'v'},awayName)),
+          h('div',{className:'item'},h('div',{className:'k'},'League'),h('div',{className:'v'},league||'—')),
+          h('div',{className:'item'},h('div',{className:'k'},'Venue'),h('div',{className:'v'},venue||'—')),
+          h('div',{className:'item'},h('div',{className:'k'},'Status'),h('div',{className:'v'},status||'—')),
+          h('div',{className:'item'},h('div',{className:'k'},'Sport'),h('div',{className:'v'},sport))
         )
-      ):null
+      )):null
     ),
 
-    h('div',{className:'footer'},
-      'Live scores',
-      viewOnly?' · View only':''
-    )
+    h('div',{className:'footer'},'MyCricStats')
   );
 }
 

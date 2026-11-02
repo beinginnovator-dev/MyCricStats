@@ -1,13 +1,13 @@
 {
   "name": "MyCricStats",
-  "short_name": "MyCricStats",
+  "short_name": "MCS",
   "description": "Live football & cricket scores",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0b1220",
-  "theme_color": "#0b1220",
+  "background_color": "#01002C",
+  "theme_color": "#01002C",
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
