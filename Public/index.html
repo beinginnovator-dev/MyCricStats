@@ -3,8 +3,17 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>SportMonks Live</title>
+<title>MyCricStats</title>
 <meta name="theme-color" content="#0b1220"/>
+<link rel="manifest" href="/manifest.webmanifest"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="MyCricStats"/>
+<link rel="apple-touch-icon" href="/icons/icon-192.png"/>
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png"/>
+<link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png"/>
+
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0b1220;--bg2:#111827;--card:#1a2336;--line:rgba(255,255,255,.1);--text:#f8fafc;--muted:#94a3b8;--red:#e11d48;--gold:#fbbf24;--blue:#38bdf8;--accent:#e11d48}
@@ -126,6 +135,13 @@ body.theme-light .broadcast .crr,body.theme-light .broadcast .crr b,body.theme-l
 <script>
 (function(){
 'use strict';
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('/sw.js').catch(function(){});
+  });
+}
+
 if(!window.React||!window.ReactDOM){document.getElementById('root').innerHTML='<div style="padding:20px;color:#fecaca">React failed to load</div>';return;}
 var h=React.createElement,useState=React.useState,useEffect=React.useEffect,useRef=React.useRef,useCallback=React.useCallback;
 var THEMES=['dark','light','ipl','icc','navy'];
@@ -156,12 +172,12 @@ async function smGet(url){
   var cacheKey=url.replace(/api_token=[^&]+/,'api_token=***');
   var cached=cacheGet(cacheKey);
   if(cached)return{data:cached,fromCache:true};
-  var json=null,err=null;
-  var urls=[url,'https://corsproxy.io/?'+encodeURIComponent(url),'https://api.allorigins.win/raw?url='+encodeURIComponent(url)];
-  for(var i=0;i<urls.length;i++){
-    try{json=await fetchJson(urls[i]);break;}catch(e){err=e;}
+  var json;
+  try{
+    json=await fetchJson(url);
+  }catch(e){
+    throw new Error((e&&e.message)||'Fetch failed. If you see this on Cloudflare, ensure /api proxy Function is deployed.');
   }
-  if(!json)throw new Error((err&&err.message)||'Failed to fetch. Sportmonks often blocks browser CORS — try again or use a Worker proxy.');
   if(json.message&&json.data==null&&!Array.isArray(json.data))throw new Error(json.message);
   if(json.error)throw new Error(typeof json.error==='string'?json.error:(json.error.message||JSON.stringify(json.error)));
   var data=json.data!=null?json.data:json;
@@ -170,12 +186,13 @@ async function smGet(url){
 }
 
 function fbUrl(path,token,include){
-  var u='https://api.sportmonks.com/v3/football/'+path.replace(/^\//,'')+'?api_token='+encodeURIComponent(token);
+  // Same-origin Cloudflare proxy — avoids Sportmonks CORS block
+  var u='/api/football/'+path.replace(/^\//,'')+'?api_token='+encodeURIComponent(token);
   if(include)u+='&include='+encodeURIComponent(include);
   return u;
 }
 function ckUrl(path,token,include){
-  var u='https://cricket.sportmonks.com/api/v2.0/'+path.replace(/^\//,'')+'?api_token='+encodeURIComponent(token);
+  var u='/api/cricket/'+path.replace(/^\//,'')+'?api_token='+encodeURIComponent(token);
   if(include)u+='&include='+encodeURIComponent(include);
   return u;
 }
@@ -618,7 +635,7 @@ function App(){
     ),
 
     h('div',{className:'footer'},
-      'Powered by ',h('a',{href:'https://www.sportmonks.com',target:'_blank',rel:'noreferrer'},'Sportmonks'),
+      'Live scores',
       viewOnly?' · View only':''
     )
   );
