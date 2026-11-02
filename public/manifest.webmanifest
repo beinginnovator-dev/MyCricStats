@@ -1,7 +1,7 @@
 {
   "name": "MyCricStats",
   "short_name": "MCS",
-  "description": "Live football & cricket scores",
+  "description": "Live football and cricket scores",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
