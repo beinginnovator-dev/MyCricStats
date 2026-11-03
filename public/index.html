@@ -88,11 +88,11 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .news-ticker .nt-title{font-size:12px;font-weight:800;color:#fde68a;line-height:1.3}
 .news-ticker .nt-desc{font-size:11px;color:#e2e8f0;margin-top:2px;line-height:1.3}
 @keyframes newsScroll{0%{transform:translateY(0);opacity:1}70%{transform:translateY(0);opacity:1}85%{transform:translateY(-50%);opacity:0}86%{transform:translateY(40%);opacity:0}100%{transform:translateY(0);opacity:1}}
-.news-player{padding:10px 8px;background:#fff;border-radius:12px;color:#0f172a}
-.news-player .np-title{color:#0f172a!important}
-.news-player .np-desc{color:#334155!important}
-.news-player .np-meta{color:#64748b!important}
-.news-player .np-controls button{background:#e2e8f0;color:#0f172a;border-color:#cbd5e1}
+.news-player{padding:10px 8px;background:transparent;border-radius:12px}
+.news-player .np-title{color:#fde68a!important}
+.news-player .np-desc{color:#e2e8f0!important}
+.news-player .np-meta{color:#94a3b8!important}
+.news-player .np-controls button{background:rgba(0,0,0,.35);color:#fff;border-color:rgba(255,255,255,.3)}
 .comm-toolbar{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;align-items:center;margin-bottom:10px}
 .comm-toolbar .btn{padding:8px 10px;font-size:11px;white-space:nowrap}
 .flip-card{min-height:72px;border-radius:14px;border:1px solid var(--line);padding:12px;margin:4px 0;background:rgba(0,0,0,.25);text-align:center}
@@ -126,7 +126,7 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .chat-fab{position:fixed;right:14px;bottom:18px;z-index:34;width:54px;height:54px;border-radius:50%;border:0;background:#25d366;color:#fff;font-size:22px;font-weight:900;box-shadow:0 6px 16px rgba(0,0,0,.35);cursor:pointer}
 .float-praise{position:fixed;left:50%;bottom:20%;transform:translateX(-50%);z-index:9500;background:rgba(255,15,80,.92);color:#fff;padding:10px 16px;border-radius:999px;font-weight:800;font-size:13px;animation:evpop 3s ease-out forwards;pointer-events:none;max-width:90vw;text-align:center}
 
-.news-player{padding:10px 8px;background:#fff;border-radius:12px}
+.news-player{padding:10px 8px;background:transparent;border-radius:12px}
 .news-player .np-row{display:flex;gap:10px;align-items:flex-start}
 .news-player .np-img{width:120px;height:96px;object-fit:cover;border-radius:10px;background:rgba(0,0,0,.25);flex-shrink:0}
 .news-player .np-copy{flex:1;min-width:0}
@@ -367,7 +367,9 @@ async function smGet(url){
   return{data:data,fromCache:false};
 }
 function ckUrl(path,token,include){
-  var u='/api/proxy?sport=cricket&path='+encodeURIComponent(path.replace(/^\//,''))+'&api_token='+encodeURIComponent(token);
+  var u='/api/proxy?sport=cricket&path='+encodeURIComponent(path.replace(/^\//,''));
+  if(token)u+='&api_token='+encodeURIComponent(token);
+  try{if(qs().get('view')==='1')u+='&guest=1&view=1';}catch(e){}
   if(include)u+='&include='+encodeURIComponent(include);
   return u;
 }
@@ -942,7 +944,8 @@ function App(){
   useEffect(function(){document.body.className='theme-'+theme;},[theme]);
 
   var loadList=useCallback(function(force){
-    if(!token){setError('Add Sportmonks token in Settings ⚙');return;}
+    var isGuest=false;try{isGuest=qs().get('view')==='1';}catch(e){}
+    if(!token&&!isGuest){setError('Add Sportmonks token in Settings ⚙');return;}
     setLoading(true);setError(null);
     if(force)cacheClear();
     var today=ymd(new Date());
@@ -990,7 +993,10 @@ function App(){
      .finally(function(){setLoading(false);});
   },[token,shareId]);
 
-  useEffect(function(){if(token)loadList(false);},[token]);
+  useEffect(function(){
+    var isGuest=false;try{isGuest=qs().get('view')==='1';}catch(e){}
+    if(token||isGuest)loadList(false);
+  },[token]);
   useEffect(function(){
     try{
       var r=qs().get('room');
@@ -998,28 +1004,13 @@ function App(){
     }catch(e){}
   },[]);
   useEffect(function(){
-    if(tab!=='chat')return;
+    if(tab!=='chat'&&!chatPop)return;
     chatLoad();
-    chatSend((chatName||'Fan')+' joined','join');
-    var id=setInterval(chatLoad,5000);
+    chatSend('','join');
+    var id=setInterval(chatLoad,2500);
     return function(){clearInterval(id);};
-  },[tab,roomId]);
-  // floating appreciation messages in chat
-  useEffect(function(){
-    if(tab!=='chat')return;
-    var id=setInterval(function(){
-      var who=['the striker','the bowler','the non-striker'][Math.floor(Math.random()*3)];
-      try{
-        var cp=currentPlayers(detail||selected);
-        var opts=[cp.striker,cp.bowler,cp.nonstriker].filter(function(n){return n&&n!=='—';});
-        if(opts.length)who=opts[Math.floor(Math.random()*opts.length)];
-      }catch(e){}
-      var lines=['What a shot from '+who+'! 🏏','Brilliant from '+who+'! 🎯','Respect to '+who+' 🔥',who+' is on fire! ⭐','Class from '+who+' 👏'];
-      setFloatMsg(lines[Math.floor(Math.random()*lines.length)]);
-      setTimeout(function(){setFloatMsg(null);},3500);
-    },16000);
-    return function(){clearInterval(id);};
-  },[tab,detail,selected]);
+  },[tab,roomId,chatPop]);
+  /* no floating praise */
   // flip upcoming posters on scoreboard
   useEffect(function(){
     var ups=matches.filter(function(m){return statusOf(m)==='upcoming';});
@@ -1066,7 +1057,8 @@ function App(){
 
   function loadDetail(m,tok){
     tok=tok||token;
-    if(!tok||!m||!m.id)return;
+    var isGuest=false;try{isGuest=qs().get('view')==='1';}catch(e){}
+    if((!tok&&!isGuest)||!m||!m.id)return;
     setLoading(true);
     setError(null);
     var full=ckUrl('fixtures/'+m.id,tok,INCLUDE_LIST);
@@ -1193,7 +1185,7 @@ function App(){
           h('div',{style:{display:'flex',gap:8}},
             !viewOnly?h('button',{className:'icon-btn',title:'Share',onClick:shareView},'↗'):null,
             h('button',{className:'icon-btn',title:'Refresh',onClick:function(){loadList(true);if(selected)loadDetail(selected);}},loading?'…':'↻'),
-            !viewOnly?h('button',{className:'icon-btn',title:'Settings',onClick:function(){setSettingsOpen(!settingsOpen);}},'⚙'):null
+            h('button',{className:'icon-btn',title:'Settings',onClick:function(){setSettingsOpen(!settingsOpen);}},'⚙')
           )
         ),
         bounce?h('div',{className:'ball-stage'},
@@ -1331,24 +1323,32 @@ function App(){
       )
     ),
 
-    !viewOnly&&settingsOpen?h(React.Fragment,null,
+    settingsOpen?h(React.Fragment,null,
       h('div',{className:'settings-backdrop',onClick:function(){setSettingsOpen(false);}}),
       h('div',{className:'settings-dd'},
-        h('div',{className:'dd-title'},'API'),
-        h('button',{onClick:function(){setModalVal(token);setModal('token');setSettingsOpen(false);}},token?'Change token':'Add Sportmonks token'),
+        viewOnly?null:h(React.Fragment,null,
+          h('div',{className:'dd-title'},'API'),
+          h('button',{onClick:function(){setModalVal(token);setModal('token');setSettingsOpen(false);}},token?'Change token':'Add Sportmonks token')
+        ),
         h('div',{className:'dd-title'},'Theme'),
         THEMES.map(function(t){return h('button',{key:t,className:theme===t?'on':'',onClick:function(){setTheme(t);lsSet('cric_theme',t);}},t.charAt(0).toUpperCase()+t.slice(1));}),
-        h('div',{className:'dd-title'},'Scoreboard background'),
-        h('button',{onClick:function(){setModal('bgpanel');setSettingsOpen(false);}},'Image & opacity'),
-        h('div',{className:'dd-title'},'Admin'),
-        h('button',{onClick:function(){setAdminAds(true);setSettingsOpen(false);}},'Sponsor ads'),
+        viewOnly?null:h(React.Fragment,null,
+          h('div',{className:'dd-title'},'Scoreboard background'),
+          h('button',{onClick:function(){setModal('bgpanel');setSettingsOpen(false);}},'Image & opacity'),
+          h('div',{className:'dd-title'},'Admin'),
+          h('button',{onClick:function(){setAdminAds(true);setSettingsOpen(false);}},'Sponsor ads')
+        ),
         h('div',{className:'dd-title'},'Audio'),
-        h('button',{onClick:function(){var v=!ttsOn;setTtsOn(v);lsSet('tts_on',v?'1':'0');}},ttsOn?'TTS: On':'TTS: Off'),
+        h('button',{onClick:function(){var v=!ttsOn;setTtsOn(v);lsSet('tts_on',v?'1':'0');}},ttsOn?'TTS / Commentary: On':'TTS / Commentary: Off'),
         h('button',{onClick:function(){var L=ttsLang==='en'?'hi':'en';setTtsLang(L);lsSet('tts_lang',L);}},'TTS language: '+(ttsLang==='hi'?'हिन्दी':'English')),
         h('button',{onClick:function(){var v=!stadOn;setStadOn(v);lsSet('stad_on',v?'1':'0');if(v){try{unlockAudio();stadBeep('four');}catch(e){}}}},stadOn?'Stadium sounds: On':'Stadium sounds: Off'),
         h('button',{onClick:function(){try{unlockAudio();stadBeep('six');}catch(e){}}},'Test stadium sound'),
-        h('button',{onClick:shareView},'Copy view-only link'),
-        h('button',{onClick:function(){cacheClear();setSettingsOpen(false);loadList(true);}},'Clear cache & refresh')
+        h('div',{className:'dd-title'},'Chat name'),
+        h('button',{onClick:function(){setModalVal(chatName);setModal('chatname');setSettingsOpen(false);}},'Edit name: '+(chatName||'Fan')),
+        viewOnly?null:h(React.Fragment,null,
+          h('button',{onClick:shareView},'Copy view-only link'),
+          h('button',{onClick:function(){cacheClear();setSettingsOpen(false);loadList(true);}},'Clear cache & refresh')
+        )
       )
     ):null,
 
@@ -1372,14 +1372,15 @@ function App(){
 
     modal&&modal!=='bgpanel'?h('div',{className:'modal-scrim',onClick:function(){setModal(null);}},
       h('div',{className:'modal-card',onClick:function(e){e.stopPropagation();}},
-        h('h2',null,modal==='token'?'Sportmonks token':'Share'),
-        h('div',{className:'hint'},modal==='token'?h(React.Fragment,null,'From ',h('a',{href:'https://my.sportmonks.com',target:'_blank',rel:'noreferrer'},'my.sportmonks.com')):'View-only link'),
-        h('div',{className:'field'},h('label',null,modal==='token'?'Token':'Link'),
-          h('input',{type:modal==='token'?'password':'text',value:modalVal,readOnly:modal==='share',onChange:function(e){setModalVal(e.target.value);}})),
+        h('h2',null,modal==='token'?'Sportmonks token':(modal==='chatname'?'Chat name':'Share')),
+        h('div',{className:'hint'},modal==='token'?h(React.Fragment,null,'From ',h('a',{href:'https://my.sportmonks.com',target:'_blank',rel:'noreferrer'},'my.sportmonks.com')):(modal==='chatname'?'Shown in chat to others':'View-only / invite link')),
+        h('div',{className:'field'},h('label',null,modal==='token'?'Token':(modal==='chatname'?'Name':'Link')),
+          h('input',{type:modal==='token'?'password':'text',value:modalVal,readOnly:modal==='share',maxLength:modal==='chatname'?24:undefined,onChange:function(e){setModalVal(e.target.value);}})),
         h('div',{className:'actions'},
           h('button',{className:'btn',onClick:function(){setModal(null);}},'Cancel'),
           h('button',{className:'btn primary',onClick:function(){
             if(modal==='share'){if(navigator.clipboard)navigator.clipboard.writeText(modalVal);setModal(null);return;}
+            if(modal==='chatname'){var n=String(modalVal||'Fan').trim().slice(0,24)||'Fan';setChatName(n);lsSet('chat_name',n);setModal(null);return;}
             var v=String(modalVal||'').trim();if(!v)return;lsSet('sportmonks_token',v);setToken(v);setModal(null);setToast('Saved');setTimeout(function(){setToast(null);},2000);
           }},modal==='share'?'Copy':'Save')
         )
@@ -1430,7 +1431,7 @@ function App(){
     floatMsg?h('div',{className:'float-praise'},floatMsg):null,
     chatPop?h('div',{className:'chat-pop'},
       h('div',{className:'cp-head'},
-        h('div',{className:'t'},'Chat · '+roomId),
+        h('div',{className:'t',onClick:function(){setModalVal(chatName);setModal('chatname');},style:{cursor:'pointer'}},'Chat · '+(chatName||'Fan')),
         h('button',{className:'btn',onClick:inviteChat},'↗'),
         h('button',{className:'btn',onClick:function(){setChatPop(false);}},'✕')
       ),
@@ -1533,6 +1534,7 @@ function App(){
         h('div',{className:'muted',style:{marginBottom:8}},'Shared with invitees · room '+roomId),
         h('div',{className:'btn-row'},
           h('button',{className:'btn primary',onClick:function(){setChatPop(true);chatLoad();}},'Open chat window'),
+          h('button',{className:'btn',onClick:function(){setModalVal(chatName);setModal('chatname');}},'Name: '+(chatName||'Fan')),
           h('button',{className:'btn',onClick:inviteChat},'↗ Invite'),
           h('button',{className:'btn',onClick:chatLoad},'↻')
         ),
