@@ -1,0 +1,4 @@
+/*
+  X-Content-Type-Options: nosniff
+/api/*
+  Cache-Control: public, max-age=10

@@ -46,8 +46,8 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .tname span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .side-left .tname{justify-content:flex-start}
 .side-right .tname{justify-content:flex-end}
-.score-num{font-size:30px;font-weight:900;line-height:1.1;margin:4px 0 0;color:#fff;font-variant-numeric:tabular-nums;text-shadow:0 0 18px rgba(255,15,80,.3)}
-.overs{font-size:11px;color:#cbd5e1;font-weight:700;margin-top:2px}
+.score-num{font-size:26px;font-weight:900;line-height:1.1;margin:4px 0 0;color:#fff;font-variant-numeric:tabular-nums;text-shadow:0 0 18px rgba(255,15,80,.3)}
+.overs{font-size:13px;color:#cbd5e1;font-weight:700;margin-top:2px}
 .match-center .vs-label{font-size:11px;font-weight:900;letter-spacing:.12em;color:#94a3b8;text-align:center}
 .meta-row{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:11px;color:#cbd5e1;font-weight:600}
 .tabs{display:flex;gap:0;overflow-x:auto;background:var(--bg2);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
@@ -114,6 +114,22 @@ body.theme-light .tabs,body.theme-light .settings-dd,body.theme-light .modal-car
 body.theme-light .settings-dd button{color:#01002C}
 body.theme-light .broadcast .title,body.theme-light .broadcast .sub,body.theme-light .broadcast .status-line,
 body.theme-light .broadcast .tname,body.theme-light .broadcast .score-num,body.theme-light .broadcast .overs,body.theme-light .broadcast .meta-row,body.theme-light .broadcast .vs-label{color:#f8fafc!important}
+
+.ev-banner{position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:9000;min-width:160px;padding:14px 22px;border-radius:14px;font-weight:900;font-size:18px;text-align:center;color:#fff;box-shadow:0 12px 32px rgba(0,0,0,.5);pointer-events:none;opacity:0}
+.ev-banner.show{animation:evpop 2.4s ease-out forwards}
+.ev-banner.runs{background:linear-gradient(135deg,#2563eb,#3b82f6)}
+.ev-banner.four{background:linear-gradient(135deg,#16a34a,#22c55e)}
+.ev-banner.six{background:linear-gradient(135deg,#7c3aed,#a855f7)}
+.ev-banner.dot{background:linear-gradient(135deg,#475569,#64748b)}
+.ev-banner.extra{background:linear-gradient(135deg,#6d28d9,#a855f7)}
+.ev-banner.wicket{background:linear-gradient(135deg,#b91c1c,#ef4444)}
+@keyframes evpop{0%{opacity:0;transform:translateX(-50%) scale(.85)}12%{opacity:1;transform:translateX(-50%) scale(1.08)}70%{opacity:1;transform:translateX(-50%) scale(1)}100%{opacity:0;transform:translateX(-50%) scale(.95)}}
+.comm-item{padding:10px 0;border-bottom:1px solid var(--line);font-size:15px;line-height:1.45}
+.comm-item .ov{font-weight:800;color:var(--blue);margin-right:6px}
+.comm-item .hi{font-weight:900;color:#fbbf24}
+.comm-item .hi-w{font-weight:900;color:#fb7185}
+.comm-item .hi-b{font-weight:900;color:#4ade80}
+
 </style>
 </head>
 <body class="theme-dark">
@@ -234,16 +250,25 @@ function ballToComment(b, lang){
   var name=score.name||b.score_name||'';
   var isW=!!(score.is_wicket||b.is_wicket);
   var ball=b.ball!=null?b.ball:'';
+  var outType=(score.out||score.dismissal||b.dismissal||b.out_type||'').toString();
   if(lang==='hi'){
-    if(isW)return 'विकेट! बॉल '+ball;
+    if(isW){
+      var t=outType?(' ('+outType+')'):'';
+      return 'विकेट'+t+'! बॉल '+ball;
+    }
     if(runs===6)return 'छक्का! बॉल '+ball;
     if(runs===4)return 'चौका! बॉल '+ball;
+    if(name&&/wide|noball|no.ball|bye|leg/i.test(name))return name+' · बॉल '+ball;
     if(runs===0)return 'डॉट बॉल '+ball;
     return runs+' रन, बॉल '+ball+(name?' · '+name:'');
   }
-  if(isW)return 'WICKET! Ball '+ball;
+  if(isW){
+    var t2=outType?(' · '+outType):'';
+    return 'WICKET'+t2+'! Ball '+ball;
+  }
   if(runs===6)return 'SIX! Ball '+ball;
   if(runs===4)return 'FOUR! Ball '+ball;
+  if(name&&/wide|noball|no.ball|bye|leg/i.test(String(name)))return String(name)+' · Ball '+ball;
   if(runs===0)return 'Dot ball '+ball;
   return runs+' run'+(runs===1?'':'s')+', ball '+ball+(name?' · '+name:'');
 }
@@ -253,7 +278,12 @@ function ballsList(d){
   return arr;
 }
 
+function showEventBanner(setEvBanner, kind, label){
+  setEvBanner({kind:kind,label:label});
+  setTimeout(function(){setEvBanner(null);},2400);
+}
 function App(){
+
   var viewOnly=isViewMode();
   var shareId=qs().get('match')||'';
   var _token=useState(function(){return lsGet('sportmonks_token','');});
@@ -273,11 +303,11 @@ function App(){
   var _op=useState(function(){return parseFloat(lsGet('op_cricket','0.55'))||0.55;});
   var bgOp=_op[0],setBgOp=_op[1];
   var _ads=useState(function(){return lsJSON('cric_ads_v1',{enabled:true,items:[
-    {event:'wicket',image:'',video:'',text:'Sponsor · WICKET!',duration:4},
-    {event:'four',image:'',video:'',text:'Sponsor · FOUR!',duration:3},
-    {event:'six',image:'',video:'',text:'Sponsor · SIX!',duration:4},
-    {event:'boundary',image:'',video:'',text:'Sponsor · Boundary',duration:3},
-    {event:'end_over',image:'',video:'',text:'Sponsor · End of over',duration:3}
+    {event:'wicket',image:'',video:'',youtube:'',audio:'',text:'Sponsor · WICKET!',duration:4},
+    {event:'four',image:'',video:'',youtube:'',audio:'',text:'Sponsor · FOUR!',duration:3},
+    {event:'six',image:'',video:'',youtube:'',audio:'',text:'Sponsor · SIX!',duration:4},
+    {event:'boundary',image:'',video:'',youtube:'',audio:'',text:'Sponsor · Boundary',duration:3},
+    {event:'end_over',image:'',video:'',youtube:'',audio:'',text:'Sponsor · End of over',duration:3}
   ]});});
   var ads=_ads[0],setAds=_ads[1];
   var _adShow=useState(null);var adShow=_adShow[0],setAdShow=_adShow[1];
@@ -292,6 +322,7 @@ function App(){
   var _stadOn=useState(function(){return lsGet('stad_on','1')==='1';});
   var stadOn=_stadOn[0],setStadOn=_stadOn[1];
   var lastBallKey=React.useRef('');
+  var _evBanner=useState(null);var evBanner=_evBanner[0],setEvBanner=_evBanner[1];
 
 
   useEffect(function(){document.body.className='theme-'+theme;},[theme]);
@@ -457,6 +488,7 @@ function App(){
         h('button',{onClick:function(){var v=!ttsOn;setTtsOn(v);lsSet('tts_on',v?'1':'0');}},ttsOn?'TTS: On':'TTS: Off'),
         h('button',{onClick:function(){var L=ttsLang==='en'?'hi':'en';setTtsLang(L);lsSet('tts_lang',L);}},'TTS language: '+(ttsLang==='hi'?'हिन्दी':'English')),
         h('button',{onClick:function(){var v=!stadOn;setStadOn(v);lsSet('stad_on',v?'1':'0');}},stadOn?'Stadium sounds: On':'Stadium sounds: Off'),
+        h('div',{className:'dd-title'},'Stadium uses tones for 4/6/wicket/run (like live file events)'),
 
         h('button',{onClick:shareView},'Copy view-only link'),
         h('button',{onClick:function(){cacheClear();setSettingsOpen(false);loadList(true);}},'Clear cache & refresh')
@@ -509,6 +541,8 @@ function App(){
             h('h3',null,String(item.event||'event').replace('_',' ').toUpperCase()),
             h('div',{className:'field'},h('label',null,'Image URL'),h('input',{value:item.image||'',placeholder:'https://...',onChange:function(e){var items=ads.items.slice();items[idx]=Object.assign({},item,{image:e.target.value});var n=Object.assign({},ads,{items:items});setAds(n);lsJSONSet('cric_ads_v1',n);}})),
             h('div',{className:'field'},h('label',null,'Video URL (optional)'),h('input',{value:item.video||'',placeholder:'https://...mp4',onChange:function(e){var items=ads.items.slice();items[idx]=Object.assign({},item,{video:e.target.value});var n=Object.assign({},ads,{items:items});setAds(n);lsJSONSet('cric_ads_v1',n);}})),
+            h('div',{className:'field'},h('label',null,'YouTube link (optional)'),h('input',{value:item.youtube||'',placeholder:'https://youtube.com/watch?v=...',onChange:function(e){var items=ads.items.slice();items[idx]=Object.assign({},item,{youtube:e.target.value});var n=Object.assign({},ads,{items:items});setAds(n);lsJSONSet('cric_ads_v1',n);}})),
+            h('div',{className:'field'},h('label',null,'Audio URL (optional mp3)'),h('input',{value:item.audio||'',placeholder:'https://...mp3',onChange:function(e){var items=ads.items.slice();items[idx]=Object.assign({},item,{audio:e.target.value});var n=Object.assign({},ads,{items:items});setAds(n);lsJSONSet('cric_ads_v1',n);}})),
             h('div',{className:'field'},h('label',null,'Text'),h('input',{value:item.text||'',onChange:function(e){var items=ads.items.slice();items[idx]=Object.assign({},item,{text:e.target.value});var n=Object.assign({},ads,{items:items});setAds(n);lsJSONSet('cric_ads_v1',n);}})),
             h('div',{className:'field'},h('label',null,'Duration (seconds)'),h('input',{type:'number',value:item.duration||4,min:1,max:30,onChange:function(e){var items=ads.items.slice();items[idx]=Object.assign({},item,{duration:parseInt(e.target.value,10)||4});var n=Object.assign({},ads,{items:items});setAds(n);lsJSONSet('cric_ads_v1',n);}})),
             h('button',{className:'btn',onClick:function(){triggerAd(item.event);}},'Test this event')
@@ -523,9 +557,22 @@ function App(){
         h('button',{className:'ad-close',onClick:function(){setAdShow(null);}},'×'),
         adShow.image?h('img',{src:adShow.image,alt:'Ad'}):null,
         adShow.video?h('video',{src:adShow.video,autoPlay:true,controls:true,style:{maxWidth:'100%',maxHeight:220,borderRadius:10,margin:'8px auto',display:'block'}}):null,
+        (function(){
+          if(!adShow.youtube)return null;
+          var id='';
+          try{
+            var u=new URL(adShow.youtube);
+            if(u.hostname.indexOf('youtu.be')>=0)id=u.pathname.replace('/','');
+            else id=u.searchParams.get('v')||'';
+          }catch(e){}
+          if(!id)return h('a',{href:adShow.youtube,target:'_blank',rel:'noreferrer',style:{color:'#7dd3fc'}},'Open YouTube ad');
+          return h('iframe',{src:'https://www.youtube.com/embed/'+id+'?autoplay=1&mute=0',title:'Ad',style:{width:'100%',height:200,border:0,borderRadius:10,marginTop:8},allow:'autoplay;encrypted-media'});
+        })(),
+        adShow.audio?h('audio',{src:adShow.audio,autoPlay:true,controls:true,style:{width:'100%',marginTop:8}}):null,
         adShow.text?h('div',{style:{fontWeight:800,marginTop:8}},adShow.text):null
       )
     ):null,
+    evBanner?h('div',{className:'ev-banner show '+evBanner.kind},evBanner.label):null,
     toast?h('div',{className:'toast'},toast):null,
 
     h('div',{className:'tabs'},
@@ -631,28 +678,36 @@ function App(){
               if(key!==lastBallKey.current){
                 lastBallKey.current=key;
                 var line=ballToComment(top,ttsLang);
+                var runs=(top.score&&top.score.runs)!=null?top.score.runs:top.runs;
+                var isW=!!(top.score&&top.score.is_wicket)||!!top.is_wicket;
+                var outType=(top.score&&(top.score.out||top.score.dismissal))||top.dismissal||'';
+                var scoreName=(top.score&&top.score.name)||'';
                 if(ttsOn)speakText(line,ttsLang);
                 if(stadOn){
-                  var runs=(top.score&&top.score.runs)!=null?top.score.runs:top.runs;
-                  var isW=!!(top.score&&top.score.is_wicket)||!!top.is_wicket;
-                  if(isW)stadBeep('wicket');else if(runs===6)stadBeep('six');else if(runs===4)stadBeep('four');
+                  if(isW)stadBeep('wicket');else if(runs===6)stadBeep('six');else if(runs===4)stadBeep('four');else if(runs>0)stadBeep('run');
                 }
-                // Sponsor ads on events
+                if(isW)showEventBanner(setEvBanner,'wicket','WICKET'+(outType?' · '+outType:''));
+                else if(runs===6)showEventBanner(setEvBanner,'six','SIX!');
+                else if(runs===4)showEventBanner(setEvBanner,'four','FOUR!');
+                else if(scoreName&&/wide|noball|no.ball|bye|leg/i.test(String(scoreName)))showEventBanner(setEvBanner,'extra',String(scoreName).toUpperCase());
+                else if(runs>0)showEventBanner(setEvBanner,'runs',runs+' RUN'+(runs>1?'S':''));
+                else showEventBanner(setEvBanner,'dot','DOT');
                 try{
-                  var runs2=(top.score&&top.score.runs)!=null?top.score.runs:top.runs;
-                  var isW2=!!(top.score&&top.score.is_wicket)||!!top.is_wicket;
-                  if(isW2)triggerAd('wicket');
-                  else if(runs2===6)triggerAd('six');
-                  else if(runs2===4)triggerAd('four');
+                  if(isW)triggerAd('wicket');
+                  else if(runs===6)triggerAd('six');
+                  else if(runs===4)triggerAd('four');
                 }catch(eAd){}
               }
             }catch(e){}
             return list.slice(0,40).map(function(b,i){
               var line=ballToComment(b,ttsLang);
-              return h('div',{key:b.id||i,className:'comm-item',style:{padding:'10px 0',borderBottom:'1px solid var(--line)',fontSize:14,lineHeight:1.45,cursor:'pointer'},
+              var runsX=(b.score&&b.score.runs)!=null?b.score.runs:b.runs;
+              var isWX=!!(b.score&&b.score.is_wicket)||!!b.is_wicket;
+              var cls=isWX?'hi-w':(runsX===4||runsX===6)?'hi-b':'';
+              return h('div',{key:b.id||i,className:'comm-item',style:{cursor:'pointer'},
                 onClick:function(){if(ttsOn)speakText(line,ttsLang);}},
-                h('span',{style:{fontWeight:800,color:'var(--blue)',marginRight:8}},b.ball!=null?b.ball:''),
-                line
+                h('span',{className:'ov'},b.ball!=null?b.ball:''),
+                h('span',{className:cls},line)
               );
             });
           })()
