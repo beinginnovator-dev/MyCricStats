@@ -1,60 +1,65 @@
 /**
- * Cloudflare Pages Function — GET /api/proxy
- * Query: sport=football|cricket, path=livescores/inplay, api_token=..., include=...
+ * Sportmonks proxy — CORS + optional server token for guests
+ * Client: /api/proxy?sport=cricket&path=livescores&api_token=...
+ * Guests (view=1): if no api_token, uses env.SPORTMONKS_TOKEN when set in Cloudflare
  */
 export async function onRequest(context) {
-  const { request } = context;
-  const url = new URL(request.url);
-  const headers = cors(request);
-
-  if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers });
-  }
-  if (request.method !== 'GET') {
-    return json({ message: 'GET only' }, 405, headers);
-  }
-
-  const sport = (url.searchParams.get('sport') || 'football').toLowerCase();
-  const path = (url.searchParams.get('path') || '').replace(/^\/+/, '');
-  const token = request.headers.get('X-Sportmonks-Token') || url.searchParams.get('api_token') || '';
-
-  if (!path) return json({ message: 'Missing path' }, 400, headers);
-  if (!token) return json({ message: 'Missing api_token' }, 401, headers);
-
-  const base = sport === 'cricket'
-    ? 'https://cricket.sportmonks.com/api/v2.0'
-    : 'https://api.sportmonks.com/v3/football';
-
-  const upstream = new URL(base + '/' + path);
-  url.searchParams.forEach((v, k) => {
-    if (k === 'sport' || k === 'path' || k === 'api_token') return;
-    upstream.searchParams.set(k, v);
+  const { request, env } = context;
+  const headers = new Headers({
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Content-Type': 'application/json'
   });
-  upstream.searchParams.set('api_token', token);
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
 
   try {
-    const res = await fetch(upstream.toString(), {
-      headers: { Accept: 'application/json', 'User-Agent': 'MyCricStats-Pages/4.0' }
+    const url = new URL(request.url);
+    const sport = (url.searchParams.get('sport') || 'cricket').toLowerCase();
+    const path = (url.searchParams.get('path') || '').replace(/^\/+/, '');
+    let token = url.searchParams.get('api_token') || url.searchParams.get('token') || '';
+    const guest = url.searchParams.get('guest') === '1' || url.searchParams.get('view') === '1';
+
+    // Server token for shared/view-only users (set in Pages → Settings → Environment variables)
+    if (!token && guest && env && env.SPORTMONKS_TOKEN) {
+      token = env.SPORTMONKS_TOKEN;
+    }
+    if (!token && env && env.SPORTMONKS_TOKEN && !url.searchParams.get('api_token')) {
+      // allow bare guest fetch when only server token exists
+      if (guest) token = env.SPORTMONKS_TOKEN;
+    }
+
+    if (!path) {
+      return new Response(JSON.stringify({ message: 'Missing path' }), { status: 400, headers });
+    }
+    if (!token) {
+      return new Response(JSON.stringify({
+        message: guest
+          ? 'Host must set SPORTMONKS_TOKEN in Cloudflare Pages env, or guest needs own free token'
+          : 'Missing api_token'
+      }), { status: 401, headers });
+    }
+
+    const base = sport === 'football'
+      ? 'https://soccer.sportmonks.com/api/v2.0/'
+      : 'https://cricket.sportmonks.com/api/v2.0/';
+
+    const dest = new URL(base + path);
+    dest.searchParams.set('api_token', token);
+    url.searchParams.forEach((v, k) => {
+      if (['sport', 'path', 'api_token', 'token', 'guest', 'view'].includes(k)) return;
+      dest.searchParams.set(k, v);
+    });
+
+    const res = await fetch(dest.toString(), {
+      headers: { Accept: 'application/json', 'User-Agent': 'MyCricStats/1.0' }
     });
     const text = await res.text();
-    headers.set('Content-Type', res.headers.get('Content-Type') || 'application/json');
-    headers.set('Cache-Control', 'public, max-age=10');
-    return new Response(text, { status: res.status, headers });
+    return new Response(text, {
+      status: res.status,
+      headers: { ...Object.fromEntries(headers), 'Content-Type': 'application/json' }
+    });
   } catch (e) {
-    return json({ message: 'Upstream: ' + (e.message || String(e)) }, 502, headers);
+    return new Response(JSON.stringify({ message: String(e.message || e) }), { status: 502, headers });
   }
-}
-
-function cors(request) {
-  return new Headers({
-    'Access-Control-Allow-Origin': request.headers.get('Origin') || '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Sportmonks-Token',
-    'Access-Control-Max-Age': '86400',
-    Vary: 'Origin'
-  });
-}
-function json(obj, status, headers) {
-  headers.set('Content-Type', 'application/json');
-  return new Response(JSON.stringify(obj), { status, headers });
 }
