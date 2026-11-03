@@ -101,14 +101,14 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .tname span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .side-left .tname,.side-right .tname{justify-content:center}
 .score-num{font-size:26px;font-weight:900;line-height:1.1;margin:2px 0 0;color:#fff;font-variant-numeric:tabular-nums;text-align:center;width:100%}
-.overs{font-size:13px;color:#cbd5e1;font-weight:700;margin-top:2px;text-align:center;width:100%}
+.overs{font-size:15px;color:#cbd5e1;font-weight:700;margin-top:2px;text-align:center;width:100%}
 .match-center .vs-label{font-size:11px;font-weight:900;letter-spacing:.12em;color:#94a3b8;text-align:center}
 .meta-row{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:11px;color:#cbd5e1;font-weight:600}
 .live-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .lp{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:8px 10px;text-align:left}
 .lp .k{font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8}
 .lp .v{font-size:12px;font-weight:800;color:#fff;margin-top:2px}
-.lp-sub{font-size:10px;font-weight:600;color:#cbd5e1;margin-top:2px;line-height:1.35}
+.lp-sub{font-size:11px;font-weight:600;color:#cbd5e1;margin-top:2px;line-height:1.35}.lp{cursor:pointer}
 .tabs{display:flex;gap:0;overflow-x:auto;background:var(--bg2);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
 .tabs button{flex:0 0 auto;border:0;background:transparent;color:var(--muted);font-family:inherit;font-weight:800;font-size:12px;padding:13px 12px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
 .tabs button.on{color:var(--text);border-bottom-color:var(--accent)}
@@ -495,13 +495,16 @@ function ballStampPhrase(b, lang){
   var bn=parseBallNotation(b);
   var over=bn.over, ball=bn.ballInOver;
   if(over==null||ball==null){
-    if(b.ball!=null)return String(b.ball);
-    return '';
+    if(b.ball!=null){
+      var s=String(b.ball);
+      if(s.indexOf('.')>=0){var p=s.split('.');over=parseInt(p[0],10);ball=parseInt(p[1],10);}
+      else return s;
+    } else return '';
   }
   if(lang==='hi'){
-    return over+'वें ओवर की '+ball+'वीं गेंद';
+    return ordSuffix(over).replace(/th|st|nd|rd/g,'') ? (over+'वें ओवर की '+ball+'वीं गेंद') : (over+'वें ओवर की '+ball+'वीं गेंद');
   }
-  return ordSuffix(over)+' over, '+ordSuffix(ball)+' ball';
+  return ordSuffix(over)+' over '+ordSuffix(ball)+' ball';
 }
 function descriptiveLine(b, lang){
   var s=b.score||{};
@@ -509,11 +512,11 @@ function descriptiveLine(b, lang){
   var isW=ballIsWicket(b);
   var bats=playerName(b.batsman)||playerName(s.batsman)||'';
   var bowl=playerName(b.bowler)||playerName(s.bowler)||'';
-  var catcher=playerName(b.catchstump)||playerName(s.catchstump)||playerName(b.runoutby)||playerName(s.runoutby)||playerName(b.catcher)||'';
-  var outRaw=s.out||s.dismissal||b.dismissal||s.name||b.score_name||'';
-  if(outRaw===true||outRaw==='true'||outRaw===1||outRaw==='1')outRaw='';
-  var outType=String(outRaw||'').trim();
-  var scoreName=String(s.name||b.score_name||s.action||'');
+  var catcher=playerName(b.catchstump)||playerName(s.catchstump)||playerName(b.runoutby)||playerName(s.runoutby)||'';
+  var outRaw=s.out||s.dismissal||b.dismissal||s.name||'';
+  if(outRaw===true||outRaw==='true'||outRaw===1)outRaw='';
+  var outType=String(outRaw||'').replace(/\*/g,'').trim();
+  var scoreName=String(s.name||b.score_name||s.action||'').replace(/\*/g,'');
   if(scoreName==='true'||scoreName==='True')scoreName='';
   var stamp=ballStampPhrase(b, lang);
 
@@ -528,65 +531,57 @@ function descriptiveLine(b, lang){
     if(isW)return 'wicket';
     return '';
   }
-  function dismissEN(){
-    var k=dismissKind();
-    if(k==='catch')return 'caught'+(catcher?' by '+catcher:'');
-    if(k==='bowled')return 'bowled';
-    if(k==='lbw')return 'LBW';
-    if(k==='runout')return 'run out'+(catcher?' by '+catcher:'');
-    if(k==='stumped')return 'stumped'+(catcher?' by '+catcher:'');
-    if(k==='hitwicket')return 'hit wicket';
-    if(outType&&outType.toLowerCase()!=='true')return outType;
-    return 'out';
+
+  var pair='';
+  if(lang==='hi'){
+    if(bowl&&bats)pair=bowl+' से '+bats+' की ओर';
+    else if(bowl)pair=bowl+' की गेंद';
+    else if(bats)pair=bats;
+  } else {
+    if(bowl&&bats)pair=bowl+' to '+bats;
+    else if(bowl)pair=bowl+' bowls';
+    else if(bats)pair=bats;
   }
-  function dismissHI(){
-    var k=dismissKind();
-    if(k==='catch')return 'कैच आउट'+(catcher?' ('+catcher+')':'');
-    if(k==='bowled')return 'बोल्ड';
-    if(k==='lbw')return 'एलबीडब्ल्यू';
-    if(k==='runout')return 'रन आउट';
-    if(k==='stumped')return 'स्टंप';
-    return 'विकेट';
-  }
+
+  var head=(stamp?(stamp+(pair?' — ':'') ):'')+pair;
+  if(head)head+=': ';
 
   if(lang==='hi'){
     if(isW){
-      var line=(stamp?stamp+' · ':'')+'विकेट! '+(bats||'बल्लेबाज')+' '+dismissHI();
-      if(bowl)line+=' — शानदार गेंद '+bowl+' की ओर से';
-      if(dismissKind()==='catch'&&catcher)line+=' · शानदार कैच '+catcher;
-      return line;
+      var k=dismissKind();
+      var how=k==='catch'?('कैच आउट'+(catcher?' '+catcher+' ने शानदार कैच लिया':'')):k==='bowled'?'बोल्ड':k==='lbw'?'एलबीडब्ल्यू':k==='runout'?'रन आउट':k==='stumped'?'स्टंप आउट':'विकेट';
+      return head+'विकेट! '+how+(bowl?' — कमाल की गेंदबाजी '+bowl+' की ओर से।':'');
     }
-    if(runs===6)return (stamp?stamp+' · ':'')+'शानदार छक्का! '+(bats||'बल्लेबाज')+' ने गेंद को मैदान से बाहर भेजा'+(bowl?' · '+bowl:'');
-    if(runs===4)return (stamp?stamp+' · ':'')+'सुंदर चौका! '+(bats||'बल्लेबाज')+' की बेहतरीन पारी'+(bowl?' · '+bowl:'');
-    if(/wide/.test(scoreName.toLowerCase()))return (stamp?stamp+' · ':'')+'वाइड'+(runs?(' · '+runs+' रन'):'');
-    if(/no.?ball/.test(scoreName.toLowerCase()))return (stamp?stamp+' · ':'')+'नो-बॉल'+(runs?(' · '+runs+' रन'):'');
-    if(/leg.?bye/.test(scoreName.toLowerCase()))return (stamp?stamp+' · ':'')+'लेग बाय · '+(runs||0)+' रन';
-    if(/bye/.test(scoreName.toLowerCase())&&!/leg/.test(scoreName.toLowerCase()))return (stamp?stamp+' · ':'')+'बाय · '+(runs||0)+' रन';
-    if(runs===0)return (stamp?stamp+' · ':'')+(bowl||'गेंदबाज')+' से '+(bats||'बल्लेबाज')+' — डॉट बॉल';
-    return (stamp?stamp+' · ':'')+(bats||'')+' · '+runs+' रन'+(bowl?' · '+bowl:'');
+    if(runs===6)return head+'छक्का! शानदार प्रहार'+(bats?' '+bats+' का':'')+' — गेंद स्टेडियम के बाहर!';
+    if(runs===4)return head+'चौका! सुंदर शॉट'+(bats?' '+bats+' का':'')+' — गेंद बाउंड्री तक पहुँची।';
+    if(/wide/.test(scoreName.toLowerCase()))return head+'वाइड बॉल'+(runs?(' · '+runs+' रन'):'')+'।';
+    if(/no.?ball/.test(scoreName.toLowerCase()))return head+'नो-बॉल'+(runs?(' · '+runs+' रन'):'')+'।';
+    if(/leg.?bye/.test(scoreName.toLowerCase()))return head+'लेग बाय · '+(runs||0)+' रन।';
+    if(/bye/.test(scoreName.toLowerCase()))return head+'बाय · '+(runs||0)+' रन।';
+    if(runs===0)return head+'डॉट बॉल — बचाव।';
+    if(runs===1)return head+'एक रन।';
+    if(runs===2)return head+'दो रन — अच्छी दौड़।';
+    if(runs===3)return head+'तीन रन — शानदार दौड़।';
+    return head+(runs||0)+' रन।';
   }
 
-  // English — Cricinfo-style + appreciation
+  // English detailed
   if(isW){
-    var how=dismissEN();
-    var line=(stamp?stamp+' · ':'')+'WICKET! '+(bats||'Batsman')+' is '+how+'.';
-    if(bowl)line+=' Excellent bowling from '+bowl+'.';
-    if(dismissKind()==='catch'&&catcher)line+=' Brilliant catch by '+catcher+'.';
-    else if(dismissKind()==='bowled'&&bowl)line+=' Cleaned him up!';
-    else if(dismissKind()==='lbw'&&bowl)line+=' Huge appeal — given!';
-    return line;
+    var k2=dismissKind();
+    var how2=k2==='catch'?('caught'+(catcher?' by '+catcher+' — what a grab!':'')):k2==='bowled'?'bowled — timber!':k2==='lbw'?'LBW — given!':k2==='runout'?'run out':k2==='stumped'?'stumped':'out';
+    return head+'WICKET! '+(bats?bats+' is ':'')+how2+(bowl?' Superb bowling from '+bowl+'.':'');
   }
-  if(runs===6)return (stamp?stamp+' · ':'')+'SIX! What a strike from '+(bats||'the batsman')+' — out of the ground'+(bowl?' off '+bowl:'')+'.';
-  if(runs===4)return (stamp?stamp+' · ':'')+'FOUR! Beautifully played by '+(bats||'the batsman')+' — races away to the boundary'+(bowl?' off '+bowl:'')+'.';
-  if(/wide/.test(scoreName.toLowerCase()))return (stamp?stamp+' · ':'')+'Wide ball'+(runs?(', '+runs+' run'+(runs>1?'s':'')):'')+(bowl?' from '+bowl:'');
-  if(/no.?ball/.test(scoreName.toLowerCase()))return (stamp?stamp+' · ':'')+'No-ball'+(runs?(' · '+runs+' run'+(runs>1?'s':'')):'')+(bats?' · '+bats:'');
-  if(/leg.?bye/.test(scoreName.toLowerCase()))return (stamp?stamp+' · ':'')+'Leg bye, '+(runs||0)+' run'+((runs||0)===1?'':'s');
-  if(/bye/.test(scoreName.toLowerCase())&&!/leg/.test(scoreName.toLowerCase()))return (stamp?stamp+' · ':'')+'Bye, '+(runs||0)+' run'+((runs||0)===1?'':'s');
-  if(runs===0)return (stamp?stamp+' · ':'')+(bowl||'Bowler')+' to '+(bats||'striker')+', defended — dot ball';
-  if(runs===1)return (stamp?stamp+' · ':'')+(bats||'Batsman')+' works a single'+(bowl?' off '+bowl:'');
-  if(runs===2)return (stamp?stamp+' · ':'')+(bats||'Batsman')+' pushes for two — good running';
-  if(runs===3)return (stamp?stamp+' · ':'')+(bats||'Batsman')+' three runs — excellent running between the wickets';
-  return (stamp?stamp+' · ':'')+(bats||'Batsman')+' picks up '+runs+' runs'+(bowl?' off '+bowl:'');
+  if(runs===6)return head+'SIX! A massive hit'+(bats?' from '+bats:'')+' — that is out of the ground!';
+  if(runs===4)return head+'FOUR! Beautifully timed'+(bats?' by '+bats:'')+' — races away to the rope.';
+  if(/wide/.test(scoreName.toLowerCase()))return head+'Wide ball'+(runs?(', '+runs+' run'+(runs>1?'s':'')):'')+'.';
+  if(/no.?ball/.test(scoreName.toLowerCase()))return head+'No-ball'+(runs?(', '+runs+' run'+(runs>1?'s':'')):'')+'.';
+  if(/leg.?bye/.test(scoreName.toLowerCase()))return head+'Leg bye, '+(runs||0)+' run'+((runs||0)===1?'':'s')+'.';
+  if(/bye/.test(scoreName.toLowerCase()))return head+'Bye, '+(runs||0)+' run'+((runs||0)===1?'':'s')+'.';
+  if(runs===0)return head+'Dot ball — solid defence.';
+  if(runs===1)return head+'Pushed for a single.';
+  if(runs===2)return head+'They come back for two — good running.';
+  if(runs===3)return head+'Three runs — excellent running between the wickets.';
+  return head+(runs||0)+' run'+((runs||0)===1?'':'s')+'.';
 }
 function speakText(text, lang){
   try{
@@ -723,35 +718,39 @@ function teamFlagUrl(team){
 function loadNewsRss(){
   function parse(j){
     var arr=Array.isArray(j&&j.data)?j.data:(Array.isArray(j)?j:[]);
-    return arr;
+    return arr.filter(function(n){return n&&n.title;});
   }
-  return fetch('/api/news',{cache:'no-store'})
-    .then(function(r){
-      if(!r.ok)throw new Error('HTTP '+r.status);
-      return r.json();
-    })
-    .then(parse)
-    .catch(function(e1){
-      // fallback: allorigins Google news RSS
-      var q='https://news.google.com/rss/search?q=cricket&hl=en-IN&gl=IN&ceid=IN:en';
-      return fetch('https://api.allorigins.win/raw?url='+encodeURIComponent(q))
-        .then(function(r){return r.text();})
-        .then(function(xml){
+  var urls=['/api/news','https://mycricstats.pages.dev/api/news'];
+  function tryUrl(i){
+    if(i>=urls.length){
+      // last resort Google RSS via allorigins
+      var q='https://news.google.com/rss/search?q=cricket+when:3d&hl=en-IN&gl=IN&ceid=IN:en';
+      return fetch('https://api.allorigins.win/get?url='+encodeURIComponent(q))
+        .then(function(r){return r.json();})
+        .then(function(j){
+          var xml=j.contents||j||'';
           var items=[];
           var parts=String(xml).split(/<item[\s>]/i);
-          for(var i=1;i<parts.length&&items.length<25;i++){
-            var block=parts[i].split(/<\/item>/i)[0]||'';
-            var title=(block.match(/<title[^>]*>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([^<]*))<\/title>/i)||[]);
-            title=(title[1]||title[2]||'').trim();
-            var link=(block.match(/<link[^>]*>([^<]+)<\/link>/i)||[])[1]||'';
-            var desc=(block.match(/<description[^>]*>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([^<]*))<\/description>/i)||[]);
-            desc=(desc[1]||desc[2]||'').replace(/<[^>]+>/g,' ').trim().slice(0,180);
-            if(title)items.push({title:title,link:link,desc:desc,source:'Google Cricket',image:'',pub:''});
+          for(var k=1;k<parts.length&&items.length<30;k++){
+            var block=parts[k].split(/<\/item>/i)[0]||'';
+            var t=block.match(/<title[^>]*>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([^<]*))<\/title>/i);
+            var title=(t&&(t[1]||t[2])||'').trim();
+            var l=block.match(/<link[^>]*>([^<]+)<\/link>/i);
+            var link=l?l[1]:'';
+            var d=block.match(/<description[^>]*>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([^<]*))<\/description>/i);
+            var desc=((d&&(d[1]||d[2]))||'').replace(/<[^>]+>/g,' ').replace(/\*/g,'').trim().slice(0,200);
+            if(title)items.push({title:title.replace(/\*/g,''),link:link,desc:desc,source:'Google Cricket',image:'',pub:''});
           }
           return items;
-        })
-        .catch(function(){throw e1;});
-    });
+        });
+    }
+    return fetch(urls[i],{cache:'no-store'})
+      .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+      .then(parse)
+      .then(function(arr){if(!arr.length)throw new Error('empty');return arr;})
+      .catch(function(){return tryUrl(i+1);});
+  }
+  return tryUrl(0);
 }
 function App(){
 
@@ -806,6 +805,7 @@ function App(){
   var _scTeam=useState('home');var scTeam=_scTeam[0],setScTeam=_scTeam[1];
   var _schedFilter=useState('latest');var schedFilter=_schedFilter[0],setSchedFilter=_schedFilter[1];
   var _flipIdx=useState(0);var flipIdx=_flipIdx[0],setFlipIdx=_flipIdx[1];
+  var _statsOpen=useState(true);var statsOpen=_statsOpen[0],setStatsOpen=_statsOpen[1];
   var _news=useState([]);var news=_news[0],setNews=_news[1];
   var _newsLoading=useState(false);var newsLoading=_newsLoading[0],setNewsLoading=_newsLoading[1];
   var _viewCount=useState(function(){return parseInt(lsGet('mcs_viewers_base','12'),10)||12;});
@@ -881,11 +881,21 @@ function App(){
     return function(){clearInterval(id);};
   },[matches]);
   useEffect(function(){
+    var dead=false;
+    setNewsLoading(true);
+    loadNewsRss().then(function(items){if(!dead)setNews(items||[]);})
+      .catch(function(e){console.warn('news',e);if(!dead)setNews([]);})
+      .finally(function(){if(!dead)setNewsLoading(false);});
+    return function(){dead=true;};
+  },[]);
+  useEffect(function(){
+    if(tab!=='news')return;
+    if(news.length)return;
     setNewsLoading(true);
     loadNewsRss().then(function(items){setNews(items||[]);})
-      .catch(function(e){console.warn('news',e);setNews([]);})
+      .catch(function(){})
       .finally(function(){setNewsLoading(false);});
-  },[]);
+  },[tab]);
   // news player auto-advance when playing; stop when leaving News tab
   useEffect(function(){
     if(tab!=='news'){
@@ -898,7 +908,7 @@ function App(){
         var n=(i+1)%news.length;
         try{
           if(newsTts&&news[n]&&news[n].title){
-            speakText(news[n].title+(news[n].desc?('. '+news[n].desc):''),'en');
+            speakText(String(news[n].title||'').replace(/\*/g,'')+(news[n].desc?('. '+String(news[n].desc).replace(/\*/g,'')):''),'en');
           }
         }catch(e){}
         return n;
@@ -975,7 +985,7 @@ function App(){
     return statusOf(m)===filter;
   });
 
-  var tabs=[['news','Headlines'],['matches','Matches'],['schedule','Schedule'],['commentary','Commentary'],['scorecard','Scorecard'],['batting','Batting'],['bowling','Bowling'],['squad','Squad'],['info','Info']];
+  var tabs=[['news','Headlines'],['matches','Matches'],['schedule','Schedule'],['commentary','Commentary'],['scorecard','Scorecard'],['squad','Squad'],['info','Info']];
 
   return h('div',{className:'app'},
     error?h('div',{className:'error-bar'},error):null,
@@ -1048,9 +1058,29 @@ function App(){
               d.type?h('span',null,d.type):null
             ),
             st==='live'||(d&&d.balls&&d.balls.length)?h('div',{className:'live-pair'},
-              h('div',{className:'lp'},h('div',{className:'k'},'Striker'),h('div',{className:'v'},liveP.striker),h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line1)||''),h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line2)||''),h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line3)||'')),
-              h('div',{className:'lp'},h('div',{className:'k'},'Non-striker'),h('div',{className:'v'},liveP.nonstriker),h('div',{className:'lp-sub'},(liveP.nonstrikerS&&liveP.nonstrikerS.line1)||''),h('div',{className:'lp-sub'},(liveP.nonstrikerS&&liveP.nonstrikerS.line2)||''),h('div',{className:'lp-sub'},(liveP.nonstrikerS&&liveP.nonstrikerS.line3)||'')),
-              h('div',{className:'lp'},h('div',{className:'k'},'Bowler'),h('div',{className:'v'},liveP.bowler),h('div',{className:'lp-sub'},(liveP.bowlerS&&liveP.bowlerS.line1)||''),h('div',{className:'lp-sub'},(liveP.bowlerS&&liveP.bowlerS.line2)||''))
+              h('div',{className:'lp',onClick:function(){setStatsOpen(!statsOpen);}},
+                h('div',{className:'k'},'Striker'),h('div',{className:'v'},liveP.striker),
+                statsOpen?h(React.Fragment,null,
+                  h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line1)||''),
+                  h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line2)||''),
+                  h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line3)||'')
+                ):h('div',{className:'lp-sub'},'Tap for stats')
+              ),
+              h('div',{className:'lp',onClick:function(){setStatsOpen(!statsOpen);}},
+                h('div',{className:'k'},'Non-striker'),h('div',{className:'v'},liveP.nonstriker),
+                statsOpen?h(React.Fragment,null,
+                  h('div',{className:'lp-sub'},(liveP.nonstrikerS&&liveP.nonstrikerS.line1)||''),
+                  h('div',{className:'lp-sub'},(liveP.nonstrikerS&&liveP.nonstrikerS.line2)||''),
+                  h('div',{className:'lp-sub'},(liveP.nonstrikerS&&liveP.nonstrikerS.line3)||'')
+                ):h('div',{className:'lp-sub'},'Tap for stats')
+              ),
+              h('div',{className:'lp',onClick:function(){setStatsOpen(!statsOpen);}},
+                h('div',{className:'k'},'Bowler'),h('div',{className:'v'},liveP.bowler),
+                statsOpen?h(React.Fragment,null,
+                  h('div',{className:'lp-sub'},(liveP.bowlerS&&liveP.bowlerS.line1)||''),
+                  h('div',{className:'lp-sub'},(liveP.bowlerS&&liveP.bowlerS.line2)||'')
+                ):h('div',{className:'lp-sub'},'Tap for stats')
+              )
             ):null
           ):(tab==='news'&&news.length?(function(){
             var n=news[newsIdx]||news[0]||{};
