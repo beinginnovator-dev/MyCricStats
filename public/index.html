@@ -47,6 +47,18 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .news-body .nt{font-weight:800;font-size:13px;line-height:1.35}
 .news-body .nd{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.35}
 .news-body .nm{font-size:11px;color:var(--muted);margin-top:4px}
+.news-ticker{display:flex;gap:10px;align-items:center;padding:8px 4px;min-height:56px}
+.news-ticker img{width:56px;height:42px;border-radius:8px;object-fit:cover;flex-shrink:0;background:rgba(0,0,0,.3)}
+.news-ticker .nt-text{flex:1;min-width:0;overflow:hidden;height:40px;position:relative}
+.news-ticker .nt-scroll{position:absolute;left:0;top:0;width:100%;animation:newsScroll 12s linear infinite}
+.news-ticker .nt-title{font-size:12px;font-weight:800;color:#fde68a;line-height:1.3}
+.news-ticker .nt-desc{font-size:11px;color:#e2e8f0;margin-top:2px;line-height:1.3}
+@keyframes newsScroll{0%{transform:translateY(0);opacity:1}70%{transform:translateY(0);opacity:1}85%{transform:translateY(-50%);opacity:0}86%{transform:translateY(40%);opacity:0}100%{transform:translateY(0);opacity:1}}
+.inapp{position:fixed;inset:0;z-index:11000;background:var(--bg);display:flex;flex-direction:column}
+.inapp-bar{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg2);border-bottom:1px solid var(--line)}
+.inapp-bar .title{flex:1;font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inapp iframe{flex:1;width:100%;border:0;background:#fff}
+
 
 .brand-wrap{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
 .tname img.flag{width:18px;height:12px;object-fit:cover;border-radius:2px;flex-shrink:0}
@@ -172,8 +184,30 @@ body.theme-light .broadcast .tname,body.theme-light .broadcast .score-num,body.t
 <script>
 (function(){
 'use strict';
-if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}
-if(!window.React||!window.ReactDOM){document.getElementById('root').innerHTML='<div style="padding:20px;color:#fecaca">React failed to load</div>';return;}
+if(!window.React){
+  document.write('<script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"><\/script>');
+  document.write('<script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"><\/script>');
+}
+})();
+</script>
+<script>
+(function(){
+'use strict';
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('/sw.js').then(function(reg){
+      try{if(reg.update)reg.update();}catch(e){}
+    }).catch(function(){});
+    // clear old caches once
+    try{
+      caches.keys().then(function(ks){ks.forEach(function(k){if(k.indexOf('mcs-')===0&&k!=='mcs-v8')caches.delete(k);});});
+    }catch(e){}
+  });
+}
+if(!window.React||!window.ReactDOM){
+  document.getElementById('root').innerHTML='<div style="padding:24px;color:#fecaca;font-family:sans-serif"><b>UI library failed to load.</b><br/>Check network / adblock, then refresh.</div>';
+  return;
+}
 var h=React.createElement,useState=React.useState,useEffect=React.useEffect,useCallback=React.useCallback,useRef=React.useRef;
 var THEMES=['dark','light','pitch','night'];
 var CACHE_MS=40000;
@@ -557,11 +591,12 @@ function teamFlagUrl(team){
   return 'https://flagcdn.com/w40/'+code+'.png';
 }
 function loadNewsRss(){
-  return fetch('/api/news').then(function(r){
+  return fetch('/api/news',{cache:'no-store'}).then(function(r){
     if(!r.ok)throw new Error('HTTP '+r.status);
     return r.json();
   }).then(function(j){
-    return Array.isArray(j.data)?j.data:(Array.isArray(j)?j:[]);
+    var arr=Array.isArray(j.data)?j.data:(Array.isArray(j)?j:[]);
+    return arr;
   });
 }
 function App(){
@@ -606,6 +641,10 @@ function App(){
   var lastBallKey=useRef('');
   var _evBanner=useState(null);var evBanner=_evBanner[0],setEvBanner=_evBanner[1];
   var _bounce=useState(null);var bounce=_bounce[0],setBounce=_bounce[1];
+  var _newsIdx=useState(0);var newsIdx=_newsIdx[0],setNewsIdx=_newsIdx[1];
+  var _newsTts=useState(function(){return lsGet('news_tts','1')==='1';});
+  var newsTts=_newsTts[0],setNewsTts=_newsTts[1];
+  var _inapp=useState(null);var inapp=_inapp[0],setInapp=_inapp[1];
   var _news=useState([]);var news=_news[0],setNews=_news[1];
   var _newsLoading=useState(false);var newsLoading=_newsLoading[0],setNewsLoading=_newsLoading[1];
   var _viewCount=useState(function(){return parseInt(lsGet('mcs_viewers_base','12'),10)||12;});
@@ -628,24 +667,28 @@ function App(){
     setLoading(true);setError(null);
     if(force)cacheClear();
     var today=ymd(new Date());
-    var days=[];
-    for(var di=-2;di<=3;di++)days.push(ymd(addDays(new Date(),di)));
-    var tasks=[smGet(ckUrl('livescores',token,INCLUDE_LIST_LIGHT)).catch(function(e){console.warn(e);return{data:[]};})];
-    // recent dates only (avoid ancient default fixtures page)
-    days.forEach(function(day){
-      tasks.push(smGet(ckUrl('fixtures/date/'+day,token,INCLUDE_LIST_LIGHT)).catch(function(){return{data:[]};}));
-    });
+    var past=ymd(addDays(new Date(),-7));
+    var future=ymd(addDays(new Date(),7));
+    // Cricket API: livescores + fixtures with starts_between filter (not fixtures/date)
+    var fixUrl=ckUrl('fixtures',token,INCLUDE_LIST_LIGHT)+'&filter[starts_between]='+encodeURIComponent(past+','+future);
+    var tasks=[
+      smGet(ckUrl('livescores',token,INCLUDE_LIST_LIGHT)).catch(function(e){console.warn('livescores',e);return{data:[]};}),
+      smGet(fixUrl).catch(function(e){
+        console.warn('fixtures range',e);
+        // fallback: bare fixtures (paginated recent)
+        return smGet(ckUrl('fixtures',token,INCLUDE_LIST_LIGHT)+'&sort=-starting_at').catch(function(e2){console.warn(e2);return{data:[]};});
+      })
+    ];
     Promise.all(tasks).then(function(results){
       var map={};
       results.forEach(function(r){
-        var arr=Array.isArray(r.data)?r.data:(r.data?[r.data]:[]);
+        var arr=Array.isArray(r.data)?r.data:(r.data&&!Array.isArray(r.data)?[r.data]:[]);
         arr.forEach(function(m){if(m&&m.id!=null)map[m.id]=m;});
       });
       var list=Object.keys(map).map(function(k){return map[k];});
-      // drop very old (older than 14 days) unless live
-      var cut=addDays(new Date(),-14).getTime();
+      var cut=addDays(new Date(),-21).getTime();
       list=list.filter(function(m){
-        if(statusOf(m)==='live')return true;
+        if(statusOf(m)==='live'||m.live)return true;
         var t=Date.parse(m.starting_at||'')||0;
         if(!t)return true;
         return t>=cut;
@@ -657,6 +700,8 @@ function App(){
         return String(b.starting_at||'').localeCompare(String(a.starting_at||''));
       });
       setMatches(list);
+      if(!list.length)setError(null); // empty plan is not an error
+
       if(shareId){
         var m=list.find(function(x){return String(x.id)===String(shareId);});
         if(m){setSelected(m);setTab('scorecard');loadDetail(m,token);}
@@ -668,12 +713,31 @@ function App(){
 
   useEffect(function(){if(token)loadList(false);},[token]);
   useEffect(function(){
-    if(tab!=='news')return;
     setNewsLoading(true);
-    loadNewsRss().then(function(items){setNews(items);})
-      .catch(function(){setNews([]);})
+    loadNewsRss().then(function(items){setNews(items||[]);})
+      .catch(function(e){console.warn('news',e);setNews([]);})
       .finally(function(){setNewsLoading(false);});
-  },[tab]);
+  },[]);
+  // news ticker rotation + optional TTS when News tab active
+  useEffect(function(){
+    if(tab!=='news'||!news.length)return;
+    var id=setInterval(function(){
+      setNewsIdx(function(i){
+        var n=(i+1)%news.length;
+        try{
+          if(newsTts&&news[n]&&news[n].title){
+            speakText(news[n].title+(news[n].desc?('. '+news[n].desc):''),'en');
+          }
+        }catch(e){}
+        return n;
+      });
+    },12000);
+    // speak first once
+    try{
+      if(newsTts&&news[newsIdx])speakText(news[newsIdx].title+(news[newsIdx].desc?('. '+news[newsIdx].desc):''),'en');
+    }catch(e){}
+    return function(){clearInterval(id);try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){}};
+  },[tab,news,newsTts]);
 
   function loadDetail(m,tok){
     tok=tok||token;
@@ -800,10 +864,18 @@ function App(){
               h('div',{className:'lp'},h('div',{className:'k'},'Striker'),h('div',{className:'v'},liveP.striker+(liveP.strikerStat?' '+liveP.strikerStat:''))),
               h('div',{className:'lp'},h('div',{className:'k'},'Bowler'),h('div',{className:'v'},liveP.bowler+(liveP.bowlerStat?' '+liveP.bowlerStat:'')))
             ):null
+          ):(tab==='news'&&news.length?h('div',{className:'news-ticker'},
+            (news[newsIdx]&&news[newsIdx].image)?h('img',{src:news[newsIdx].image,alt:'',onError:function(e){e.target.style.display='none';}}):h('div',{style:{width:56,height:42,borderRadius:8,background:'rgba(0,0,0,.3)',display:'flex',alignItems:'center',justifyContent:'center'}},'📰'),
+            h('div',{className:'nt-text'},
+              h('div',{className:'nt-scroll',key:newsIdx},
+                h('div',{className:'nt-title'},news[newsIdx]&&news[newsIdx].title),
+                h('div',{className:'nt-desc'},news[newsIdx]&&(news[newsIdx].desc||news[newsIdx].source||''))
+              )
+            )
           ):h('div',{className:'match-header'},
             h('div',{className:'title'},'Cricket Live'),
             h('div',{className:'sub'},token?'Pick a match below':'Add token in ⚙ Settings')
-          )
+          ))
         )
       )
     ),
@@ -927,12 +999,18 @@ function App(){
             h('button',{className:'btn',onClick:function(){
               setNewsLoading(true);
               loadNewsRss().then(function(items){setNews(items);}).finally(function(){setNewsLoading(false);});
-            }},newsLoading?'Loading…':'Refresh news')
+            }},newsLoading?'Loading…':'Refresh news'),
+            h('button',{className:'btn'+(newsTts?' primary':''),onClick:function(){
+              var v=!newsTts;setNewsTts(v);lsSet('news_tts',v?'1':'0');
+              if(!v){try{window.speechSynthesis.cancel();}catch(e){}}
+            }},newsTts?'TTS On':'TTS Off')
           ),
           newsLoading&&!news.length?h('div',{className:'empty'},h('span',{className:'spinner'}),' Loading headlines…'):null,
           !newsLoading&&!news.length?h('div',{className:'empty'},'Could not load news. Deploy functions/api/news.js then Refresh.'):null,
           news.map(function(n,i){
-            return h('a',{key:i,className:'news-item',href:n.link||'#',target:'_blank',rel:'noopener noreferrer'},
+            return h('div',{key:i,className:'news-item',style:{cursor:'pointer'},onClick:function(){
+              if(n.link)setInapp({url:n.link,title:n.title||'News'});
+            }},
               n.image?h('img',{className:'news-thumb',src:n.image,alt:'',loading:'lazy',onError:function(e){e.target.style.display='none';}}):h('div',{className:'news-thumb',style:{display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}},'📰'),
               h('div',{className:'news-body'},
                 h('div',{className:'nt'},n.title),
@@ -950,7 +1028,7 @@ function App(){
             return h('button',{key:f[0],className:filter===f[0]?'on':'',onClick:function(){setFilter(f[0]);}},f[1]);
           })
         ),
-        !token?h('div',{className:'empty'},'⚙ → Add Sportmonks token'):null,
+        !token?h('div',{className:'empty'},h('div',{style:{marginBottom:12}},'Add your Sportmonks API token to load live matches.'),h('button',{className:'btn primary',onClick:function(){setModalVal('');setModal('token');}},'Add token')):null,
         loading&&!matches.length?h('div',{className:'empty'},h('span',{className:'spinner'}),' Loading…'):null,
         !loading&&token&&!filtered.length?h('div',{className:'empty'},'No matches in this filter. Free plan: T20I, BBL, CSA T20.'):null,
         h('div',{className:'match-list'},
@@ -1135,6 +1213,14 @@ function App(){
       )):null
     ),
 
+    inapp?h('div',{className:'inapp'},
+      h('div',{className:'inapp-bar'},
+        h('button',{className:'btn',onClick:function(){setInapp(null);}},'← Back'),
+        h('div',{className:'title'},inapp.title||'Article'),
+        h('button',{className:'btn',onClick:function(){try{window.open(inapp.url,'_blank');}catch(e){}}},'↗')
+      ),
+      h('iframe',{src:inapp.url,title:inapp.title||'News',sandbox:'allow-scripts allow-same-origin allow-popups allow-forms'})
+    ):null,
     h('div',{className:'footer'},'MyCricStats · Sportmonks Cricket')
   );
 }
