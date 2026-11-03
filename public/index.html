@@ -25,7 +25,29 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px 4px;min-height:40px}
 .bar .icon-btn{width:36px;height:36px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.35);color:#fff;font-size:15px;cursor:pointer;font-family:inherit}
 .brand-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:900;color:#fff;letter-spacing:.06em}
-.brand-chip img{width:24px;height:24px;border-radius:50%}
+.brand-chip img{width:24px;height:24px;border-radius:50%;animation:logoBreathe 2.8s ease-in-out infinite}
+@keyframes logoBreathe{0%,100%{transform:scale(1);filter:drop-shadow(0 0 0 rgba(255,255,255,0))}50%{transform:scale(1.12);filter:drop-shadow(0 0 8px rgba(255,255,255,.55))}}
+.bounce-ball{position:fixed;left:50%;bottom:18%;z-index:9001;width:48px;height:48px;margin-left:-24px;pointer-events:none;opacity:0}
+.bounce-ball.show{opacity:1}
+.bounce-ball img,.bounce-ball .ball-emoji{width:48px;height:48px;display:block;border-radius:50%}
+.bounce-ball .run-stamp{position:absolute;left:50%;top:-8px;transform:translateX(-50%);font-weight:900;font-size:16px;color:#fff;text-shadow:0 2px 8px #000}
+.bounce-ball.r1{animation:ballBounce1 1.1s ease-out forwards}
+.bounce-ball.r2{animation:ballBounce2 1.25s ease-out forwards}
+.bounce-ball.r3{animation:ballBounce3 1.35s ease-out forwards}
+.bounce-ball.r4{animation:ballBounce4 1.5s ease-out forwards}
+.bounce-ball.r6{animation:ballBounce6 1.7s ease-out forwards}
+@keyframes ballBounce1{0%{transform:translateY(0) scale(1);opacity:1}40%{transform:translateY(-40px) scale(1.05)}70%{transform:translateY(-10px)}100%{transform:translateY(-60px);opacity:0}}
+@keyframes ballBounce2{0%{transform:translateY(0);opacity:1}40%{transform:translateY(-70px) scale(1.08)}70%{transform:translateY(-20px)}100%{transform:translateY(-100px);opacity:0}}
+@keyframes ballBounce3{0%{transform:translateY(0);opacity:1}40%{transform:translateY(-100px) scale(1.1)}70%{transform:translateY(-30px)}100%{transform:translateY(-130px);opacity:0}}
+@keyframes ballBounce4{0%{transform:translateY(0);opacity:1}35%{transform:translateY(-130px) scale(1.12)}60%{transform:translateY(-40px)}100%{transform:translateY(-160px);opacity:0}}
+@keyframes ballBounce6{0%{transform:translateY(0);opacity:1}30%{transform:translateY(-180px) scale(1.18)}55%{transform:translateY(-50px)}100%{transform:translateY(-220px);opacity:0}}
+.news-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+.news-thumb{width:88px;height:66px;border-radius:10px;object-fit:cover;background:rgba(127,127,127,.15);flex-shrink:0}
+.news-body{min-width:0;flex:1}
+.news-body .nt{font-weight:800;font-size:13px;line-height:1.35}
+.news-body .nd{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.35}
+.news-body .nm{font-size:11px;color:var(--muted);margin-top:4px}
+
 .brand-wrap{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
 .tname img.flag{width:18px;height:12px;object-fit:cover;border-radius:2px;flex-shrink:0}
 .live-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(255,15,80,.2);border:1px solid rgba(255,15,80,.5);color:#fecdd3;font-size:11px;font-weight:900;padding:4px 10px;border-radius:999px}
@@ -466,6 +488,13 @@ function stadBeep(kind){
     else{o.frequency.value=320;g.gain.setValueAtTime(0.04,now);g.gain.exponentialRampToValueAtTime(0.001,now+0.15);o.start(now);o.stop(now+0.15);}
   }catch(e){}
 }
+function showBounce(setBounce, runs){
+  var r=Number(runs)||0;
+  if(r<=0)return;
+  var cls=r>=6?'r6':r>=4?'r4':r===3?'r3':r===2?'r2':'r1';
+  setBounce({runs:r,cls:cls,key:Date.now()});
+  setTimeout(function(){setBounce(null);},1800);
+}
 function showEventBanner(setEvBanner, kind, label){
   setEvBanner({kind:kind,label:label});
   setTimeout(function(){setEvBanner(null);},2400);
@@ -528,50 +557,11 @@ function teamFlagUrl(team){
   return 'https://flagcdn.com/w40/'+code+'.png';
 }
 function loadNewsRss(){
-  // Public RSS via rss2json-style CORS-friendly proxies
-  var feeds=[
-    {name:'ESPNcricinfo',url:'https://www.espncricinfo.com/rss/content/story/feeds/0.xml'},
-    {name:'Google Cricket',url:'https://news.google.com/rss/search?q=cricket+when:2d&hl=en-IN&gl=IN&ceid=IN:en'}
-  ];
-  var proxies=[
-    function(u){return 'https://api.allorigins.win/raw?url='+encodeURIComponent(u);},
-    function(u){return 'https://corsproxy.io/?'+encodeURIComponent(u);}
-  ];
-  function parseRss(xmlText, source){
-    var items=[];
-    try{
-      var doc=new DOMParser().parseFromString(xmlText,'text/xml');
-      var nodes=doc.querySelectorAll('item');
-      nodes.forEach(function(it){
-        var title=(it.querySelector('title')&&it.querySelector('title').textContent)||'';
-        var link=(it.querySelector('link')&&it.querySelector('link').textContent)||'';
-        var pub=(it.querySelector('pubDate')&&it.querySelector('pubDate').textContent)||'';
-        var desc=(it.querySelector('description')&&it.querySelector('description').textContent)||'';
-        // strip html from desc
-        desc=desc.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,180);
-        if(title)items.push({title:title,link:link,pub:pub,desc:desc,source:source});
-      });
-    }catch(e){}
-    return items;
-  }
-  return Promise.all(feeds.map(function(f){
-    var tries=proxies.map(function(px){
-      return fetch(px(f.url)).then(function(r){if(!r.ok)throw new Error('rss');return r.text();})
-        .then(function(t){return parseRss(t,f.name);})
-        .catch(function(){return [];});
-    });
-    return Promise.any?Promise.any(tries).catch(function(){return [];}):tries[0];
-  })).then(function(arrs){
-    var all=[];
-    arrs.forEach(function(a){all=all.concat(a);});
-    all.sort(function(a,b){return Date.parse(b.pub||0)-Date.parse(a.pub||0);});
-    // dedupe titles
-    var seen={};var out=[];
-    all.forEach(function(n){
-      var k=(n.title||'').toLowerCase().slice(0,80);
-      if(seen[k])return;seen[k]=1;out.push(n);
-    });
-    return out.slice(0,40);
+  return fetch('/api/news').then(function(r){
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(j){
+    return Array.isArray(j.data)?j.data:(Array.isArray(j)?j:[]);
   });
 }
 function App(){
@@ -615,6 +605,7 @@ function App(){
   var stadOn=_stadOn[0],setStadOn=_stadOn[1];
   var lastBallKey=useRef('');
   var _evBanner=useState(null);var evBanner=_evBanner[0],setEvBanner=_evBanner[1];
+  var _bounce=useState(null);var bounce=_bounce[0],setBounce=_bounce[1];
   var _news=useState([]);var news=_news[0],setNews=_news[1];
   var _newsLoading=useState(false);var newsLoading=_newsLoading[0],setNewsLoading=_newsLoading[1];
   var _viewCount=useState(function(){return parseInt(lsGet('mcs_viewers_base','12'),10)||12;});
@@ -911,6 +902,10 @@ function App(){
       )
     ):null,
     evBanner?h('div',{className:'ev-banner show '+evBanner.kind},evBanner.label):null,
+    bounce?h('div',{key:bounce.key,className:'bounce-ball show '+bounce.cls},
+      h('div',{className:'run-stamp'},bounce.runs===6?'SIX':bounce.runs===4?'FOUR':('+'+bounce.runs)),
+      h('div',{className:'ball-emoji',style:{fontSize:40,textAlign:'center',lineHeight:'48px'}},'🏏')
+    ):null,
     toast?h('div',{className:'toast'},toast):null,
 
     h('div',{className:'tabs'},
@@ -935,13 +930,15 @@ function App(){
             }},newsLoading?'Loading…':'Refresh news')
           ),
           newsLoading&&!news.length?h('div',{className:'empty'},h('span',{className:'spinner'}),' Loading headlines…'):null,
-          !newsLoading&&!news.length?h('div',{className:'empty'},'Could not load news (network/CORS). Try Refresh.'):null,
+          !newsLoading&&!news.length?h('div',{className:'empty'},'Could not load news. Deploy functions/api/news.js then Refresh.'):null,
           news.map(function(n,i){
-            return h('a',{key:i,href:n.link||'#',target:'_blank',rel:'noopener noreferrer',
-              style:{display:'block',padding:'12px 0',borderBottom:'1px solid var(--line)',textDecoration:'none',color:'inherit'}},
-              h('div',{style:{fontWeight:800,fontSize:14,lineHeight:1.35}},n.title),
-              n.desc?h('div',{className:'muted',style:{marginTop:4,fontSize:12}},n.desc):null,
-              h('div',{className:'muted',style:{marginTop:4,fontSize:11}},(n.source||'')+(n.pub?' · '+fmtWhen(n.pub):''))
+            return h('a',{key:i,className:'news-item',href:n.link||'#',target:'_blank',rel:'noopener noreferrer'},
+              n.image?h('img',{className:'news-thumb',src:n.image,alt:'',loading:'lazy',onError:function(e){e.target.style.display='none';}}):h('div',{className:'news-thumb',style:{display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}},'📰'),
+              h('div',{className:'news-body'},
+                h('div',{className:'nt'},n.title),
+                n.desc?h('div',{className:'nd'},n.desc):null,
+                h('div',{className:'nm'},(n.source||'')+(n.pub?' · '+fmtWhen(n.pub):''))
+              )
             );
           })
         )
@@ -1033,10 +1030,10 @@ function App(){
                   var runs=ballRuns(top), isW=ballIsWicket(top);
                   if(stadOn){if(isW)stadBeep('wicket');else if(runs===6)stadBeep('six');else if(runs===4)stadBeep('four');else if(runs>0)stadBeep('run');}
                   if(isW)showEventBanner(setEvBanner,'wicket','WICKET');
-                  else if(runs===6)showEventBanner(setEvBanner,'six','SIX!');
-                  else if(runs===4)showEventBanner(setEvBanner,'four','FOUR!');
+                  else if(runs===6){showEventBanner(setEvBanner,'six','SIX!');showBounce(setBounce,6);}
+                  else if(runs===4){showEventBanner(setEvBanner,'four','FOUR!');showBounce(setBounce,4);}
                   else if(ballIsExtra(top))showEventBanner(setEvBanner,'extra','EXTRA');
-                  else if(runs>0)showEventBanner(setEvBanner,'runs',runs+' RUN'+(runs>1?'S':''));
+                  else if(runs>0){showEventBanner(setEvBanner,'runs',runs+' RUN'+(runs>1?'S':''));showBounce(setBounce,runs);}
                   try{if(isW)triggerAd('wicket');else if(runs===6)triggerAd('six');else if(runs===4)triggerAd('four');
                     if(ov.legal>=6)triggerAd('end_over');
                   }catch(e){}
