@@ -1,6 +1,8 @@
-# MyCricStats v4 — deploy package
+# MyCricStats
 
-## Repo layout (do not flatten)
+Live cricket scores (Sportmonks) — Cloudflare **Pages** only.
+
+## Folder layout (keep this structure)
 
 ```
 MyCricStats/
@@ -8,48 +10,40 @@ MyCricStats/
     index.html
     manifest.webmanifest
     sw.js
-    icons/icon-192.png
-    icons/icon-512.png
-    icons/apple-touch-icon.png
+    icons/
+      icon-192.png
+      icon-512.png
+      apple-touch-icon.png
   functions/
     api/
-      proxy.js          ← Pages only (/api/proxy)
-  worker.js             ← FULL worker for workers.dev (NOT placeholder)
+      proxy.js
   README.md
 ```
 
-## Recommended: Cloudflare Pages (auto from GitHub)
+## Deploy on Cloudflare Pages
 
-1. Delete or ignore the old Worker URL if it stays broken.
+1. Push this repo to GitHub.
 2. Cloudflare → Workers & Pages → Create → **Pages** → Connect Git → this repo.
 3. Build settings:
    - Framework preset: **None**
-   - Build command: *(leave empty)*
+   - Build command: *(empty)*
    - **Build output directory: `public`**
 4. Save and Deploy.
-5. Open the **`*.pages.dev`** URL Cloudflare gives you (not workers.dev).
-6. Test:
-   `https://YOUR-PROJECT.pages.dev/api/proxy?sport=cricket&path=livescores&api_token=YOUR_TOKEN`
-   - 404 = output directory wrong or functions folder missing
-   - 401 / JSON = OK
+5. Open **https://YOUR-PROJECT.pages.dev** (not workers.dev).
 
-## Optional: workers.dev (manual)
+### Test API proxy
 
-Only if you must keep `mycricstats.being-innovator.workers.dev`:
+```
+https://YOUR-PROJECT.pages.dev/api/proxy?sport=cricket&path=livescores&api_token=YOUR_TOKEN
+```
 
-1. Open Worker **mycricstats** → Edit code.
-2. Delete all code → paste **entire** `worker.js` from this repo.
-3. Confirm the file does **not** contain `PLACEHOLDER`.
-4. Deploy.
-5. Clear phone site data / reinstall PWA.
-
-Pushing to GitHub alone does **not** update a Worker unless Git integration is enabled and you deploy from it.
+Expect JSON or 401 — not 404.
 
 ## App setup
 
-1. Open site → Settings → paste Sportmonks token → Save.
-2. Football / Cricket tabs load via `/api/proxy`.
+1. Open site → ⚙ → paste Sportmonks token → Save.
+2. Free plan leagues only: T20I, BBL, CSA T20 (as per Sportmonks).
 
-## Free plan note
+## Do not use Workers for this project
 
-Sportmonks free plan only includes selected leagues. Empty match list can mean no live games on your plan.
+Use **Pages** only so GitHub pushes update the live site and `/api/proxy` works.
