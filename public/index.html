@@ -285,15 +285,34 @@ function ballOverIndex(b, idxFallback){
   var p=parseBallNotation(b);
   return p.over;
 }
+function ballDedupeKey(b){
+  if(!b)return'';
+  if(b.id!=null)return 'id:'+b.id;
+  var p=parseBallNotation(b);
+  var r=ballRuns(b);
+  var w=ballIsWicket(b)?1:0;
+  var bats=playerName(b.batsman)||'';
+  var bowl=playerName(b.bowler)||'';
+  var nm=(b.score&&b.score.name)||'';
+  return [p.over,p.ballInOver,r,w,bats,bowl,nm].join('|');
+}
 function normalizeBalls(raw){
   var arr=(raw||[]).slice();
-  arr.sort(function(a,b){
-    var ao=ballOverIndex(a),bo=ballOverIndex(b);
-    if(ao!=null&&bo!=null&&ao!==bo)return ao-bo;
-    var ab=Number(a.ball)||a.id||0, bb=Number(b.ball)||b.id||0;
-    return ab-bb;
+  var seen={};
+  var out=[];
+  arr.forEach(function(b){
+    var k=ballDedupeKey(b);
+    if(seen[k])return;
+    seen[k]=1;
+    out.push(b);
   });
-  return arr;
+  out.sort(function(a,b){
+    var pa=parseBallNotation(a),pb=parseBallNotation(b);
+    if(pa.over!=null&&pb.over!=null&&pa.over!==pb.over)return pa.over-pb.over;
+    if(pa.ballInOver!=null&&pb.ballInOver!=null&&pa.ballInOver!==pb.ballInOver)return pa.ballInOver-pb.ballInOver;
+    return String(a.ball||'').localeCompare(String(b.ball||''),undefined,{numeric:true});
+  });
+  return out;
 }
 function groupIntoOvers(balls){
   var list=normalizeBalls(balls);
@@ -309,7 +328,7 @@ function groupIntoOvers(balls){
     if(!map[on]){map[on]={overNo:on,balls:[],runs:0,wickets:0,legal:0};order.push(on);}
     var o=map[on];
     // avoid duplicate same ball id
-    if(o.balls.some(function(x){return (x.id&&b.id&&x.id===b.id)||(String(x.ball)===String(b.ball)&&ballRuns(x)===ballRuns(b));}))return;
+    if(o.balls.some(function(x){return ballDedupeKey(x)===ballDedupeKey(b);}))return;
     o.balls.push(b);
     o.runs+=ballRuns(b);
     if(ballIsWicket(b))o.wickets++;
@@ -508,7 +527,55 @@ function teamFlagUrl(team){
   if(!code)return'';
   return 'https://flagcdn.com/w40/'+code+'.png';
 }
+function loadNewsRss(){
+  // Public RSS via rss2json-style CORS-friendly proxies
+  var feeds=[
+    {name:'ESPNcricinfo',url:'https://www.espncricinfo.com/rss/content/story/feeds/0.xml'},
+    {name:'Google Cricket',url:'https://news.google.com/rss/search?q=cricket+when:2d&hl=en-IN&gl=IN&ceid=IN:en'}
+  ];
+  var proxies=[
+    function(u){return 'https://api.allorigins.win/raw?url='+encodeURIComponent(u);},
+    function(u){return 'https://corsproxy.io/?'+encodeURIComponent(u);}
+  ];
+  function parseRss(xmlText, source){
+    var items=[];
+    try{
+      var doc=new DOMParser().parseFromString(xmlText,'text/xml');
+      var nodes=doc.querySelectorAll('item');
+      nodes.forEach(function(it){
+        var title=(it.querySelector('title')&&it.querySelector('title').textContent)||'';
+        var link=(it.querySelector('link')&&it.querySelector('link').textContent)||'';
+        var pub=(it.querySelector('pubDate')&&it.querySelector('pubDate').textContent)||'';
+        var desc=(it.querySelector('description')&&it.querySelector('description').textContent)||'';
+        // strip html from desc
+        desc=desc.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,180);
+        if(title)items.push({title:title,link:link,pub:pub,desc:desc,source:source});
+      });
+    }catch(e){}
+    return items;
+  }
+  return Promise.all(feeds.map(function(f){
+    var tries=proxies.map(function(px){
+      return fetch(px(f.url)).then(function(r){if(!r.ok)throw new Error('rss');return r.text();})
+        .then(function(t){return parseRss(t,f.name);})
+        .catch(function(){return [];});
+    });
+    return Promise.any?Promise.any(tries).catch(function(){return [];}):tries[0];
+  })).then(function(arrs){
+    var all=[];
+    arrs.forEach(function(a){all=all.concat(a);});
+    all.sort(function(a,b){return Date.parse(b.pub||0)-Date.parse(a.pub||0);});
+    // dedupe titles
+    var seen={};var out=[];
+    all.forEach(function(n){
+      var k=(n.title||'').toLowerCase().slice(0,80);
+      if(seen[k])return;seen[k]=1;out.push(n);
+    });
+    return out.slice(0,40);
+  });
+}
 function App(){
+
   var viewOnly=isViewMode();
   var shareId=qs().get('match')||'';
   var _token=useState(function(){return lsGet('sportmonks_token','');});
@@ -516,7 +583,7 @@ function App(){
   var _matches=useState([]);var matches=_matches[0],setMatches=_matches[1];
   var _selected=useState(null);var selected=_selected[0],setSelected=_selected[1];
   var _detail=useState(null);var detail=_detail[0],setDetail=_detail[1];
-  var _tab=useState(function(){return lsGet('mcs_tab','matches');});var tab=_tab[0],setTab=_tab[1];
+  var _tab=useState(function(){return lsGet('mcs_tab','news');});var tab=_tab[0],setTab=_tab[1];
   var _filter=useState('all');var filter=_filter[0],setFilter=_filter[1];
   var _loading=useState(false);var loading=_loading[0],setLoading=_loading[1];
   var _error=useState(null);var error=_error[0],setError=_error[1];
@@ -548,6 +615,8 @@ function App(){
   var stadOn=_stadOn[0],setStadOn=_stadOn[1];
   var lastBallKey=useRef('');
   var _evBanner=useState(null);var evBanner=_evBanner[0],setEvBanner=_evBanner[1];
+  var _news=useState([]);var news=_news[0],setNews=_news[1];
+  var _newsLoading=useState(false);var newsLoading=_newsLoading[0],setNewsLoading=_newsLoading[1];
   var _viewCount=useState(function(){return parseInt(lsGet('mcs_viewers_base','12'),10)||12;});
   var viewCount=_viewCount[0],setViewCount=_viewCount[1];
   useEffect(function(){
@@ -568,19 +637,28 @@ function App(){
     setLoading(true);setError(null);
     if(force)cacheClear();
     var today=ymd(new Date());
-    var past=ymd(addDays(new Date(),-5));
-    var future=ymd(addDays(new Date(),7));
-    Promise.all([
-      smGet(ckUrl('livescores',token,INCLUDE_LIST_LIGHT)).catch(function(e){console.warn(e);return{data:[]};}),
-      smGet(ckUrl('fixtures/date/'+today,token,INCLUDE_LIST_LIGHT)).catch(function(){
-        return smGet(ckUrl('fixtures',token,INCLUDE_LIST_LIGHT)).catch(function(e){console.warn(e);return{data:[]};});
-      })
-    ]).then(function(results){
-      var live=Array.isArray(results[0].data)?results[0].data:[];
-      var fix=Array.isArray(results[1].data)?results[1].data:[];
+    var days=[];
+    for(var di=-2;di<=3;di++)days.push(ymd(addDays(new Date(),di)));
+    var tasks=[smGet(ckUrl('livescores',token,INCLUDE_LIST_LIGHT)).catch(function(e){console.warn(e);return{data:[]};})];
+    // recent dates only (avoid ancient default fixtures page)
+    days.forEach(function(day){
+      tasks.push(smGet(ckUrl('fixtures/date/'+day,token,INCLUDE_LIST_LIGHT)).catch(function(){return{data:[]};}));
+    });
+    Promise.all(tasks).then(function(results){
       var map={};
-      live.concat(fix).forEach(function(m){if(m&&m.id!=null)map[m.id]=m;});
+      results.forEach(function(r){
+        var arr=Array.isArray(r.data)?r.data:(r.data?[r.data]:[]);
+        arr.forEach(function(m){if(m&&m.id!=null)map[m.id]=m;});
+      });
       var list=Object.keys(map).map(function(k){return map[k];});
+      // drop very old (older than 14 days) unless live
+      var cut=addDays(new Date(),-14).getTime();
+      list=list.filter(function(m){
+        if(statusOf(m)==='live')return true;
+        var t=Date.parse(m.starting_at||'')||0;
+        if(!t)return true;
+        return t>=cut;
+      });
       list.sort(function(a,b){
         var sa=statusOf(a),sb=statusOf(b);
         var rank={live:0,upcoming:1,finished:2};
@@ -598,6 +676,13 @@ function App(){
   },[token,shareId]);
 
   useEffect(function(){if(token)loadList(false);},[token]);
+  useEffect(function(){
+    if(tab!=='news')return;
+    setNewsLoading(true);
+    loadNewsRss().then(function(items){setNews(items);})
+      .catch(function(){setNews([]);})
+      .finally(function(){setNewsLoading(false);});
+  },[tab]);
 
   function loadDetail(m,tok){
     tok=tok||token;
@@ -667,7 +752,7 @@ function App(){
     return statusOf(m)===filter;
   });
 
-  var tabs=[['matches','Matches'],['schedule','Schedule'],['scorecard','Scorecard'],['commentary','Commentary'],['batting','Batting'],['bowling','Bowling'],['squad','Squad'],['info','Info']];
+  var tabs=[['news','News'],['matches','Matches'],['schedule','Schedule'],['commentary','Commentary'],['scorecard','Scorecard'],['batting','Batting'],['bowling','Bowling'],['squad','Squad'],['info','Info']];
 
   return h('div',{className:'app'},
     error?h('div',{className:'error-bar'},error):null,
@@ -838,6 +923,30 @@ function App(){
     ),
 
     h('div',{className:'panel'},
+      
+      tab==='news'?h(React.Fragment,null,
+        h('div',{className:'card'},
+          h('h3',null,'Latest cricket news'),
+          h('div',{className:'muted',style:{marginBottom:8}},'Headlines via ESPNcricinfo & Google News RSS (public feeds).'),
+          h('div',{className:'btn-row'},
+            h('button',{className:'btn',onClick:function(){
+              setNewsLoading(true);
+              loadNewsRss().then(function(items){setNews(items);}).finally(function(){setNewsLoading(false);});
+            }},newsLoading?'Loading…':'Refresh news')
+          ),
+          newsLoading&&!news.length?h('div',{className:'empty'},h('span',{className:'spinner'}),' Loading headlines…'):null,
+          !newsLoading&&!news.length?h('div',{className:'empty'},'Could not load news (network/CORS). Try Refresh.'):null,
+          news.map(function(n,i){
+            return h('a',{key:i,href:n.link||'#',target:'_blank',rel:'noopener noreferrer',
+              style:{display:'block',padding:'12px 0',borderBottom:'1px solid var(--line)',textDecoration:'none',color:'inherit'}},
+              h('div',{style:{fontWeight:800,fontSize:14,lineHeight:1.35}},n.title),
+              n.desc?h('div',{className:'muted',style:{marginTop:4,fontSize:12}},n.desc):null,
+              h('div',{className:'muted',style:{marginTop:4,fontSize:11}},(n.source||'')+(n.pub?' · '+fmtWhen(n.pub):''))
+            );
+          })
+        )
+      ):null,
+
       tab==='matches'?h(React.Fragment,null,
         h('div',{className:'filter-row'},
           [['all','All'],['live','Live'],['upcoming','Upcoming'],['finished','Finished']].map(function(f){
