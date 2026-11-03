@@ -38,14 +38,13 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .match-header .title{font-size:13px;font-weight:900;color:var(--gold);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .match-header .sub{font-size:11px;font-weight:700;color:#cbd5e1;margin-top:2px}
 .match-header .status-line{font-size:12px;font-weight:700;color:#e2e8f0;margin-top:4px}
-.score-grid{display:grid;grid-template-columns:1fr 40px 1fr;gap:4px;align-items:center;margin-top:8px}
-.side{text-align:center;min-width:0;padding:0 2px}
-.tname{font-size:12px;font-weight:800;text-transform:uppercase;color:#f8fafc;display:flex;align-items:center;justify-content:center;gap:4px}
-.tname span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.side-left .tname{justify-content:flex-start}
-.side-right .tname{justify-content:flex-end}
-.score-num{font-size:26px;font-weight:900;line-height:1.1;margin:4px 0 0;color:#fff;font-variant-numeric:tabular-nums}
-.overs{font-size:13px;color:#cbd5e1;font-weight:700;margin-top:2px}
+.score-grid{display:grid;grid-template-columns:1fr 40px 1fr;gap:4px;align-items:start;margin-top:8px}
+.side{text-align:center;min-width:0;padding:0 6px;display:flex;flex-direction:column;align-items:center}
+.tname{font-size:12px;font-weight:800;text-transform:uppercase;color:#f8fafc;display:flex;align-items:center;justify-content:center;gap:5px;width:100%;max-width:100%;margin-bottom:2px}
+.tname span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.side-left .tname,.side-right .tname{justify-content:center}
+.score-num{font-size:26px;font-weight:900;line-height:1.1;margin:2px 0 0;color:#fff;font-variant-numeric:tabular-nums;text-align:center;width:100%}
+.overs{font-size:13px;color:#cbd5e1;font-weight:700;margin-top:2px;text-align:center;width:100%}
 .match-center .vs-label{font-size:11px;font-weight:900;letter-spacing:.12em;color:#94a3b8;text-align:center}
 .meta-row{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:11px;color:#cbd5e1;font-weight:600}
 .live-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
@@ -158,8 +157,8 @@ var THEMES=['dark','light','pitch','night'];
 var CACHE_MS=40000;
 var memCache={};
 var DEFAULT_BG='https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=1200&q=60';
-var INCLUDE_LIST='localteam,visitorteam,runs,league,venue,scoreboards,batting,batting.batsman,bowling,bowling.bowler,balls,balls.batsman,balls.bowler,balls.team,lineup,lineup.player,tosswon,manofmatch,firstumpire,secondumpire';
-var INCLUDE_LIST_LIGHT='localteam,visitorteam,runs,league,venue,scoreboards';
+var INCLUDE_LIST='localteam,visitorteam,runs,league,venue,scoreboards,batting,batting.batsman,bowling,bowling.bowler,balls,balls.batsman,balls.bowler,lineup,tosswon,manofmatch';
+var INCLUDE_LIST_LIGHT='localteam,visitorteam,runs,league,venue';
 
 function qs(){try{return new URLSearchParams(location.search);}catch(e){return new URLSearchParams();}}
 function isViewMode(){return qs().get('view')==='1';}
@@ -181,8 +180,19 @@ async function fetchJson(url){
   if(!res.ok){
     var t='';try{t=await res.text();}catch(e){}
     var msg='HTTP '+res.status;
-    try{var j=JSON.parse(t);if(j.message)msg+=' — '+j.message;else if(t)msg+=': '+t.slice(0,120);}catch(e){if(t)msg+=': '+t.slice(0,120);}
+    try{
+      var j=JSON.parse(t);
+      var detail='';
+      if(typeof j.message==='string')detail=j.message;
+      else if(j.message&&typeof j.message==='object')detail=JSON.stringify(j.message);
+      else if(typeof j.error==='string')detail=j.error;
+      else if(j.error&&typeof j.error==='object')detail=j.error.message||JSON.stringify(j.error);
+      else if(Array.isArray(j.errors))detail=j.errors.map(function(e){return typeof e==='string'?e:(e.message||JSON.stringify(e));}).join('; ');
+      else if(t)detail=t.slice(0,160);
+      if(detail)msg+=' — '+detail;
+    }catch(e){if(t)msg+=': '+String(t).slice(0,160);}
     if(res.status===404)msg='HTTP 404 — API proxy missing. Pages output dir must be public + functions/api/proxy.js';
+    if(res.status===400)msg+=' (bad request — check includes/filters)';
     throw new Error(msg);
   }
   return res.json();
@@ -192,8 +202,14 @@ async function smGet(url){
   var cached=cacheGet(cacheKey);
   if(cached)return{data:cached,fromCache:true};
   var json=await fetchJson(url);
-  if(json.message&&json.data==null&&!Array.isArray(json.data))throw new Error(json.message);
-  if(json.error)throw new Error(typeof json.error==='string'?json.error:(json.error.message||JSON.stringify(json.error)));
+  if(json.message&&json.data==null&&!Array.isArray(json.data)){
+    var m=json.message;
+    throw new Error(typeof m==='string'?m:JSON.stringify(m));
+  }
+  if(json.error){
+    var er=json.error;
+    throw new Error(typeof er==='string'?er:(er.message||JSON.stringify(er)));
+  }
   var data=json.data!=null?json.data:json;
   cacheSet(cacheKey,data,CACHE_MS);
   return{data:data,fromCache:false};
@@ -555,9 +571,9 @@ function App(){
     var past=ymd(addDays(new Date(),-5));
     var future=ymd(addDays(new Date(),7));
     Promise.all([
-      smGet(ckUrl('livescores',token,INCLUDE_LIST_LIGHT)).catch(function(){return{data:[]};}),
-      smGet(ckUrl('fixtures',token,INCLUDE_LIST_LIGHT)+'&filter[starts_between]='+past+','+future).catch(function(){
-        return smGet(ckUrl('fixtures/'+today,token,INCLUDE_LIST_LIGHT)).catch(function(){return{data:[]};});
+      smGet(ckUrl('livescores',token,INCLUDE_LIST_LIGHT)).catch(function(e){console.warn(e);return{data:[]};}),
+      smGet(ckUrl('fixtures/date/'+today,token,INCLUDE_LIST_LIGHT)).catch(function(){
+        return smGet(ckUrl('fixtures',token,INCLUDE_LIST_LIGHT)).catch(function(e){console.warn(e);return{data:[]};});
       })
     ]).then(function(results){
       var live=Array.isArray(results[0].data)?results[0].data:[];
@@ -577,7 +593,7 @@ function App(){
         if(m){setSelected(m);setTab('scorecard');loadDetail(m,token);}
         else loadDetail({id:shareId},token);
       }
-    }).catch(function(e){setError(e.message||'Load failed');})
+    }).catch(function(e){setError(String((e&&e.message)||e||'Load failed'));})
      .finally(function(){setLoading(false);});
   },[token,shareId]);
 
@@ -587,9 +603,21 @@ function App(){
     tok=tok||token;
     if(!tok||!m||!m.id)return;
     setLoading(true);
-    smGet(ckUrl('fixtures/'+m.id,tok,INCLUDE_LIST))
+    setError(null);
+    var full=ckUrl('fixtures/'+m.id,tok,INCLUDE_LIST);
+    var light=ckUrl('fixtures/'+m.id,tok,'localteam,visitorteam,runs,league,venue,scoreboards,batting,bowling,balls,lineup');
+    smGet(full)
       .then(function(r){setDetail(r.data||m);setSelected(r.data||m);})
-      .catch(function(e){setError(e.message);setDetail(m);})
+      .catch(function(e1){
+        // retry lighter includes on 400
+        return smGet(light).then(function(r){setDetail(r.data||m);setSelected(r.data||m);})
+          .catch(function(e2){
+            var msg=(e2&&e2.message)||(e1&&e1.message)||'Load failed';
+            if(msg.indexOf('[object Object]')>=0)msg='HTTP error — try Refresh or simpler plan includes';
+            setError(String(msg));
+            setDetail(m);
+          });
+      })
       .finally(function(){setLoading(false);});
   }
 
