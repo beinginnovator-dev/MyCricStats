@@ -582,16 +582,14 @@ function ballStampPhrase(b, lang){
   return ordSuffix(over)+' over '+ordSuffix(ball)+' ball';
 }
 function colorEvents(text){
-  if(!text)return text;
-  var rules=[
-    [/WICKET!?|Wicket|caught|bowled|LBW|run out|stumped/gi,'<b class="ev-w">$&</b>'],
-    [/SIX!?|Six/gi,'<b class="ev-6">$&</b>'],
-    [/FOUR!?|Four/gi,'<b class="ev-4">$&</b>'],
-    [/Wide|No-ball|No ball|Leg bye|Bye/gi,'<b class="ev-x">$&</b>'],
-    [/\b(\d+)\s*run[s]?/gi,'<b class="ev-run">$&</b>']
-  ];
+  if(!text)return '';
   var out=String(text);
-  rules.forEach(function(r){out=out.replace(r[0],r[1]);});
+  out=out.replace(/WICKET!?/gi,'<b class="ev-w">$&</b>');
+  out=out.replace(/\b(caught|bowled|LBW|run out|stumped)\b/gi,'<b class="ev-w">$&</b>');
+  out=out.replace(/\bSIX!?\b/gi,'<b class="ev-6">$&</b>');
+  out=out.replace(/\bFOUR!?\b/gi,'<b class="ev-4">$&</b>');
+  out=out.replace(/\b(Wide|No-ball|No ball|Leg bye|Bye)\b/gi,'<b class="ev-x">$&</b>');
+  out=out.replace(/\b(\d+)\s*run[s]?\b/gi,'<b class="ev-run">$&</b>');
   return out;
 }
 function descriptiveLine(b, lang){
@@ -1286,9 +1284,9 @@ function App(){
               d.starting_at?h('span',null,fmtWhen(d.starting_at)):null,
               d.type?h('span',null,d.type):null
             ),
-            st==='live'||(d&&d.balls&&d.balls.length)?h('div',{className:'live-pair'},
+            st==='live'||(d&&d.balls&&d.balls.length)?h('div',{className:'players-bar'},h('div',{className:'live-pair'},
               h('div',{className:'lp',onClick:function(){setStatsOpen(!statsOpen);}},
-                h('div',{className:'k'},'Striker'),h('div',{className:'v'},'🏏 * '+liveP.striker),
+                h('div',{className:'k'},'🏏 Striker'),h('div',{className:'v'},'* '+liveP.striker),
                 statsOpen?h(React.Fragment,null,
                   h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line1)||''),
                   h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line2)||''),
@@ -1296,7 +1294,7 @@ function App(){
                 ):h('div',{className:'lp-sub'},'Tap for stats')
               ),
               h('div',{className:'lp',onClick:function(){setStatsOpen(!statsOpen);}},
-                h('div',{className:'k'},'Non-striker'),h('div',{className:'v'},liveP.nonstriker),
+                h('div',{className:'k'},'🏏 Non-striker'),h('div',{className:'v'},liveP.nonstriker),
                 statsOpen?h(React.Fragment,null,
                   h('div',{className:'lp-sub'},(liveP.nonstrikerS&&liveP.nonstrikerS.line1)||''),
                   h('div',{className:'lp-sub'},(liveP.nonstrikerS&&liveP.nonstrikerS.line2)||''),
@@ -1304,13 +1302,13 @@ function App(){
                 ):h('div',{className:'lp-sub'},'Tap for stats')
               ),
               h('div',{className:'lp',onClick:function(){setStatsOpen(!statsOpen);}},
-                h('div',{className:'k'},'Bowler'),h('div',{className:'v'},'⚾ '+liveP.bowler),
+                h('div',{className:'k'},'⚾ Bowler'),h('div',{className:'v'},liveP.bowler),
                 statsOpen?h(React.Fragment,null,
                   h('div',{className:'lp-sub'},(liveP.bowlerS&&liveP.bowlerS.line1)||''),
                   h('div',{className:'lp-sub'},(liveP.bowlerS&&liveP.bowlerS.line2)||'')
                 ):h('div',{className:'lp-sub'},'Tap for stats')
               )
-            ):null
+            )):null
           ):(tab==='news'&&news.length?(function(){
             var n=news[newsIdx]||news[0]||{};
             return h('div',{className:'news-player'},
