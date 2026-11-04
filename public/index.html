@@ -22,7 +22,7 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .broadcast{position:relative!important;top:auto!important;max-height:36vh}
 .tabs{position:relative!important;top:auto!important;z-index:1}
 .panel{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0}
-.broadcast{position:sticky;top:0;z-index:30;background:#01002C;border-bottom:1px solid var(--line);padding:0 0 10px;overflow:hidden;min-height:auto;max-height:38vh;display:flex;flex-direction:column}
+.broadcast{position:sticky;top:0;z-index:30;background:#01002C;border-bottom:1px solid var(--line);padding:0 0 6px;overflow:visible;min-height:auto;max-height:none;display:flex;flex-direction:column}
 .broadcast .bg-layer{position:absolute;inset:0;background-size:cover;background-position:center;z-index:0}
 .broadcast .bg-overlay{position:absolute;inset:0;background:#01002C;z-index:1}
 .broadcast .bc-content{position:relative;z-index:2;display:flex;flex-direction:column;flex:1}
@@ -155,7 +155,7 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 .done-pill{font-size:10px;font-weight:800;color:#94a3b8;background:rgba(148,163,184,.15);padding:4px 10px;border-radius:999px}
 .view-badge{font-size:10px;font-weight:800;background:rgba(255,15,80,.2);color:#F78DA7;padding:3px 8px;border-radius:999px}
-.scoreboard-body{padding:0 14px 2px;flex:1;display:flex;flex-direction:column;justify-content:flex-start}
+.scoreboard-body{padding:0 14px 4px;display:flex;flex-direction:column;justify-content:flex-start}
 .sponsor-slot{display:flex;align-items:center;justify-content:center;gap:6px;min-height:28px;margin-bottom:4px;font-size:11px;font-weight:700;color:#fde68a}
 .match-header{text-align:center;padding:2px 4px}
 .match-header .title{font-size:13px;font-weight:900;color:var(--gold);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -499,7 +499,11 @@ function groupIntoOvers(balls){
   });
   if(order.length){
     order.sort(function(a,b){return a-b;});
+    var minO=order[0];
+    var offset=(minO===0)?1:0; // 0-based API → 1-based display
     return order.map(function(k){
+      var o=map[k];
+      o.displayOver=k+offset;
       var o=map[k];
       o.balls.sort(function(a,b){
         var pa=parseBallNotation(a),pb=parseBallNotation(b);
@@ -564,6 +568,7 @@ function ordSuffix(n){
 function ballStampPhrase(b, lang){
   var bn=parseBallNotation(b);
   var over=bn.over, ball=bn.ballInOver;
+  if(over!=null&&over===0)over=1; // avoid 0th over
   if(over==null||ball==null){
     if(b.ball!=null){
       var s=String(b.ball);
@@ -877,7 +882,7 @@ function App(){
   var _matches=useState([]);var matches=_matches[0],setMatches=_matches[1];
   var _selected=useState(null);var selected=_selected[0],setSelected=_selected[1];
   var _detail=useState(null);var detail=_detail[0],setDetail=_detail[1];
-  var _tab=useState(function(){return lsGet('mcs_tab','news');});var tab=_tab[0],setTab=_tab[1];
+  var _tab=useState(function(){return lsGet('mcs_tab','matches');});var tab=_tab[0],setTab=_tab[1];
   var _filter=useState('all');var filter=_filter[0],setFilter=_filter[1];
   var _loading=useState(false);var loading=_loading[0],setLoading=_loading[1];
   var _error=useState(null);var error=_error[0],setError=_error[1];
@@ -1204,7 +1209,9 @@ function App(){
         ),
         bounce?h('div',{className:'ball-stage'},
           h('div',{key:bounce.key,className:'bounce-ball show approach'},
-            h('div',{className:'ball-core'}),
+            h('div',{className:'ball-core'},
+              h('div',{className:'run-stamp '+(bounce.stampCls||'')},bounce.stampText||'')
+            ),
             h('div',{className:'ball-text'},bounce.label||'')
           )
         ):null,
@@ -1536,7 +1543,7 @@ function App(){
             return h('button',{key:f[0],className:filter===f[0]?'on':'',onClick:function(){setFilter(f[0]);}},f[1]);
           })
         ),
-        !token?h('div',{className:'empty'},h('div',{style:{marginBottom:12}},'Add your Sportmonks API token to load live matches.'),h('button',{className:'btn primary',onClick:function(){setModalVal('');setModal('token');}},'Add token')):null,
+        (!token&&!matches.length&&!viewOnly)?h('div',{className:'empty'},h('div',{style:{marginBottom:12}},'Add your Sportmonks API token to load live matches.'),h('button',{className:'btn primary',onClick:function(){setModalVal('');setModal('token');}},'Add token')):null,
         loading&&!matches.length?h('div',{className:'empty'},h('span',{className:'spinner'}),' Loading…'):null,
         !loading&&token&&!filtered.length?h('div',{className:'empty'},'No matches in this filter. Free plan: T20I, BBL, CSA T20.'):null,
         h('div',{className:'match-list'},
@@ -1629,7 +1636,7 @@ tab==='schedule'?h('div',{className:'card'},
               var name=playerName(b.batsman)||b.player_name||'—';
               var r=b.score!=null?b.score:b.runs;var bl=b.ball!=null?b.ball:b.balls;
               var sr=(r!=null&&bl)?((Number(r)/Math.max(1,Number(bl)))*100).toFixed(1):'—';
-              return h('tr',{key:i},h('td',null,name),h('td',null,r!=null?r:'—'),h('td',null,bl!=null?bl:'—'),h('td',null,b.four_x!=null?b.four_x:'—'),h('td',null,b.six_x!=null?b.six_x:'—'),h('td',null,sr));
+              return h('tr',{key:i},h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:6}},(b.batsman&&b.batsman.image_path)?h('img',{src:b.batsman.image_path,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,h('span',null,name))),h('td',null,r!=null?r:'—'),h('td',null,bl!=null?bl:'—'),h('td',null,b.four_x!=null?b.four_x:'—'),h('td',null,b.six_x!=null?b.six_x:'—'),h('td',null,sr));
             }))
           );
         })(),
@@ -1649,7 +1656,7 @@ tab==='schedule'?h('div',{className:'card'},
             h('tbody',null,filtered.slice(0,12).map(function(b,i){
               var name=playerName(b.bowler)||'—';var o=b.overs,r=b.runs,w=b.wickets;
               var econ=(o&&r!=null)?(Number(r)/Math.max(0.1,Number(o))).toFixed(2):'—';
-              return h('tr',{key:i},h('td',null,name),h('td',null,o!=null?o:'—'),h('td',null,r!=null?r:'—'),h('td',null,w!=null?w:'—'),h('td',null,econ));
+              return h('tr',{key:i},h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:6}},(b.bowler&&b.bowler.image_path)?h('img',{src:b.bowler.image_path,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,h('span',null,name))),h('td',null,o!=null?o:'—'),h('td',null,r!=null?r:'—'),h('td',null,w!=null?w:'—'),h('td',null,econ));
             }))
           );
         })()
@@ -1681,7 +1688,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
                   try{unlockAudio();}catch(e){}if(stadOn){if(isW)stadBeep('wicket');else if(runs===6)stadBeep('six');else if(runs===4)stadBeep('four');else if(runs>0)stadBeep('run');else stadBeep('dot');}
                   if(isW){
                   showEventBanner(setEvBanner,'wicket','WICKET');
-                  showBounce(setBounce,{kind:'wicket',label:'Wicket',runs:0});
+                  var wLabel='Wicket';try{var sn=String((top.score&&(top.score.out||top.score.dismissal||top.score.name))||'').toLowerCase();if(/caught|catch/.test(sn))wLabel='Wicket - Caught';else if(/bowled/.test(sn))wLabel='Wicket - Bowled';else if(/lbw/.test(sn))wLabel='Wicket - LBW';else if(/run.?out/.test(sn))wLabel='Wicket - Run out';else if(/stump/.test(sn))wLabel='Wicket - Stumped';}catch(e){}showBounce(setBounce,{kind:'wicket',label:wLabel,runs:0});
                 } else if(runs===6){
                   showEventBanner(setEvBanner,'six','SIX!');showBounce(setBounce,{kind:'run',runs:6});
                 } else if(runs===4){
@@ -1705,7 +1712,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
             }
             return h('div',{key:oi,className:'over-card'},
               h('div',{className:'over-head'},
-                h('span',null,'Over '+ov.overNo),
+                h('span',null,'Over '+(ov.displayOver!=null?ov.displayOver:ov.overNo)),
                 h('span',{className:'sum'},ov.runs+' run'+(ov.runs===1?'':'s')+(ov.wickets?' · '+ov.wickets+' wkt'+(ov.wickets>1?'s':''):'')+' · '+ov.legal+'/6 balls')
               ),
               h('div',{className:'ball-row'},
@@ -1747,7 +1754,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
             h('tbody',null,filtered.slice(0,20).map(function(b,i){
               var name=playerName(b.batsman)||'—';var r=b.score!=null?b.score:b.runs;var bl=b.ball!=null?b.ball:b.balls;
               var sr=(r!=null&&bl)?((Number(r)/Math.max(1,Number(bl)))*100).toFixed(1):'—';
-              return h('tr',{key:i},h('td',null,name),h('td',null,r!=null?r:'—'),h('td',null,bl!=null?bl:'—'),h('td',null,b.four_x!=null?b.four_x:'—'),h('td',null,b.six_x!=null?b.six_x:'—'),h('td',null,sr));
+              return h('tr',{key:i},h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:6}},(b.batsman&&b.batsman.image_path)?h('img',{src:b.batsman.image_path,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,h('span',null,name))),h('td',null,r!=null?r:'—'),h('td',null,bl!=null?bl:'—'),h('td',null,b.four_x!=null?b.four_x:'—'),h('td',null,b.six_x!=null?b.six_x:'—'),h('td',null,sr));
             }))
           );
         })()
@@ -1770,7 +1777,7 @@ tab==='bowling'?(!selected?h('div',{className:'empty'},'Select a match'):h('div'
             h('tbody',null,filtered.slice(0,20).map(function(b,i){
               var name=playerName(b.bowler)||'—';var o=b.overs,r=b.runs,w=b.wickets;
               var econ=(o&&r!=null)?(Number(r)/Math.max(0.1,Number(o))).toFixed(2):'—';
-              return h('tr',{key:i},h('td',null,name),h('td',null,o!=null?o:'—'),h('td',null,r!=null?r:'—'),h('td',null,w!=null?w:'—'),h('td',null,econ));
+              return h('tr',{key:i},h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:6}},(b.bowler&&b.bowler.image_path)?h('img',{src:b.bowler.image_path,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,h('span',null,name))),h('td',null,o!=null?o:'—'),h('td',null,r!=null?r:'—'),h('td',null,w!=null?w:'—'),h('td',null,econ));
             }))
           );
         })()
