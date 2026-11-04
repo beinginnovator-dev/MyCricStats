@@ -28,8 +28,9 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .broadcast .bc-content{position:relative;z-index:2;display:flex;flex-direction:column;flex:1}
 .bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px 4px;min-height:40px}
 .bar .icon-btn{width:36px;height:36px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.35);color:#fff;font-size:15px;cursor:pointer;font-family:inherit}
+.brand-sub{font-size:10px;font-weight:700;letter-spacing:0.4px;color:#cbd5e1;margin-top:1px;text-align:center}
 .brand-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:900;color:#fff;letter-spacing:.06em}
-.brand-chip img{width:24px;height:24px;border-radius:50%;animation:logoBreathe 2.8s ease-in-out infinite}
+.brand-chip img{width:28px;height:28px;border-radius:50%;animation:logoBreathe 2.8s ease-in-out infinite;border:2px solid #fff;box-shadow:0 0 0 2px rgba(37,99,235,.6)}
 @keyframes logoBreathe{0%,100%{transform:scale(1);filter:drop-shadow(0 0 0 rgba(255,255,255,0))}50%{transform:scale(1.12);filter:drop-shadow(0 0 8px rgba(255,255,255,.55))}}
 .ball-stage{position:absolute;left:0;right:0;top:8px;height:110px;z-index:6;pointer-events:none;display:flex;align-items:flex-start;justify-content:center;overflow:visible}
 .bounce-ball{position:relative;width:56px;height:56px;pointer-events:none;opacity:0}
@@ -63,17 +64,18 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .bounce-ball .run-stamp.slb{color:#9333ea}
 .bounce-ball .run-stamp.sby{color:#7e22ce}
 /* approach from far (small) to near (large) */
-.bounce-ball.approach{animation:ballApproach 1.35s cubic-bezier(.2,.7,.2,1) forwards}
+.bounce-ball.approach{animation:ballApproach 5s cubic-bezier(.2,.7,.2,1) forwards}
 .bounce-ball.approach.r6{animation-duration:1.55s}
 .bounce-ball.approach.r4{animation-duration:1.45s}
 .bounce-ball.approach.rw{animation-duration:1.5s}
 @keyframes ballApproach{
-  0%{transform:translateY(-30px) scale(0.25);opacity:0;filter:blur(2px)}
-  15%{opacity:1;filter:blur(0)}
-  55%{transform:translateY(18px) scale(1.05)}
-  70%{transform:translateY(6px) scale(0.95)}
-  85%{transform:translateY(14px) scale(1.02)}
-  100%{transform:translateY(-8px) scale(1);opacity:0}
+  0%{transform:translateY(-40px) scale(0.2);opacity:0}
+  10%{opacity:1}
+  40%{transform:translateY(20px) scale(1.1)}
+  60%{transform:translateY(4px) scale(0.96)}
+  80%{transform:translateY(12px) scale(1.04)}
+  95%{opacity:1}
+  100%{transform:translateY(-10px) scale(1);opacity:0}
 }
 .news-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
 .news-thumb{width:88px;height:66px;border-radius:10px;object-fit:cover;background:rgba(127,127,127,.15);flex-shrink:0}
@@ -749,7 +751,7 @@ function showBounce(setBounce, payload){
   else if(runs===2){stampCls='s2';stampText='2';anim='r2';}
   else {stampCls='s1';stampText=String(runs);anim='r1';}
   setBounce({stampCls:stampCls,stampText:stampText,anim:anim,key:Date.now()});
-  setTimeout(function(){setBounce(null);},1600);
+  setTimeout(function(){setBounce(null);}, (Number(lsGet('anim_ms','5000'))||5000) );
 }
 function showEventBanner(setEvBanner, kind, label){
   setEvBanner({kind:kind,label:label});
@@ -1111,15 +1113,15 @@ function App(){
     u.searchParams.set('view','1');
     var link=u.toString();
     var title='Join MyCricStats live';
-    var text='Watch live scores & chat with me on MyCricStats:\n'+link;
+    var text='Join me for live scores & group chat on MyCricStats';
     if(navigator.share){
       navigator.share({title:title,text:text,url:link}).catch(function(){
-        window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
+        window.open('https://wa.me/?text='+encodeURIComponent(text+' '+link),'_blank');
       });
     } else {
-      window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
+      window.open('https://wa.me/?text='+encodeURIComponent(text+' '+link),'_blank');
       try{if(navigator.clipboard)navigator.clipboard.writeText(link);}catch(e){}
-      setToast('WhatsApp opened · link copied');setTimeout(function(){setToast(null);},2000);
+      setToast('Invite sent');setTimeout(function(){setToast(null);},2000);
     }
   }
 
@@ -1164,7 +1166,7 @@ function App(){
     return statusOf(m)===filter;
   });
 
-  var tabs=[['news','Headlines'],['matches','Matches'],['commentary','Commentary'],['scorecard','Scorecard'],['squad','Squad'],['info','Info'],['chat','Chat'],['schedule','Schedule']];
+  var tabs=[['news','Headlines'],['matches','Matches'],['commentary','Commentary'],['chat','Chat'],['scorecard','Scorecard'],['squad','Squad'],['info','Info'],['schedule','Schedule']];
 
   return h('div',{className:'app'},
     error?h('div',{className:'error-bar'},error):null,
@@ -1177,7 +1179,7 @@ function App(){
         h('div',{className:'bar'},
           h('div',{style:{display:'flex',alignItems:'center',gap:10,marginRight:'auto'}},
             !viewOnly?h('div',{className:'brand-wrap'},
-              h('span',{className:'brand-chip'},h('img',{src:'/icons/icon-192.png',alt:'MCS'}),'MCS'),
+              h('div',{className:'brand-wrap'},h('span',{className:'brand-chip'},h('img',{src:'/icons/icon-192.png',alt:'MCS'}),'MCS'),h('div',{className:'brand-sub'},'MyCricStats')),
               selected&&st==='live'?h('span',{className:'live-pill',style:{marginTop:2}},h('i'),'LIVE · '+viewCount):null
             ):h('span',{className:'view-badge'},'VIEW ONLY'),
             selected&&st!=='live'?h('span',{className:'done-pill'},st==='finished'?'FINISHED':'UPCOMING'):null
@@ -1343,6 +1345,21 @@ function App(){
         h('button',{onClick:function(){var L=ttsLang==='en'?'hi':'en';setTtsLang(L);lsSet('tts_lang',L);}},'TTS language: '+(ttsLang==='hi'?'हिन्दी':'English')),
         h('button',{onClick:function(){var v=!stadOn;setStadOn(v);lsSet('stad_on',v?'1':'0');if(v){try{unlockAudio();stadBeep('four');}catch(e){}}}},stadOn?'Stadium sounds: On':'Stadium sounds: Off'),
         h('button',{onClick:function(){try{unlockAudio();stadBeep('six');}catch(e){}}},'Test stadium sound'),
+        h('div',{className:'dd-title'},'Animation'),
+        h('button',{onClick:function(){
+          var cur=Number(lsGet('anim_ms','5000'))||5000;
+          var nxt=cur>=7000?3000:cur+1000;
+          lsSet('anim_ms',String(nxt));
+          setToast('Ball animation: '+(nxt/1000)+'s');setTimeout(function(){setToast(null);},1500);
+        }},'Ball animation: '+(Number(lsGet('anim_ms','5000'))||5000)/1000+'s'),
+        h('div',{className:'dd-title'},'Scoreboard style'),
+        h('button',{onClick:function(){
+          var cur=Number(lsGet('sb_font','15'))||15;
+          var nxt=cur>=18?12:cur+1;
+          lsSet('sb_font',String(nxt));
+          document.documentElement.style.setProperty('--sb-font',nxt+'px');
+          setToast('Score font: '+nxt+'px');setTimeout(function(){setToast(null);},1200);
+        }},'Score font size'),
         h('div',{className:'dd-title'},'Chat name'),
         h('button',{onClick:function(){setModalVal(chatName);setModal('chatname');setSettingsOpen(false);}},'Edit name: '+(chatName||'Fan')),
         viewOnly?null:h(React.Fragment,null,
@@ -1530,7 +1547,7 @@ function App(){
 
       
       tab==='chat'?h('div',{className:'card'},
-        h('h3',null,'Match chat'),
+        h('h3',null,'Invite your friends to group chat & celebrate the event'),
         h('div',{className:'muted',style:{marginBottom:8}},'Shared with invitees · room '+roomId),
         h('div',{className:'btn-row'},
           h('button',{className:'btn primary',onClick:function(){setChatPop(true);chatLoad();}},'Open chat window'),
@@ -1547,7 +1564,7 @@ function App(){
           (chatViewers.length?chatViewers:[{name:chatName||'You',online:true,last:Date.now()}]).map(function(v,i){
             return h('div',{key:i,className:'chat-msg'},h('b',null,v.name||'Fan'),' · ',(v.online?'🟢':'⚫'),v.last?(' · '+new Date(v.last).toLocaleTimeString()):'');
           })
-        ):h('div',{className:'muted'},'Use Open chat window for WhatsApp-style chat. Invite friends with Share.')
+        ):h('div',{className:'muted'},'Invite friends — same room, live chat. Open the chat window to message.')
       ):null,
 
 tab==='schedule'?h('div',{className:'card'},
@@ -1687,7 +1704,8 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
               ov.balls.map(function(b,bi){
                 var line=descriptiveLine(b,ttsLang);
                 var cls=ballIsWicket(b)?'hi-w':(ballRuns(b)===4||ballRuns(b)===6)?'hi-b':'';
-                return h('div',{key:'d'+bi,className:'ball-detail',style:{cursor:'pointer'},onClick:function(){if(ttsOn)speakText(line,ttsLang);}},
+                return h('div',{key:'d'+bi,className:'ball-detail',style:{cursor:'pointer',display:'flex',alignItems:'flex-start',gap:8},onClick:function(){if(ttsOn)speakText(line,ttsLang);}},
+                  h('span',{className:'ball-chip '+chipClass(b),style:{flexShrink:0,marginTop:2}},chipLabel(b)),
                   h('span',{className:cls},line)
                 );
               }),
