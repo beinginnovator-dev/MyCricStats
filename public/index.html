@@ -503,7 +503,7 @@ function groupIntoOvers(balls){
     var offset=(minO===0)?1:0; // 0-based API → 1-based display
     return order.map(function(k){
       var o=map[k];
-      o.displayOver=k+offset;
+      o.displayOver=(k===0?1:k+offset);
       var o=map[k];
       o.balls.sort(function(a,b){
         var pa=parseBallNotation(a),pb=parseBallNotation(b);
@@ -565,7 +565,7 @@ function ordSuffix(n){
   if(j===3&&k!==13)return n+'rd';
   return n+'th';
 }
-function ballStampPhrase(b, lang){
+function ballStampPhrase(b, lang, forceOver){
   var bn=parseBallNotation(b);
   var over=bn.over, ball=bn.ballInOver;
   if(over!=null && over===0) over = 1; // force 1-based
@@ -592,7 +592,7 @@ function colorEvents(text){
   out=out.replace(/\b(\d+)\s*run[s]?\b/gi,'<b style="font-weight:800">$&</b>');
   return out;
 }
-function descriptiveLine(b, lang){
+function descriptiveLine(b, lang, forceOver){
   var s=b.score||{};
   var runs=ballRuns(b);
   var isW=ballIsWicket(b);
@@ -1751,7 +1751,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
                 })
               ),
               ov.balls.slice().reverse().map(function(b,bi){
-                var line=descriptiveLine(b,ttsLang);
+                var line=descriptiveLine(b,ttsLang,ov.displayOver||ov.overNo);
                 var cls=ballIsWicket(b)?'hi-w':(ballRuns(b)===4?'hi-4':(ballRuns(b)===6?'hi-6':(ballRuns(b)>0?'hi-run':'')));
                 return h('div',{key:'d'+bi,className:'ball-detail',style:{cursor:'pointer',display:'flex',alignItems:'flex-start',gap:8},onClick:function(){if(ttsOn)speakText(line,ttsLang);}},
                   h('span',{className:'ball-chip '+chipClass(b),style:{flexShrink:0,marginTop:2}},chipLabel(b)),
