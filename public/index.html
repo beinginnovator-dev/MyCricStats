@@ -1286,49 +1286,37 @@ function App(){
               d.type?h('span',null,d.type):null
             ),
             st==='live'||(d&&d.balls&&d.balls.length)?h('div',{className:'players-bar'},
-              h('table',{className:'players-table',style:{width:'100%',borderCollapse:'collapse',fontSize:12}},
-                h('thead',null,h('tr',null,
-                  h('th',{style:{textAlign:'left',padding:'3px 4px'}},'🏏 Batter'),
-                  h('th',{style:{textAlign:'center',padding:'3px 4px'}},'R'),
-                  h('th',{style:{textAlign:'center',padding:'3px 4px'}},'B'),
-                  h('th',{style:{textAlign:'center',padding:'3px 4px'}},'4s'),
-                  h('th',{style:{textAlign:'center',padding:'3px 4px'}},'6s'),
-                  h('th',{style:{textAlign:'center',padding:'3px 4px'}},'SR')
-                )),
-                h('tbody',null,
-                  h('tr',null,
-                    h('td',{style:{padding:'3px 4px',fontWeight:800}},'* '+liveP.striker),
-                    h('td',{style:{textAlign:'center'}},(liveP.strikerS&&liveP.strikerS.line1)||'—'),
-                    h('td',{style:{textAlign:'center'}},''),
-                    h('td',{style:{textAlign:'center'}},''),
-                    h('td',{style:{textAlign:'center'}},''),
-                    h('td',{style:{textAlign:'center'}},(liveP.strikerS&&liveP.strikerS.line2)||'')
-                  ),
-                  h('tr',null,
-                    h('td',{style:{padding:'3px 4px'}},liveP.nonstriker),
-                    h('td',{style:{textAlign:'center'}},(liveP.nonstrikerS&&liveP.nonstrikerS.line1)||'—'),
-                    h('td',{style:{textAlign:'center'}},''),
-                    h('td',{style:{textAlign:'center'}},''),
-                    h('td',{style:{textAlign:'center'}},''),
-                    h('td',{style:{textAlign:'center'}},(liveP.nonstrikerS&&liveP.nonstrikerS.line2)||'')
-                  )
-                )
+              h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}},
+                h('span',{style:{fontSize:11,fontWeight:800,color:'#fde68a'}},'Players'),
+                h('button',{className:'btn',style:{fontSize:10,padding:'2px 8px'},onClick:function(){setStatsOpen(!statsOpen);}},statsOpen?'−':'＋')
               ),
-              h('table',{className:'players-table',style:{width:'100%',borderCollapse:'collapse',fontSize:12,marginTop:6}},
-                h('thead',null,h('tr',null,
-                  h('th',{style:{textAlign:'left',padding:'3px 4px'}},'⚾ Bowler'),
-                  h('th',{style:{textAlign:'center',padding:'3px 4px'}},'O'),
-                  h('th',{style:{textAlign:'center',padding:'3px 4px'}},'R'),
-                  h('th',{style:{textAlign:'center',padding:'3px 4px'}},'W'),
-                  h('th',{style:{textAlign:'center',padding:'3px 4px'}},'Econ')
-                )),
-                h('tbody',null,h('tr',null,
-                  h('td',{style:{padding:'3px 4px',fontWeight:700}},liveP.bowler),
-                  h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.line1)||'—'),
-                  h('td',{style:{textAlign:'center'}},''),
-                  h('td',{style:{textAlign:'center'}},''),
-                  h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.line2)||'')
-                ))
+              h('div',{className:'live-pair'},
+                h('div',{className:'lp'},
+                  h('div',{className:'k'},'🏏 Striker'),
+                  h('div',{className:'v'},'* '+liveP.striker),
+                  statsOpen?h(React.Fragment,null,
+                    h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line1)||''),
+                    h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line2)||''),
+                    h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line3)||'')
+                  ):null
+                ),
+                h('div',{className:'lp'},
+                  h('div',{className:'k'},'🏏 Non-striker'),
+                  h('div',{className:'v'},liveP.nonstriker),
+                  statsOpen?h(React.Fragment,null,
+                    h('div',{className:'lp-sub'},(liveP.nonstrikerS&&liveP.nonstrikerS.line1)||''),
+                    h('div',{className:'lp-sub'},(liveP.nonstrikerS&&liveP.nonstrikerS.line2)||''),
+                    h('div',{className:'lp-sub'},(liveP.nonstrikerS&&liveP.nonstrikerS.line3)||'')
+                  ):null
+                ),
+                h('div',{className:'lp'},
+                  h('div',{className:'k'},'⚾ Bowler'),
+                  h('div',{className:'v'},liveP.bowler),
+                  statsOpen?h(React.Fragment,null,
+                    h('div',{className:'lp-sub'},(liveP.bowlerS&&liveP.bowlerS.line1)||''),
+                    h('div',{className:'lp-sub'},(liveP.bowlerS&&liveP.bowlerS.line2)||'')
+                  ):null
+                )
               )
             ):null
           ):(tab==='news'&&news.length?(function(){
