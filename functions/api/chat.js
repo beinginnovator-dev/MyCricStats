@@ -1,9 +1,8 @@
 /**
- * Room chat — improved for multi-user visibility
- * GET/POST /api/chat?room=
+ * Room chat — improved reliability for multi-user
  */
-const MAX = 120;
-const TTL = 60 * 60 * 8;
+const MAX = 150;
+const TTL = 60 * 60 * 12;
 
 export async function onRequest(context) {
   const { request } = context;
@@ -35,7 +34,6 @@ export async function onRequest(context) {
       data.messages = data.messages || [];
       data.viewers = data.viewers || [];
 
-      // Update presence
       const now = Date.now();
       let viewer = data.viewers.find(v => v.name === name);
       if (!viewer) {
@@ -45,14 +43,14 @@ export async function onRequest(context) {
         viewer.last = now;
         viewer.online = true;
       }
-      // Mark others offline if inactive > 45s
+      // Offline if inactive > 30s
       data.viewers.forEach(v => {
-        if (v.name !== name && (now - (v.last || 0)) > 45000) v.online = false;
+        if ((now - (v.last || 0)) > 30000) v.online = false;
       });
-      data.viewers = data.viewers.slice(-80);
+      data.viewers = data.viewers.filter(v => (now - (v.last || 0)) < 120000).slice(-60);
 
-      if (type === 'join' || type === 'view') {
-        if (text) data.messages.push({ id: id(), name: 'System', text: name + ' joined the chat', type: 'system', t: now });
+      if ((type === 'join' || type === 'view') && text) {
+        data.messages.push({ id: id(), name: 'System', text: name + ' joined', type: 'system', t: now });
       } else if (type === 'leave') {
         viewer.online = false;
       } else if (text) {
@@ -75,7 +73,7 @@ function id() {
 async function readRoom(room) {
   try {
     const cache = caches.default;
-    const key = new Request('https://mcs-chat.internal/v3/room/' + room);
+    const key = new Request('https://mcs-chat.internal/v4/room/' + room);
     const hit = await cache.match(key);
     if (hit) return await hit.json();
   } catch (e) {}
@@ -85,7 +83,7 @@ async function readRoom(room) {
 async function writeRoom(room, data) {
   try {
     const cache = caches.default;
-    const key = new Request('https://mcs-chat.internal/v3/room/' + room);
+    const key = new Request('https://mcs-chat.internal/v4/room/' + room);
     await cache.put(key, new Response(JSON.stringify(data), {
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=' + TTL }
     }));
