@@ -29,7 +29,7 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px 4px;min-height:40px}
 .bar .icon-btn{width:36px;height:36px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.35);color:#fff;font-size:15px;cursor:pointer;font-family:inherit}
 .brand-sub{font-size:10px;font-weight:700;letter-spacing:0.4px;color:#cbd5e1;margin-top:1px;text-align:center}
-.brand-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:900;color:#fff;letter-spacing:.06em}
+.brand-chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:900;color:#fff;letter-spacing:.06em}
 .brand-chip img{width:28px;height:28px;border-radius:50%;/* no breathe */border:2px solid #fff;box-shadow:0 0 0 2px rgba(37,99,235,.6)}
 @keyframes logoBreathe{0%,100%{transform:scale(1);filter:drop-shadow(0 0 0 rgba(255,255,255,0))}50%{transform:scale(1.12);filter:drop-shadow(0 0 8px rgba(255,255,255,.55))}}
 .ball-stage{position:absolute;left:0;right:0;bottom:40%;height:140px;z-index:6;pointer-events:none;display:flex;align-items:center;justify-content:center;overflow:visible}
@@ -174,7 +174,7 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .lp{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:8px 10px;text-align:left}
 .lp .k{font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8}
 .lp .v{font-size:12px;font-weight:800;color:#fff;margin-top:2px}
-.lp-sub{font-size:11px;font-weight:600;color:#cbd5e1;margin-top:2px;line-height:1.35}.lp{cursor:pointer}.role-logo{font-size:14px;margin-right:4px}
+.lp-sub{font-size:12px;font-weight:600;color:#cbd5e1;margin-top:2px;line-height:1.35}.lp{cursor:pointer}.role-logo{font-size:14px;margin-right:4px}
 .tabs{display:flex;gap:0;overflow-x:auto;background:var(--bg2);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:25;/* stuck under scoreboard via layout */}
 .tabs button{flex:0 0 auto;border:0;background:transparent;color:var(--muted);font-family:inherit;font-weight:800;font-size:12px;padding:13px 12px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
 .tabs button.on{color:var(--text);border-bottom-color:var(--accent)}
@@ -580,6 +580,19 @@ function ballStampPhrase(b, lang){
     return ordSuffix(over).replace(/th|st|nd|rd/g,'') ? (over+'वें ओवर की '+ball+'वीं गेंद') : (over+'वें ओवर की '+ball+'वीं गेंद');
   }
   return ordSuffix(over)+' over '+ordSuffix(ball)+' ball';
+}
+function colorEvents(text){
+  if(!text)return text;
+  var rules=[
+    [/WICKET!?|Wicket|caught|bowled|LBW|run out|stumped/gi,'<b class="ev-w">$&</b>'],
+    [/SIX!?|Six/gi,'<b class="ev-6">$&</b>'],
+    [/FOUR!?|Four/gi,'<b class="ev-4">$&</b>'],
+    [/Wide|No-ball|No ball|Leg bye|Bye/gi,'<b class="ev-x">$&</b>'],
+    [/\b(\d+)\s*run[s]?/gi,'<b class="ev-run">$&</b>']
+  ];
+  var out=String(text);
+  rules.forEach(function(r){out=out.replace(r[0],r[1]);});
+  return out;
 }
 function descriptiveLine(b, lang){
   var s=b.score||{};
@@ -1207,12 +1220,12 @@ function App(){
             h('span',{className:'view-badge'},'VIEW ONLY')
           ),
           h('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',flex:1}},
-            selected&&st==='live'?h('span',{className:'live-pill'},h('i'),'LIVE · '+viewCount):
+            selected&&st==='live'?h('span',{className:'live-pill',style:{position:'relative',top:2}},h('i'),'LIVE · '+viewCount):
             (selected&&st!=='live'?h('span',{className:'done-pill'},st==='finished'?'FINISHED':'UPCOMING'):null)
           ),
           h('div',{style:{display:'flex',gap:8}},
             h('button',{className:'icon-btn',title:'Share / Invite',onClick:function(){inviteChat();}},'↗'),
-            h('button',{className:'icon-btn',title:'Refresh',onClick:function(){loadList(true);if(selected)loadDetail(selected);}},loading?'…':'↻'),
+            
             h('button',{className:'icon-btn',title:'Settings',onClick:function(){setSettingsOpen(!settingsOpen);}},'⚙')
           )
         ),
@@ -1275,7 +1288,7 @@ function App(){
             ),
             st==='live'||(d&&d.balls&&d.balls.length)?h('div',{className:'live-pair'},
               h('div',{className:'lp',onClick:function(){setStatsOpen(!statsOpen);}},
-                h('div',{className:'k'},'Striker'),h('div',{className:'v'},'* '+liveP.striker),
+                h('div',{className:'k'},'Striker'),h('div',{className:'v'},'🏏 * '+liveP.striker),
                 statsOpen?h(React.Fragment,null,
                   h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line1)||''),
                   h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line2)||''),
@@ -1291,7 +1304,7 @@ function App(){
                 ):h('div',{className:'lp-sub'},'Tap for stats')
               ),
               h('div',{className:'lp',onClick:function(){setStatsOpen(!statsOpen);}},
-                h('div',{className:'k'},'Bowler'),h('div',{className:'v'},'🏏 '+liveP.bowler),
+                h('div',{className:'k'},'Bowler'),h('div',{className:'v'},'⚾ '+liveP.bowler),
                 statsOpen?h(React.Fragment,null,
                   h('div',{className:'lp-sub'},(liveP.bowlerS&&liveP.bowlerS.line1)||''),
                   h('div',{className:'lp-sub'},(liveP.bowlerS&&liveP.bowlerS.line2)||'')
@@ -1734,7 +1747,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
                 var cls=ballIsWicket(b)?'hi-w':(ballRuns(b)===4?'hi-4':(ballRuns(b)===6?'hi-6':(ballRuns(b)>0?'hi-run':'')));
                 return h('div',{key:'d'+bi,className:'ball-detail',style:{cursor:'pointer',display:'flex',alignItems:'flex-start',gap:8},onClick:function(){if(ttsOn)speakText(line,ttsLang);}},
                   h('span',{className:'ball-chip '+chipClass(b),style:{flexShrink:0,marginTop:2}},chipLabel(b)),
-                  h('span',{className:cls},line)
+                  h('span',{dangerouslySetInnerHTML:{__html:colorEvents(line)}})
                 );
               }),
               h('div',{className:'over-end'},
