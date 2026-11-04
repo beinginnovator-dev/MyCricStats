@@ -30,10 +30,10 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .bar .icon-btn{width:36px;height:36px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.35);color:#fff;font-size:15px;cursor:pointer;font-family:inherit}
 .brand-sub{font-size:10px;font-weight:700;letter-spacing:0.4px;color:#cbd5e1;margin-top:1px;text-align:center}
 .brand-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:900;color:#fff;letter-spacing:.06em}
-.brand-chip img{width:28px;height:28px;border-radius:50%;animation:logoBreathe 2.8s ease-in-out infinite;border:2px solid #fff;box-shadow:0 0 0 2px rgba(37,99,235,.6)}
+.brand-chip img{width:28px;height:28px;border-radius:50%;/* no breathe */border:2px solid #fff;box-shadow:0 0 0 2px rgba(37,99,235,.6)}
 @keyframes logoBreathe{0%,100%{transform:scale(1);filter:drop-shadow(0 0 0 rgba(255,255,255,0))}50%{transform:scale(1.12);filter:drop-shadow(0 0 8px rgba(255,255,255,.55))}}
-.ball-stage{position:absolute;left:0;right:0;top:8px;height:110px;z-index:6;pointer-events:none;display:flex;align-items:flex-start;justify-content:center;overflow:visible}
-.bounce-ball{position:relative;width:56px;height:56px;pointer-events:none;opacity:0}
+.ball-stage{position:absolute;left:0;right:0;bottom:40%;height:140px;z-index:6;pointer-events:none;display:flex;align-items:center;justify-content:center;overflow:visible}
+.bounce-ball{position:relative;width:64px;height:auto;pointer-events:none;opacity:0;display:flex;flex-direction:column;align-items:center}
 .bounce-ball.show{opacity:1}
 .bounce-ball .ball-core{
   width:56px;height:56px;border-radius:50%;
@@ -46,6 +46,7 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .bounce-ball .ball-core::after{
   content:'';position:absolute;inset:10px 18px;border:1.5px solid rgba(239,68,68,.35);border-radius:50%;
 }
+.ball-text{margin-top:6px;font-size:13px;font-weight:900;color:#fff;text-shadow:0 1px 4px #000;text-align:center;max-width:120px;line-height:1.2}
 .bounce-ball .run-stamp{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   min-width:34px;padding:4px 8px;border-radius:8px;
@@ -64,10 +65,11 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .bounce-ball .run-stamp.slb{color:#9333ea}
 .bounce-ball .run-stamp.sby{color:#7e22ce}
 /* approach from far (small) to near (large) */
-.bounce-ball.approach{animation:ballApproach 5s cubic-bezier(.2,.7,.2,1) forwards}
+.bounce-ball.approach{animation:ballPop 5s ease-out forwards}
 .bounce-ball.approach.r6{animation-duration:1.55s}
 .bounce-ball.approach.r4{animation-duration:1.45s}
 .bounce-ball.approach.rw{animation-duration:1.5s}
+@keyframes ballPop{0%{transform:translateY(80px) scale(0.6);opacity:0}15%{opacity:1;transform:translateY(0) scale(1.05)}40%{transform:translateY(-8px) scale(1)}70%{opacity:1}100%{transform:translateY(-20px) scale(1);opacity:0}}
 @keyframes ballApproach{
   0%{transform:translateY(-40px) scale(0.2);opacity:0}
   10%{opacity:1}
@@ -153,7 +155,8 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 .done-pill{font-size:10px;font-weight:800;color:#94a3b8;background:rgba(148,163,184,.15);padding:4px 10px;border-radius:999px}
 .view-badge{font-size:10px;font-weight:800;background:rgba(255,15,80,.2);color:#F78DA7;padding:3px 8px;border-radius:999px}
-.scoreboard-body{padding:4px 14px 8px;flex:1;display:flex;flex-direction:column;justify-content:center}
+.scoreboard-body{padding:2px 14px 4px;flex:1;display:flex;flex-direction:column;justify-content:flex-start}
+.sponsor-slot{display:flex;align-items:center;justify-content:center;gap:6px;min-height:28px;margin-bottom:4px;font-size:11px;font-weight:700;color:#fde68a}
 .match-header{text-align:center;padding:2px 4px}
 .match-header .title{font-size:13px;font-weight:900;color:var(--gold);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .match-header .sub{font-size:11px;font-weight:700;color:#cbd5e1;margin-top:2px}
@@ -740,17 +743,17 @@ function showBounce(setBounce, payload){
   }
   var stampCls='s1', stampText=String(runs), anim='r1';
   if(kind==='wicket'){stampCls='sw';stampText=label||'W';anim='rw';}
-  else if(kind==='wide'){stampCls='swd';stampText='Wd';anim='r1';}
+  else if(kind==='wide'){stampCls='swd';stampText='Wd';label='Wide';anim='r1';}
   else if(kind==='noball'){stampCls='snb';stampText='Nb';anim='r1';}
   else if(kind==='legbye'){stampCls='slb';stampText='Lb';anim='r1';}
   else if(kind==='bye'){stampCls='sby';stampText='B';anim='r1';}
   else if(kind==='dot'||runs===0){stampCls='s0';stampText='0';anim='r1';}
-  else if(runs>=6){stampCls='s6';stampText='6';anim='r6';}
-  else if(runs===4){stampCls='s4';stampText='4';anim='r4';}
-  else if(runs===3){stampCls='s3';stampText='3';anim='r3';}
-  else if(runs===2){stampCls='s2';stampText='2';anim='r2';}
-  else {stampCls='s1';stampText=String(runs);anim='r1';}
-  setBounce({stampCls:stampCls,stampText:stampText,anim:anim,key:Date.now()});
+  else if(runs>=6){stampCls='s6';stampText='6';label='Six';anim='r6';}
+  else if(runs===4){stampCls='s4';stampText='4';label='Four';anim='r4';}
+  else if(runs===3){stampCls='s3';stampText='3';label='Three';anim='r3';}
+  else if(runs===2){stampCls='s2';stampText='2';label='Two';anim='r2';}
+  else {stampCls='s1';stampText=String(runs);label='One';anim='r1';}
+  setBounce({stampCls:stampCls,stampText:stampText,label:label||stampText,anim:anim,key:Date.now()});
   setTimeout(function(){setBounce(null);}, (Number(lsGet('anim_ms','5000'))||5000) );
 }
 function showEventBanner(setEvBanner, kind, label){
@@ -919,15 +922,19 @@ function App(){
   var _schedFilter=useState('latest');var schedFilter=_schedFilter[0],setSchedFilter=_schedFilter[1];
   var _flipIdx=useState(0);var flipIdx=_flipIdx[0],setFlipIdx=_flipIdx[1];
   var _statsOpen=useState(true);var statsOpen=_statsOpen[0],setStatsOpen=_statsOpen[1];
+  var _sponsorName=useState(function(){return lsGet('sponsor_name','');});var sponsorName=_sponsorName[0],setSponsorName=_sponsorName[1];
+  var _sponsorLogo=useState(function(){return lsGet('sponsor_logo','');});var sponsorLogo=_sponsorLogo[0],setSponsorLogo=_sponsorLogo[1];
+  var _unread=useState(0);var unread=_unread[0],setUnread=_unread[1];
+  var _openRooms=useState([]);var openRooms=_openRooms[0],setOpenRooms=_openRooms[1];
   var _chatSub=useState('room');var chatSub=_chatSub[0],setChatSub=_chatSub[1];
-  var _chatName=useState(function(){return lsGet('chat_name','Fan'+Math.floor(Math.random()*90+10));});
+  var _chatName=useState(function(){var n=lsGet('chat_name','');if(!n){n='Fan'+Math.floor(Math.random()*90+10);lsSet('chat_name',n);}return n;});
   var chatName=_chatName[0],setChatName=_chatName[1];
   var _chatInput=useState('');var chatInput=_chatInput[0],setChatInput=_chatInput[1];
   var _chatMsgs=useState([]);var chatMsgs=_chatMsgs[0],setChatMsgs=_chatMsgs[1];
   var _chatViewers=useState([]);var chatViewers=_chatViewers[0],setChatViewers=_chatViewers[1];
   var _floatMsg=useState(null);var floatMsg=_floatMsg[0],setFloatMsg=_floatMsg[1];
   var _chatPop=useState(false);var chatPop=_chatPop[0],setChatPop=_chatPop[1];
-  var _room=useState(function(){return qs().get('room')||'lobby';});var roomId=_room[0],setRoomId=_room[1];
+  var _room=useState(function(){return qs().get('room')||lsGet('last_room')||'lobby';});var roomId=_room[0],setRoomId=_room[1];
   var _news=useState([]);var news=_news[0],setNews=_news[1];
   var _newsLoading=useState(false);var newsLoading=_newsLoading[0],setNewsLoading=_newsLoading[1];
   var _viewCount=useState(function(){return parseInt(lsGet('mcs_viewers_base','12'),10)||12;});
@@ -1082,15 +1089,20 @@ function App(){
 
   var selectMatch=function(m){
     setSelected(m);setDetail(m);setTab('commentary');lsSet('mcs_tab','commentary');
-    if(m&&m.id)setRoomId('m'+m.id);
+    if(m&&m.id){var rid='m'+m.id;setRoomId(rid);lsSet('last_room',rid);}
     loadDetail(m);
   };
   function chatLoad(){
     fetch('/api/chat?room='+encodeURIComponent(roomId),{cache:'no-store'})
       .then(function(r){return r.json();})
       .then(function(j){
-        setChatMsgs(Array.isArray(j.messages)?j.messages:[]);
+        var msgs=Array.isArray(j.messages)?j.messages:[];
+        var prevLen=(chatMsgs||[]).length;
+        setChatMsgs(msgs);
         setChatViewers(Array.isArray(j.viewers)?j.viewers:[]);
+        if(!chatPop && msgs.length>prevLen && prevLen>0){
+          setUnread(function(u){return (u||0)+(msgs.length-prevLen);});
+        }
       }).catch(function(){});
   }
   function chatSend(text, type){
@@ -1179,22 +1191,23 @@ function App(){
         h('div',{className:'bar'},
           h('div',{style:{display:'flex',alignItems:'center',gap:10,marginRight:'auto'}},
             !viewOnly?h('div',{className:'brand-wrap'},
-              h('div',{className:'brand-wrap'},h('span',{className:'brand-chip'},h('img',{src:'/icons/icon-192.png',alt:'MCS'}),'MCS'),h('div',{className:'brand-sub'},'MyCricStats')),
+              h('span',{className:'brand-chip'},h('img',{src:'/icons/icon-192.png',alt:'MCS'}),'MCS'),
               selected&&st==='live'?h('span',{className:'live-pill',style:{marginTop:2}},h('i'),'LIVE · '+viewCount):null
             ):h('span',{className:'view-badge'},'VIEW ONLY'),
             selected&&st!=='live'?h('span',{className:'done-pill'},st==='finished'?'FINISHED':'UPCOMING'):null
           ),
-          h('div',{style:{display:'flex',gap:8}},
-            !viewOnly?h('button',{className:'icon-btn',title:'Share',onClick:shareView},'↗'):null,
+          h('div',{style:{display:'flex',flexDirection:'column',gap:6,alignItems:'center'}},
+            h('button',{className:'icon-btn',title:'Share / Invite',onClick:function(){inviteChat();}},'↗'),
             h('button',{className:'icon-btn',title:'Refresh',onClick:function(){loadList(true);if(selected)loadDetail(selected);}},loading?'…':'↻'),
             h('button',{className:'icon-btn',title:'Settings',onClick:function(){setSettingsOpen(!settingsOpen);}},'⚙')
           )
         ),
         bounce?h('div',{className:'ball-stage'},
-          h('div',{key:bounce.key,className:'bounce-ball show approach '+(bounce.anim||'')},
+          h('div',{key:bounce.key,className:'bounce-ball show approach'},
             h('div',{className:'ball-core'},
               h('div',{className:'run-stamp '+(bounce.stampCls||'')},bounce.stampText||'')
-            )
+            ),
+            h('div',{className:'ball-text'},bounce.label||bounce.stampText||'')
           )
         ):null,
         h('div',{className:'scoreboard-body'},
@@ -1218,7 +1231,11 @@ function App(){
               )
             );
           })():selected?h(React.Fragment,null,
-            h('div',{className:'match-header'},
+            (sponsorName||sponsorLogo)?h('div',{className:'sponsor-slot'},
+            sponsorLogo?h('img',{src:sponsorLogo,alt:'',style:{height:22,objectFit:'contain'}}):null,
+            sponsorName?h('span',null,sponsorName):null
+          ):null,
+          h('div',{className:'match-header'},
               h('div',{className:'title'},league||'Match'),
               h('div',{className:'sub'},venue),
               h('div',{className:'status-line'},status||(d.note||''))
@@ -1316,7 +1333,11 @@ function App(){
                 h('div',{className:'fm'},fmtWhen(m.starting_at)+' · tap to open')
               );
             }
-            return h('div',{className:'match-header'},
+            return (sponsorName||sponsorLogo)?h('div',{className:'sponsor-slot'},
+            sponsorLogo?h('img',{src:sponsorLogo,alt:'',style:{height:22,objectFit:'contain'}}):null,
+            sponsorName?h('span',null,sponsorName):null
+          ):null,
+          h('div',{className:'match-header'},
               h('div',{className:'title'},'Cricket Live'),
               h('div',{className:'sub'},token?'Pick a match below':'Add token in ⚙ Settings')
             );
@@ -1360,6 +1381,9 @@ function App(){
           document.documentElement.style.setProperty('--sb-font',nxt+'px');
           setToast('Score font: '+nxt+'px');setTimeout(function(){setToast(null);},1200);
         }},'Score font size'),
+        h('div',{className:'dd-title'},'Sponsor'),
+        h('button',{onClick:function(){setModalVal(sponsorName);setModal('sponsorname');setSettingsOpen(false);}},'Sponsor name: '+(sponsorName||'—')),
+        h('button',{onClick:function(){setModalVal(sponsorLogo);setModal('sponsorlogo');setSettingsOpen(false);}},'Sponsor logo URL'),
         h('div',{className:'dd-title'},'Chat name'),
         h('button',{onClick:function(){setModalVal(chatName);setModal('chatname');setSettingsOpen(false);}},'Edit name: '+(chatName||'Fan')),
         viewOnly?null:h(React.Fragment,null,
@@ -1389,7 +1413,7 @@ function App(){
 
     modal&&modal!=='bgpanel'?h('div',{className:'modal-scrim',onClick:function(){setModal(null);}},
       h('div',{className:'modal-card',onClick:function(e){e.stopPropagation();}},
-        h('h2',null,modal==='token'?'Sportmonks token':(modal==='chatname'?'Chat name':'Share')),
+        h('h2',null,modal==='token'?'Sportmonks token':(modal==='chatname'?'Chat name':(modal==='sponsorname'?'Sponsor name':(modal==='sponsorlogo'?'Sponsor logo URL':'Share')))),
         h('div',{className:'hint'},modal==='token'?h(React.Fragment,null,'From ',h('a',{href:'https://my.sportmonks.com',target:'_blank',rel:'noreferrer'},'my.sportmonks.com')):(modal==='chatname'?'Shown in chat to others':'View-only / invite link')),
         h('div',{className:'field'},h('label',null,modal==='token'?'Token':(modal==='chatname'?'Name':'Link')),
           h('input',{type:modal==='token'?'password':'text',value:modalVal,readOnly:modal==='share',maxLength:modal==='chatname'?24:undefined,onChange:function(e){setModalVal(e.target.value);}})),
@@ -1398,6 +1422,8 @@ function App(){
           h('button',{className:'btn primary',onClick:function(){
             if(modal==='share'){if(navigator.clipboard)navigator.clipboard.writeText(modalVal);setModal(null);return;}
             if(modal==='chatname'){var n=String(modalVal||'Fan').trim().slice(0,24)||'Fan';setChatName(n);lsSet('chat_name',n);setModal(null);return;}
+            if(modal==='sponsorname'){var sn=String(modalVal||'').trim().slice(0,40);setSponsorName(sn);lsSet('sponsor_name',sn);setModal(null);return;}
+            if(modal==='sponsorlogo'){var sl=String(modalVal||'').trim();setSponsorLogo(sl);lsSet('sponsor_logo',sl);setModal(null);return;}
             var v=String(modalVal||'').trim();if(!v)return;lsSet('sportmonks_token',v);setToken(v);setModal(null);setToast('Saved');setTimeout(function(){setToast(null);},2000);
           }},modal==='share'?'Copy':'Save')
         )
