@@ -568,7 +568,7 @@ function ordSuffix(n){
 function ballStampPhrase(b, lang){
   var bn=parseBallNotation(b);
   var over=bn.over, ball=bn.ballInOver;
-  if(over!=null && over < 1) over = over + 1; // 0-based → 1-based
+  if(over!=null && over===0) over = 1; // force 1-based
   if(over==null||ball==null){
     if(b.ball!=null){
       var s=String(b.ball);
@@ -1007,6 +1007,17 @@ function App(){
   useEffect(function(){
     var isGuest=false;try{isGuest=qs().get('view')==='1';}catch(e){}
     if(token||isGuest)loadList(false);
+    // restore last match after list loads
+    var mid=lsGet('last_match');
+    if(mid){
+      setTimeout(function(){
+        setMatches(function(ms){
+          var m=ms.find(function(x){return String(x.id)===mid;});
+          if(m){setSelected(m);setDetail(m);loadDetail(m);}
+          return ms;
+        });
+      },1200);
+    }
   },[token]);
   useEffect(function(){
     try{
@@ -1017,7 +1028,7 @@ function App(){
   useEffect(function(){
     if(tab!=='chat'&&!chatPop&&!roomId)return;
     chatLoad();
-    chatSend(chatName+' joined the chat','join');
+    chatSend((chatName||'Fan')+' joined the chat','join');
     var id=setInterval(chatLoad,1800);
     return function(){clearInterval(id);};
   },[tab,roomId,chatPop]);
@@ -1091,7 +1102,7 @@ function App(){
 
   var selectMatch=function(m){
     setSelected(m);setDetail(m);setTab('commentary');lsSet('mcs_tab','commentary');
-    if(m&&m.id){var rid='m'+m.id;setRoomId(rid);lsSet('last_room',rid);}
+    if(m&&m.id){var rid='m'+m.id;setRoomId(rid);lsSet('last_room',rid);lsSet('last_match',String(m.id));}
     loadDetail(m);
   };
   function chatLoad(){
@@ -1190,13 +1201,14 @@ function App(){
       bgUrl?h('div',{className:'bg-layer',style:{backgroundImage:'url('+bgUrl+')'}}):null,
       h('div',{className:'bg-overlay',style:{opacity:bgUrl?bgOp:0.92}}),
       h('div',{className:'bc-content'},
-        h('div',{className:'bar'},
-          h('div',{style:{display:'flex',alignItems:'center',gap:10,marginRight:'auto'}},
-            !viewOnly?h('div',{className:'brand-wrap'},
-              h('span',{className:'brand-chip'},h('img',{src:'/icons/icon-192.png',alt:'MCS'}),'MCS'),
-              selected&&st==='live'?h('span',{className:'live-pill',style:{marginTop:2}},h('i'),'LIVE · '+viewCount):null
-            ):h('span',{className:'view-badge'},'VIEW ONLY'),
-            selected&&st!=='live'?h('span',{className:'done-pill'},st==='finished'?'FINISHED':'UPCOMING'):null
+        h('div',{className:'bar',style:{justifyContent:'space-between'}},
+          h('div',{style:{display:'flex',alignItems:'center',minWidth:70}},
+            selected&&st==='live'?h('span',{className:'live-pill'},h('i'),'LIVE · '+viewCount):
+            (viewOnly?h('span',{className:'view-badge'},'VIEW ONLY'):
+            (selected&&st!=='live'?h('span',{className:'done-pill'},st==='finished'?'FINISHED':'UPCOMING'):null))
+          ),
+          h('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',flex:1}},
+            !viewOnly?h('span',{className:'brand-chip'},h('img',{src:'/icons/icon-192.png',alt:'MCS'}),'MCS'):null
           ),
           h('div',{style:{display:'flex',gap:8}},
             h('button',{className:'icon-btn',title:'Share / Invite',onClick:function(){inviteChat();}},'↗'),
@@ -1713,11 +1725,11 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
                 h('span',{className:'sum'},ov.runs+' run'+(ov.runs===1?'':'s')+(ov.wickets?' · '+ov.wickets+' wkt'+(ov.wickets>1?'s':''):'')+' · '+ov.legal+'/6 balls')
               ),
               h('div',{className:'ball-row'},
-                ov.balls.map(function(b,bi){
+                ov.balls.slice().reverse().map(function(b,bi){
                   return h('span',{key:bi,className:'ball-chip '+chipClass(b),title:descriptiveLine(b,'en')},chipLabel(b));
                 })
               ),
-              ov.balls.map(function(b,bi){
+              ov.balls.slice().reverse().map(function(b,bi){
                 var line=descriptiveLine(b,ttsLang);
                 var cls=ballIsWicket(b)?'hi-w':(ballRuns(b)===4||ballRuns(b)===6)?'hi-b':'';
                 return h('div',{key:'d'+bi,className:'ball-detail',style:{cursor:'pointer',display:'flex',alignItems:'flex-start',gap:8},onClick:function(){if(ttsOn)speakText(line,ttsLang);}},
