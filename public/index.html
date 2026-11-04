@@ -155,7 +155,7 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 .done-pill{font-size:10px;font-weight:800;color:#94a3b8;background:rgba(148,163,184,.15);padding:4px 10px;border-radius:999px}
 .view-badge{font-size:10px;font-weight:800;background:rgba(255,15,80,.2);color:#F78DA7;padding:3px 8px;border-radius:999px}
-.scoreboard-body{padding:2px 14px 4px;flex:1;display:flex;flex-direction:column;justify-content:flex-start}
+.scoreboard-body{padding:0 14px 2px;flex:1;display:flex;flex-direction:column;justify-content:flex-start}
 .sponsor-slot{display:flex;align-items:center;justify-content:center;gap:6px;min-height:28px;margin-bottom:4px;font-size:11px;font-weight:700;color:#fde68a}
 .match-header{text-align:center;padding:2px 4px}
 .match-header .title{font-size:13px;font-weight:900;color:var(--gold);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -744,9 +744,9 @@ function showBounce(setBounce, payload){
   var stampCls='s1', stampText=String(runs), anim='r1';
   if(kind==='wicket'){stampCls='sw';stampText=label||'W';anim='rw';}
   else if(kind==='wide'){stampCls='swd';stampText='Wd';label='Wide';anim='r1';}
-  else if(kind==='noball'){stampCls='snb';stampText='Nb';anim='r1';}
-  else if(kind==='legbye'){stampCls='slb';stampText='Lb';anim='r1';}
-  else if(kind==='bye'){stampCls='sby';stampText='B';anim='r1';}
+  else if(kind==='noball'){stampCls='snb';stampText='Nb';label='No ball';anim='r1';}
+  else if(kind==='legbye'){stampCls='slb';stampText='Lb';label='Leg bye';anim='r1';}
+  else if(kind==='bye'){stampCls='sby';stampText='B';label='Bye';anim='r1';}
   else if(kind==='dot'||runs===0){stampCls='s0';stampText='0';anim='r1';}
   else if(runs>=6){stampCls='s6';stampText='6';label='Six';anim='r6';}
   else if(runs===4){stampCls='s4';stampText='4';label='Four';anim='r4';}
@@ -1009,14 +1009,14 @@ function App(){
   useEffect(function(){
     try{
       var r=qs().get('room');
-      if(r)setRoomId(r);
+      if(r){setRoomId(r);lsSet('last_room',r);}
     }catch(e){}
   },[]);
   useEffect(function(){
     if(tab!=='chat'&&!chatPop)return;
     chatLoad();
     chatSend('','join');
-    var id=setInterval(chatLoad,2500);
+    var id=setInterval(chatLoad,1800);
     return function(){clearInterval(id);};
   },[tab,roomId,chatPop]);
   /* no floating praise */
@@ -1196,7 +1196,7 @@ function App(){
             ):h('span',{className:'view-badge'},'VIEW ONLY'),
             selected&&st!=='live'?h('span',{className:'done-pill'},st==='finished'?'FINISHED':'UPCOMING'):null
           ),
-          h('div',{style:{display:'flex',flexDirection:'column',gap:6,alignItems:'center'}},
+          h('div',{style:{display:'flex',gap:8}},
             h('button',{className:'icon-btn',title:'Share / Invite',onClick:function(){inviteChat();}},'↗'),
             h('button',{className:'icon-btn',title:'Refresh',onClick:function(){loadList(true);if(selected)loadDetail(selected);}},loading?'…':'↻'),
             h('button',{className:'icon-btn',title:'Settings',onClick:function(){setSettingsOpen(!settingsOpen);}},'⚙')
@@ -1204,10 +1204,8 @@ function App(){
         ),
         bounce?h('div',{className:'ball-stage'},
           h('div',{key:bounce.key,className:'bounce-ball show approach'},
-            h('div',{className:'ball-core'},
-              h('div',{className:'run-stamp '+(bounce.stampCls||'')},bounce.stampText||'')
-            ),
-            h('div',{className:'ball-text'},bounce.label||bounce.stampText||'')
+            h('div',{className:'ball-core'}),
+            h('div',{className:'ball-text'},bounce.label||'')
           )
         ):null,
         h('div',{className:'scoreboard-body'},
@@ -1231,11 +1229,7 @@ function App(){
               )
             );
           })():selected?h(React.Fragment,null,
-            (sponsorName||sponsorLogo)?h('div',{className:'sponsor-slot'},
-            sponsorLogo?h('img',{src:sponsorLogo,alt:'',style:{height:22,objectFit:'contain'}}):null,
-            sponsorName?h('span',null,sponsorName):null
-          ):null,
-          h('div',{className:'match-header'},
+            h('div',{className:'match-header'},
               h('div',{className:'title'},league||'Match'),
               h('div',{className:'sub'},venue),
               h('div',{className:'status-line'},status||(d.note||''))
@@ -1333,11 +1327,7 @@ function App(){
                 h('div',{className:'fm'},fmtWhen(m.starting_at)+' · tap to open')
               );
             }
-            return (sponsorName||sponsorLogo)?h('div',{className:'sponsor-slot'},
-            sponsorLogo?h('img',{src:sponsorLogo,alt:'',style:{height:22,objectFit:'contain'}}):null,
-            sponsorName?h('span',null,sponsorName):null
-          ):null,
-          h('div',{className:'match-header'},
+            return h('div',{className:'match-header'},
               h('div',{className:'title'},'Cricket Live'),
               h('div',{className:'sub'},token?'Pick a match below':'Add token in ⚙ Settings')
             );
@@ -1381,9 +1371,6 @@ function App(){
           document.documentElement.style.setProperty('--sb-font',nxt+'px');
           setToast('Score font: '+nxt+'px');setTimeout(function(){setToast(null);},1200);
         }},'Score font size'),
-        h('div',{className:'dd-title'},'Sponsor'),
-        h('button',{onClick:function(){setModalVal(sponsorName);setModal('sponsorname');setSettingsOpen(false);}},'Sponsor name: '+(sponsorName||'—')),
-        h('button',{onClick:function(){setModalVal(sponsorLogo);setModal('sponsorlogo');setSettingsOpen(false);}},'Sponsor logo URL'),
         h('div',{className:'dd-title'},'Chat name'),
         h('button',{onClick:function(){setModalVal(chatName);setModal('chatname');setSettingsOpen(false);}},'Edit name: '+(chatName||'Fan')),
         viewOnly?null:h(React.Fragment,null,
@@ -1413,7 +1400,7 @@ function App(){
 
     modal&&modal!=='bgpanel'?h('div',{className:'modal-scrim',onClick:function(){setModal(null);}},
       h('div',{className:'modal-card',onClick:function(e){e.stopPropagation();}},
-        h('h2',null,modal==='token'?'Sportmonks token':(modal==='chatname'?'Chat name':(modal==='sponsorname'?'Sponsor name':(modal==='sponsorlogo'?'Sponsor logo URL':'Share')))),
+        h('h2',null,modal==='token'?'Sportmonks token':(modal==='chatname'?'Chat name':'Share')),
         h('div',{className:'hint'},modal==='token'?h(React.Fragment,null,'From ',h('a',{href:'https://my.sportmonks.com',target:'_blank',rel:'noreferrer'},'my.sportmonks.com')):(modal==='chatname'?'Shown in chat to others':'View-only / invite link')),
         h('div',{className:'field'},h('label',null,modal==='token'?'Token':(modal==='chatname'?'Name':'Link')),
           h('input',{type:modal==='token'?'password':'text',value:modalVal,readOnly:modal==='share',maxLength:modal==='chatname'?24:undefined,onChange:function(e){setModalVal(e.target.value);}})),
@@ -1422,8 +1409,7 @@ function App(){
           h('button',{className:'btn primary',onClick:function(){
             if(modal==='share'){if(navigator.clipboard)navigator.clipboard.writeText(modalVal);setModal(null);return;}
             if(modal==='chatname'){var n=String(modalVal||'Fan').trim().slice(0,24)||'Fan';setChatName(n);lsSet('chat_name',n);setModal(null);return;}
-            if(modal==='sponsorname'){var sn=String(modalVal||'').trim().slice(0,40);setSponsorName(sn);lsSet('sponsor_name',sn);setModal(null);return;}
-            if(modal==='sponsorlogo'){var sl=String(modalVal||'').trim();setSponsorLogo(sl);lsSet('sponsor_logo',sl);setModal(null);return;}
+            
             var v=String(modalVal||'').trim();if(!v)return;lsSet('sportmonks_token',v);setToken(v);setModal(null);setToast('Saved');setTimeout(function(){setToast(null);},2000);
           }},modal==='share'?'Copy':'Save')
         )
@@ -1695,7 +1681,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
                   try{unlockAudio();}catch(e){}if(stadOn){if(isW)stadBeep('wicket');else if(runs===6)stadBeep('six');else if(runs===4)stadBeep('four');else if(runs>0)stadBeep('run');else stadBeep('dot');}
                   if(isW){
                   showEventBanner(setEvBanner,'wicket','WICKET');
-                  showBounce(setBounce,{kind:'wicket',label:'W',runs:0});
+                  showBounce(setBounce,{kind:'wicket',label:'Wicket',runs:0});
                 } else if(runs===6){
                   showEventBanner(setEvBanner,'six','SIX!');showBounce(setBounce,{kind:'run',runs:6});
                 } else if(runs===4){
