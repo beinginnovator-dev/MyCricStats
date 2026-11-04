@@ -780,7 +780,7 @@ function batStats(b){
   var f=b.four_x!=null?b.four_x:(b.fours!=null?b.fours:0);
   var s=b.six_x!=null?b.six_x:(b.sixes!=null?b.sixes:0);
   var sr=(bl>0)?((Number(r)/Number(bl))*100).toFixed(1):'—';
-  return{line1:r+'('+bl+')',line2:'4s '+f+'  ·  6s '+s,line3:'Strike rate  '+sr};
+  return{line1:r+'('+bl+')',line2:'SR: '+sr,line3:'4s '+f+'  ·  6s '+s,line3:'Strike rate  '+sr};
 }
 function bowlStats(b){
   if(!b)return{line1:'',line2:''};
@@ -790,7 +790,7 @@ function bowlStats(b){
   var balls=b.balls!=null?b.balls:null;
   var econ='—';
   if(o!=null&&o!=='—'&&Number(o)>0)econ=(Number(r)/Number(o)).toFixed(2);
-  var line1=o+' ov · '+r+' runs · '+w+' wkts'+(balls!=null?(' · '+balls+'b'):'');
+  var line1=r+'('+ (balls!=null?balls:o) +')/'+w+(balls!=null?(' · '+balls+'b'):'');
   return{line1:line1,line2:'Economy  '+econ};
 }
 function currentPlayers(d){
@@ -1295,7 +1295,7 @@ function App(){
                   h('div',{className:'k'},'🏏 Striker'),
                   h('div',{className:'v'},'* '+liveP.striker),
                   statsOpen?h(React.Fragment,null,
-                    h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line1)||''),
+                    h('div',{className:'lp-sub',style:{fontSize:13,fontWeight:800}},(liveP.strikerS&&liveP.strikerS.line1)||''),
                     h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line2)||''),
                     h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line3)||'')
                   ):null
@@ -1304,7 +1304,7 @@ function App(){
                   h('div',{className:'k'},'🏏 Non-striker'),
                   h('div',{className:'v'},liveP.nonstriker),
                   statsOpen?h(React.Fragment,null,
-                    h('div',{className:'lp-sub'},(liveP.nonstrikerS&&liveP.nonstrikerS.line1)||''),
+                    h('div',{className:'lp-sub',style:{fontSize:13,fontWeight:800}},(liveP.nonstrikerS&&liveP.nonstrikerS.line1)||''),
                     h('div',{className:'lp-sub'},(liveP.nonstrikerS&&liveP.nonstrikerS.line2)||''),
                     h('div',{className:'lp-sub'},(liveP.nonstrikerS&&liveP.nonstrikerS.line3)||'')
                   ):null
@@ -1313,7 +1313,7 @@ function App(){
                   h('div',{className:'k'},'⚾ Bowler'),
                   h('div',{className:'v'},liveP.bowler),
                   statsOpen?h(React.Fragment,null,
-                    h('div',{className:'lp-sub'},(liveP.bowlerS&&liveP.bowlerS.line1)||''),
+                    h('div',{className:'lp-sub',style:{fontSize:13,fontWeight:800}},(liveP.bowlerS&&liveP.bowlerS.line1)||''),
                     h('div',{className:'lp-sub'},(liveP.bowlerS&&liveP.bowlerS.line2)||'')
                   ):null
                 )
