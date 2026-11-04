@@ -568,7 +568,7 @@ function ordSuffix(n){
 function ballStampPhrase(b, lang){
   var bn=parseBallNotation(b);
   var over=bn.over, ball=bn.ballInOver;
-  if(over!=null&&over===0)over=1; // avoid 0th over
+  if(over!=null && over < 1) over = over + 1; // 0-based → 1-based
   if(over==null||ball==null){
     if(b.ball!=null){
       var s=String(b.ball);
@@ -758,13 +758,10 @@ function showBounce(setBounce, payload){
   else if(runs===3){stampCls='s3';stampText='3';label='Three';anim='r3';}
   else if(runs===2){stampCls='s2';stampText='2';label='Two';anim='r2';}
   else {stampCls='s1';stampText=String(runs);label='One';anim='r1';}
-  setBounce({stampCls:stampCls,stampText:stampText,label:label||stampText,anim:anim,key:Date.now()});
+  setBounce({stampCls:stampCls,stampText:stampText,label:label||stampText,ballNo:payload&&payload.ballNo,anim:anim,key:Date.now()});
   setTimeout(function(){setBounce(null);}, (Number(lsGet('anim_ms','5000'))||5000) );
 }
-function showEventBanner(setEvBanner, kind, label){
-  setEvBanner({kind:kind,label:label});
-  setTimeout(function(){setEvBanner(null);},2400);
-}
+function showEventBanner(){/* banner disabled */}
 function batStats(b){
   if(!b)return{line1:'',line2:'',line3:''};
   var r=b.score!=null?b.score:(b.runs!=null?b.runs:0);
@@ -1018,9 +1015,9 @@ function App(){
     }catch(e){}
   },[]);
   useEffect(function(){
-    if(tab!=='chat'&&!chatPop)return;
+    if(tab!=='chat'&&!chatPop&&!roomId)return;
     chatLoad();
-    chatSend('','join');
+    chatSend(chatName+' joined the chat','join');
     var id=setInterval(chatLoad,1800);
     return function(){clearInterval(id);};
   },[tab,roomId,chatPop]);
@@ -1130,7 +1127,7 @@ function App(){
     u.searchParams.set('view','1');
     var link=u.toString();
     var title='Join MyCricStats live';
-    var text='Join me for live scores & group chat on MyCricStats';
+    var text='Join me to celebrate the match - '+(chatName||'Friend');
     if(navigator.share){
       navigator.share({title:title,text:text,url:link}).catch(function(){
         window.open('https://wa.me/?text='+encodeURIComponent(text+' '+link),'_blank');
@@ -1212,7 +1209,7 @@ function App(){
             h('div',{className:'ball-core'},
               h('div',{className:'run-stamp '+(bounce.stampCls||'')},bounce.stampText||'')
             ),
-            h('div',{className:'ball-text'},bounce.label||'')
+            h('div',{className:'ball-text'},(bounce.ballNo?bounce.ballNo+' · ':'')+(bounce.label||''))
           )
         ):null,
         h('div',{className:'scoreboard-body'},
@@ -1688,21 +1685,21 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
                   try{unlockAudio();}catch(e){}if(stadOn){if(isW)stadBeep('wicket');else if(runs===6)stadBeep('six');else if(runs===4)stadBeep('four');else if(runs>0)stadBeep('run');else stadBeep('dot');}
                   if(isW){
                   showEventBanner(setEvBanner,'wicket','WICKET');
-                  var wLabel='Wicket';try{var sn=String((top.score&&(top.score.out||top.score.dismissal||top.score.name))||'').toLowerCase();if(/caught|catch/.test(sn))wLabel='Wicket - Caught';else if(/bowled/.test(sn))wLabel='Wicket - Bowled';else if(/lbw/.test(sn))wLabel='Wicket - LBW';else if(/run.?out/.test(sn))wLabel='Wicket - Run out';else if(/stump/.test(sn))wLabel='Wicket - Stumped';}catch(e){}showBounce(setBounce,{kind:'wicket',label:wLabel,runs:0});
+                  var wLabel='Wicket';try{var sn=String((top.score&&(top.score.out||top.score.dismissal||top.score.name))||'').toLowerCase();if(/caught|catch/.test(sn))wLabel='Wicket - Caught';else if(/bowled/.test(sn))wLabel='Wicket - Bowled';else if(/lbw/.test(sn))wLabel='Wicket - LBW';else if(/run.?out/.test(sn))wLabel='Wicket - Run out';else if(/stump/.test(sn))wLabel='Wicket - Stumped';}catch(e){}showBounce(setBounce,{kind:'wicket',label:wLabel,runs:0,ballNo:String(top.ball||'')});
                 } else if(runs===6){
-                  showEventBanner(setEvBanner,'six','SIX!');showBounce(setBounce,{kind:'run',runs:6});
+                  showEventBanner(setEvBanner,'six','SIX!');showBounce(setBounce,{kind:'run',runs:6,ballNo:String(top.ball||'')});
                 } else if(runs===4){
-                  showEventBanner(setEvBanner,'four','FOUR!');showBounce(setBounce,{kind:'run',runs:4});
+                  showEventBanner(setEvBanner,'four','FOUR!');showBounce(setBounce,{kind:'run',runs:4,ballNo:String(top.ball||'')});
                 } else if(ballIsExtra(top)){
                   var sn=String((top.score&&top.score.name)||'').toLowerCase();
                   var ek=/wide/.test(sn)?'wide':/no.?ball/.test(sn)?'noball':/leg.?bye/.test(sn)?'legbye':/bye/.test(sn)?'bye':'wide';
                   showEventBanner(setEvBanner,'extra','EXTRA');
-                  showBounce(setBounce,{kind:ek,runs:runs});
+                  showBounce(setBounce,{kind:ek,runs:runs,ballNo:String(top.ball||'')});
                 } else if(runs>0){
                   showEventBanner(setEvBanner,'runs',runs+' RUN'+(runs>1?'S':''));
-                  showBounce(setBounce,{kind:'run',runs:runs});
+                  showBounce(setBounce,{kind:'run',runs:runs,ballNo:String(top.ball||'')});
                 } else {
-                  showBounce(setBounce,{kind:'dot',runs:0});
+                  showBounce(setBounce,{kind:'dot',runs:0,ballNo:String(top.ball||'')});
                 }
                   try{if(isW)triggerAd('wicket');else if(runs===6)triggerAd('six');else if(runs===4)triggerAd('four');
                     if(ov.legal>=6)triggerAd('end_over');
