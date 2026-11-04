@@ -1,9 +1,9 @@
 /**
- * Room chat — GET/POST /api/chat?room=
- * Uses Cache API; also mirrors last payload in response for clients
+ * Room chat — improved for multi-user visibility
+ * GET/POST /api/chat?room=
  */
-const MAX = 100;
-const TTL = 60 * 60 * 6;
+const MAX = 120;
+const TTL = 60 * 60 * 8;
 
 export async function onRequest(context) {
   const { request } = context;
@@ -35,27 +35,28 @@ export async function onRequest(context) {
       data.messages = data.messages || [];
       data.viewers = data.viewers || [];
 
+      // Update presence
+      const now = Date.now();
+      let viewer = data.viewers.find(v => v.name === name);
+      if (!viewer) {
+        viewer = { name, joined: now, last: now, online: true };
+        data.viewers.push(viewer);
+      } else {
+        viewer.last = now;
+        viewer.online = true;
+      }
+      // Mark others offline if inactive > 45s
+      data.viewers.forEach(v => {
+        if (v.name !== name && (now - (v.last || 0)) > 45000) v.online = false;
+      });
+      data.viewers = data.viewers.slice(-80);
+
       if (type === 'join' || type === 'view') {
-        const existing = data.viewers.find((v) => v.name === name);
-        if (existing) {
-          existing.last = Date.now();
-          existing.online = true;
-        } else {
-          data.viewers.push({ name, joined: Date.now(), last: Date.now(), online: true });
-        }
-        data.viewers = data.viewers.slice(-60);
-        if (text) {
-          data.messages.push({ id: id(), name: 'System', text: name + ' joined', type: 'system', t: Date.now() });
-        }
+        if (text) data.messages.push({ id: id(), name: 'System', text: name + ' joined the chat', type: 'system', t: now });
       } else if (type === 'leave') {
-        data.viewers.forEach((v) => {
-          if (v.name === name) {
-            v.online = false;
-            v.last = Date.now();
-          }
-        });
+        viewer.online = false;
       } else if (text) {
-        data.messages.push({ id: id(), name, text, type: 'chat', t: Date.now() });
+        data.messages.push({ id: id(), name, text, type: 'chat', t: now });
       }
       data.messages = data.messages.slice(-MAX);
       await writeRoom(room, data);
@@ -63,10 +64,7 @@ export async function onRequest(context) {
     }
     return new Response(JSON.stringify({ message: 'Method not allowed' }), { status: 405, headers });
   } catch (e) {
-    return new Response(JSON.stringify({ message: String(e.message || e), messages: [], viewers: [] }), {
-      status: 200,
-      headers
-    });
+    return new Response(JSON.stringify({ message: String(e.message || e), messages: [], viewers: [] }), { status: 200, headers });
   }
 }
 
@@ -77,7 +75,7 @@ function id() {
 async function readRoom(room) {
   try {
     const cache = caches.default;
-    const key = new Request('https://mcs-chat.internal/v2/room/' + room);
+    const key = new Request('https://mcs-chat.internal/v3/room/' + room);
     const hit = await cache.match(key);
     if (hit) return await hit.json();
   } catch (e) {}
@@ -87,12 +85,9 @@ async function readRoom(room) {
 async function writeRoom(room, data) {
   try {
     const cache = caches.default;
-    const key = new Request('https://mcs-chat.internal/v2/room/' + room);
-    await cache.put(
-      key,
-      new Response(JSON.stringify(data), {
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=' + TTL }
-      })
-    );
+    const key = new Request('https://mcs-chat.internal/v3/room/' + room);
+    await cache.put(key, new Response(JSON.stringify(data), {
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=' + TTL }
+    }));
   } catch (e) {}
 }
