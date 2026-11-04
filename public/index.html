@@ -584,12 +584,12 @@ function ballStampPhrase(b, lang){
 function colorEvents(text){
   if(!text)return '';
   var out=String(text);
-  out=out.replace(/WICKET!?/gi,'<b class="ev-w">$&</b>');
-  out=out.replace(/\b(caught|bowled|LBW|run out|stumped)\b/gi,'<b class="ev-w">$&</b>');
-  out=out.replace(/\bSIX!?\b/gi,'<b class="ev-6">$&</b>');
-  out=out.replace(/\bFOUR!?\b/gi,'<b class="ev-4">$&</b>');
-  out=out.replace(/\b(Wide|No-ball|No ball|Leg bye|Bye)\b/gi,'<b class="ev-x">$&</b>');
-  out=out.replace(/\b(\d+)\s*run[s]?\b/gi,'<b class="ev-run">$&</b>');
+  out=out.replace(/WICKET!?/gi,'<b style="color:#dc2626;font-weight:800">$&</b>');
+  out=out.replace(/\b(caught|bowled|LBW|run out|stumped)\b/gi,'<b style="color:#dc2626;font-weight:800">$&</b>');
+  out=out.replace(/\bSIX!?\b/gi,'<b style="color:#7c3aed;font-weight:800">$&</b>');
+  out=out.replace(/\bFOUR!?\b/gi,'<b style="color:#16a34a;font-weight:800">$&</b>');
+  out=out.replace(/\b(Wide|No-ball|No ball|Leg bye|Bye)\b/gi,'<b style="color:#9333ea;font-weight:800">$&</b>');
+  out=out.replace(/\b(\d+)\s*run[s]?\b/gi,'<b style="font-weight:800">$&</b>');
   return out;
 }
 function descriptiveLine(b, lang){
@@ -938,6 +938,8 @@ function App(){
   var _sponsorName=useState(function(){return lsGet('sponsor_name','');});var sponsorName=_sponsorName[0],setSponsorName=_sponsorName[1];
   var _sponsorLogo=useState(function(){return lsGet('sponsor_logo','');});var sponsorLogo=_sponsorLogo[0],setSponsorLogo=_sponsorLogo[1];
   var _unread=useState(0);var unread=_unread[0],setUnread=_unread[1];
+  var _replayOver=useState(1);var replayOver=_replayOver[0],setReplayOver=_replayOver[1];
+  var _replayPlaying=useState(false);var replayPlaying=_replayPlaying[0],setReplayPlaying=_replayPlaying[1];
   var _openRooms=useState([]);var openRooms=_openRooms[0],setOpenRooms=_openRooms[1];
   var _chatSub=useState('room');var chatSub=_chatSub[0],setChatSub=_chatSub[1];
   var _chatName=useState(function(){var n=lsGet('chat_name','');if(!n){n='Fan'+Math.floor(Math.random()*90+10);lsSet('chat_name',n);}return n;});
@@ -1284,31 +1286,37 @@ function App(){
               d.starting_at?h('span',null,fmtWhen(d.starting_at)):null,
               d.type?h('span',null,d.type):null
             ),
-            st==='live'||(d&&d.balls&&d.balls.length)?h('div',{className:'players-bar'},h('div',{className:'live-pair'},
-              h('div',{className:'lp',onClick:function(){setStatsOpen(!statsOpen);}},
-                h('div',{className:'k'},'🏏 Striker'),h('div',{className:'v'},'* '+liveP.striker),
-                statsOpen?h(React.Fragment,null,
-                  h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line1)||''),
-                  h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line2)||''),
-                  h('div',{className:'lp-sub'},(liveP.strikerS&&liveP.strikerS.line3)||'')
-                ):h('div',{className:'lp-sub'},'Tap for stats')
+            st==='live'||(d&&d.balls&&d.balls.length)?h('div',{className:'players-bar'},
+              h('table',{className:'players-table',style:{width:'100%',borderCollapse:'collapse',fontSize:12}},
+                h('thead',null,h('tr',null,
+                  h('th',{style:{textAlign:'left',padding:'4px 6px'}},'🏏 Batter'),
+                  h('th',{style:{padding:'4px 6px'}},'R'),
+                  h('th',{style:{padding:'4px 6px'}},'B'),
+                  h('th',{style:{padding:'4px 6px'}},'4s'),
+                  h('th',{style:{padding:'4px 6px'}},'6s'),
+                  h('th',{style:{padding:'4px 6px'}},'SR')
+                )),
+                h('tbody',null,
+                  h('tr',null,
+                    h('td',{style:{padding:'4px 6px',fontWeight:800}},'* '+liveP.striker),
+                    h('td',{style:{textAlign:'center'}},(liveP.strikerS&&liveP.strikerS.line1)||'—'),
+                    h('td',{style:{textAlign:'center'}},''),
+                    h('td',{style:{textAlign:'center'}},''),
+                    h('td',{style:{textAlign:'center'}},''),
+                    h('td',{style:{textAlign:'center'}},(liveP.strikerS&&liveP.strikerS.line2)||'')
+                  ),
+                  h('tr',null,
+                    h('td',{style:{padding:'4px 6px'}},liveP.nonstriker),
+                    h('td',{style:{textAlign:'center'}},(liveP.nonstrikerS&&liveP.nonstrikerS.line1)||'—'),
+                    h('td',{style:{textAlign:'center'}},''),
+                    h('td',{style:{textAlign:'center'}},''),
+                    h('td',{style:{textAlign:'center'}},''),
+                    h('td',{style:{textAlign:'center'}},(liveP.nonstrikerS&&liveP.nonstrikerS.line2)||'')
+                  )
+                )
               ),
-              h('div',{className:'lp',onClick:function(){setStatsOpen(!statsOpen);}},
-                h('div',{className:'k'},'🏏 Non-striker'),h('div',{className:'v'},liveP.nonstriker),
-                statsOpen?h(React.Fragment,null,
-                  h('div',{className:'lp-sub'},(liveP.nonstrikerS&&liveP.nonstrikerS.line1)||''),
-                  h('div',{className:'lp-sub'},(liveP.nonstrikerS&&liveP.nonstrikerS.line2)||''),
-                  h('div',{className:'lp-sub'},(liveP.nonstrikerS&&liveP.nonstrikerS.line3)||'')
-                ):h('div',{className:'lp-sub'},'Tap for stats')
-              ),
-              h('div',{className:'lp',onClick:function(){setStatsOpen(!statsOpen);}},
-                h('div',{className:'k'},'⚾ Bowler'),h('div',{className:'v'},liveP.bowler),
-                statsOpen?h(React.Fragment,null,
-                  h('div',{className:'lp-sub'},(liveP.bowlerS&&liveP.bowlerS.line1)||''),
-                  h('div',{className:'lp-sub'},(liveP.bowlerS&&liveP.bowlerS.line2)||'')
-                ):h('div',{className:'lp-sub'},'Tap for stats')
-              )
-            )):null
+              h('div',{style:{marginTop:6,fontSize:12,fontWeight:700}},'⚾ '+liveP.bowler+' · '+(liveP.bowlerS&&liveP.bowlerS.line1||'')+' '+(liveP.bowlerS&&liveP.bowlerS.line2||''))
+            ):null
           ):(tab==='news'&&news.length?(function(){
             var n=news[newsIdx]||news[0]||{};
             return h('div',{className:'news-player'},
@@ -1686,6 +1694,10 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
         h('div',{className:'card'},
           h('h3',null,'Ball-by-ball · by over'),
           h('div',{className:'comm-toolbar'},
+            h('button',{className:'btn',onClick:function(){setReplayOver(function(n){return Math.max(1,n-1);});}},'◀'),
+            h('button',{className:'btn primary',onClick:function(){setReplayPlaying(!replayPlaying);}},replayPlaying?'⏸':'▶'),
+            h('button',{className:'btn',onClick:function(){setReplayOver(function(n){return n+1;});}},'▶'),
+            h('span',{style:{fontSize:11,fontWeight:700}},'Over '+replayOver),
             h('button',{className:'btn'+(ttsOn?' primary':''),title:'TTS',onClick:function(){var v=!ttsOn;setTtsOn(v);lsSet('tts_on',v?'1':'0');try{unlockAudio();}catch(e){}}},ttsOn?'🔊':'🔇'),
             h('button',{className:'btn'+(ttsLang==='hi'?' primary':''),onClick:function(){setTtsLang('hi');lsSet('tts_lang','hi');}},'हि'),
             h('button',{className:'btn'+(ttsLang==='en'?' primary':''),onClick:function(){setTtsLang('en');lsSet('tts_lang','en');}},'EN'),
