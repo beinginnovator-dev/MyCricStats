@@ -899,6 +899,7 @@ function App(){
   var _error=useState(null);var error=_error[0],setError=_error[1];
   var _settings=useState(false);var settingsOpen=_settings[0],setSettingsOpen=_settings[1];
   var _theme=useState(function(){return lsGet('cric_theme','dark');});
+  var _scoreFont=useState(function(){return lsGet('score_font','system-ui');});var scoreFont=_scoreFont[0],setScoreFont=_scoreFont[1];
   var theme=_theme[0],setTheme=_theme[1];
   var _bg=useState(function(){return lsGet('bg_cricket',DEFAULT_BG);});
   var bgUrl=_bg[0],setBgUrl=_bg[1];
@@ -1042,7 +1043,7 @@ function App(){
     }catch(e){}
   },[]);
   useEffect(function(){
-    if(tab!=='chat'&&!chatPop&&!roomId)return;
+    if(tab!=='chat'&&!chatPop)return;
     chatLoad();
     if(!lsGet('joined_'+roomId)){chatSend((chatName||'Fan')+' joined','join');lsSet('joined_'+roomId,'1');}
     var id=setInterval(chatLoad,1800);
@@ -1213,7 +1214,7 @@ function App(){
     error?h('div',{className:'error-bar'},error):null,
 
     h('div',{className:'top-chrome'},
-    h('div',{className:'broadcast'},
+    h('div',{className:'broadcast',style:{fontFamily:scoreFont}},
       bgUrl?h('div',{className:'bg-layer',style:{backgroundImage:'url('+bgUrl+')'}}):null,
       h('div',{className:'bg-overlay',style:{opacity:bgUrl?bgOp:0.92}}),
       h('div',{className:'bc-content'},
@@ -1500,7 +1501,7 @@ function App(){
                 h('button',{className:'btn',style:{fontSize:10,padding:'2px 8px'},onClick:function(){setPlayersOpen(!playersOpen);}},playersOpen?'−':'＋')
               ),
               playersOpen?h(React.Fragment,null,
-              h('table',{className:'players-table',style:{width:'100%',borderCollapse:'collapse',fontSize:12}},
+              h('table',{className:'players-table',style:{width:'100%',borderCollapse:'collapse',fontSize:14}},
                 h('thead',null,h('tr',null,
                   h('th',{style:{textAlign:'left',padding:'4px 6px'}},'🏏 Batter'),
                   h('th',{style:{textAlign:'center',padding:'4px 6px'}},'R'),
@@ -1511,7 +1512,7 @@ function App(){
                 )),
                 h('tbody',null,
                   h('tr',null,
-                    h('td',{style:{padding:'4px 6px'}},'* '+(liveP.striker||'—')),
+                    h('td',{style:{padding:'4px 6px',display:'flex',alignItems:'center',gap:6}},(liveP.strikerS&&liveP.strikerS.img)?h('img',{src:liveP.strikerS.img,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,'* '+(liveP.striker||'—')),
                     h('td',{style:{textAlign:'center',fontWeight:800}},(liveP.strikerS&&liveP.strikerS.r!=null?liveP.strikerS.r:'—')),
                     h('td',{style:{textAlign:'center'}},(liveP.strikerS&&liveP.strikerS.b!=null?liveP.strikerS.b:'')),
                     h('td',{style:{textAlign:'center'}},(liveP.strikerS&&liveP.strikerS.fours!=null?liveP.strikerS.fours:'')),
@@ -1528,7 +1529,7 @@ function App(){
                   )
                 )
               ),
-              h('table',{className:'players-table',style:{width:'100%',borderCollapse:'collapse',fontSize:12,marginTop:6}},
+              h('table',{className:'players-table',style:{width:'100%',borderCollapse:'collapse',fontSize:14,marginTop:6}},
                 h('thead',null,h('tr',null,
                   h('th',{style:{textAlign:'left',padding:'4px 6px'}},'⚾ Bowler'),
                   h('th',{style:{textAlign:'center',padding:'4px 6px'}},'O'),
