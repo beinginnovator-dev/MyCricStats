@@ -9,7 +9,8 @@ export async function onRequest(context) {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-store, no-cache, must-revalidate'
   });
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
 
@@ -51,13 +52,28 @@ export async function onRequest(context) {
       dest.searchParams.set(k, v);
     });
 
-    const res = await fetch(dest.toString(), {
-      headers: { Accept: 'application/json', 'User-Agent': 'MyCricStats/1.0' }
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    let res;
+    try {
+      res = await fetch(dest.toString(), {
+        headers: { Accept: 'application/json', 'User-Agent': 'MyCricStats/1.0' },
+        signal: controller.signal
+      });
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        return new Response(JSON.stringify({ message: 'Sportmonks upstream timed out after 12 seconds' }), {
+          status: 504, headers
+        });
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
     const text = await res.text();
     return new Response(text, {
       status: res.status,
-      headers: { ...Object.fromEntries(headers), 'Content-Type': 'application/json' }
+      headers: { ...Object.fromEntries(headers), 'Content-Type': res.headers.get('Content-Type') || 'application/json' }
     });
   } catch (e) {
     return new Response(JSON.stringify({ message: String(e.message || e) }), { status: 502, headers });
