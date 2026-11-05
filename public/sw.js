@@ -1,5 +1,5 @@
-const CACHE = 'mcs-v5-scorecard-audio';
-const ASSETS = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/audio/crowd_chant.mp3', '/audio/crowd_cheer.mp3', '/audio/crowd_roar.mp3', '/audio/crowd_short.mp3', '/audio/crowd_whistle.mp3'];
+const CACHE = 'mcs-v6-scorecard-audio-events';
+const ASSETS = ['/', '/index.html', '/manifest.webmanifest', '/audio/crowd_chant.mp3', '/audio/crowd_cheer.mp3', '/audio/crowd_whistle.mp3'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
 });
