@@ -433,15 +433,48 @@ function teamName(m,side){
   if(side==='local')return(m.localteam&&m.localteam.name)||m.localteam_id||'Home';
   return(m.visitorteam&&m.visitorteam.name)||m.visitorteam_id||'Away';
 }
+function runTeamId(row){
+  if(!row)return null;
+  var team=unwrapRelation(row.team);
+  return row.team_id!=null?row.team_id:(team&&team.id!=null?team.id:null);
+}
+function scoreText(row){
+  if(!row)return'—';
+  var score=row.score!=null?row.score:(row.total!=null?row.total:'—');
+  var wickets=row.wickets!=null?row.wickets:row.wickets_out;
+  var overs=row.overs!=null?row.overs:null;
+  return String(score)+(wickets!=null?'/'+wickets:'')+(overs!=null?' ('+overs+')':'');
+}
 function scoreLine(m){
-  var runs=m.runs||[];
+  var runs=relationRows(m&&m.runs), homeId=m&&m.localteam_id, awayId=m&&m.visitorteam_id;
   var a='—',b='—';
-  if(runs[0]!=null)a=(runs[0].score!=null?runs[0].score:'—')+(runs[0].wickets!=null?'/'+runs[0].wickets:'')+(runs[0].overs!=null?' ('+runs[0].overs+')':'');
-  if(runs[1]!=null)b=(runs[1].score!=null?runs[1].score:'—')+(runs[1].wickets!=null?'/'+runs[1].wickets:'')+(runs[1].overs!=null?' ('+runs[1].overs+')':'');
-  if(a==='—'&&b==='—'&&m.scoreboards){
-    var totals=(m.scoreboards||[]).filter(function(s){return s.type==='total'||s.total!=null;});
-    if(totals[0])a=totals[0].total+(totals[0].wickets!=null?'/'+totals[0].wickets:'')+(totals[0].overs!=null?' ('+totals[0].overs+')':'');
-    if(totals[1])b=totals[1].total+(totals[1].wickets!=null?'/'+totals[1].wickets:'')+(totals[1].overs!=null?' ('+totals[1].overs+')':'');
+  // Sportmonks runs are innings records: bind each score to its team_id,
+  // never to array position (the batting team is not necessarily localteam).
+  runs.forEach(function(r){
+    var tid=runTeamId(r);
+    if(tid==null)return;
+    if(homeId!=null&&String(tid)===String(homeId))a=scoreText(r);
+    if(awayId!=null&&String(tid)===String(awayId))b=scoreText(r);
+  });
+  // If a run record omits team_id, correlate its innings key with batting rows.
+  if(a==='—'||b==='—'){
+    var bat=relationRows(m&&m.batting);
+    runs.forEach(function(r){
+      var key=inningsKey(r); if(!key)return;
+      var related=bat.find(function(x){return inningsKey(x)===key&&teamIdOf(x,'batsman')!=null;});
+      var tid=related&&teamIdOf(related,'batsman');
+      if(tid!=null&&String(tid)===String(homeId))a=scoreText(r);
+      if(tid!=null&&String(tid)===String(awayId))b=scoreText(r);
+    });
+  }
+  // Scoreboard fallback is also keyed by team/innings where possible.
+  if((a==='—'||b==='—')&&Array.isArray(m&&m.scoreboards)){
+    m.scoreboards.forEach(function(r){
+      var tid=runTeamId(r), key=inningsKey(r), related=relationRows(m&&m.batting).find(function(x){return key&&inningsKey(x)===key&&teamIdOf(x,'batsman')!=null;});
+      if(tid==null&&related)tid=teamIdOf(related,'batsman');
+      if(tid!=null&&String(tid)===String(homeId))a=scoreText(r);
+      if(tid!=null&&String(tid)===String(awayId))b=scoreText(r);
+    });
   }
   return{a:a,b:b};
 }
@@ -526,15 +559,44 @@ function rowsForScorecardTeam(rows,side,d,role){
     var matched=withTeam.filter(function(r){return String(teamIdOf(r,role))===String(targetId);});
     if(matched.length)return matched;
   }
+  // Sportmonks batting/bowling scoreboard values use S1/S2 etc. Match those
+  // innings keys to the runs record whose team_id identifies the batting side.
   var runRows=relationRows(d&&d.runs);
-  var targetRun=runRows.find(function(r){return String(r.team_id||((r.team||{}).id)||'')===String(selectedId);});
+  var targetRun=runRows.find(function(r){return String(runTeamId(r))===String(role==='bowling'?selectedId:targetId);});
   var key=inningsKey(targetRun);
   if(key){
     var byInnings=rows.filter(function(r){return inningsKey(r)===key;});
     if(byInnings.length)return byInnings;
   }
-  // Never split a one-innings response in half: it silently hides all bowlers.
-  return rows;
+  // A single-innings payload without team IDs can safely be shown as-is.
+  var keys=Array.from(new Set(rows.map(inningsKey).filter(Boolean)));
+  if(keys.length<=1&&runRows.length<=1)return rows;
+  return[];
+}
+
+function currentBattingSide(d){
+  if(!d)return'home';
+  var batting=relationRows(d.batting), runs=relationRows(d.runs);
+  // The active innings is the highest/last innings scoreboard key in the API.
+  var keys=runs.map(inningsKey).filter(Boolean);
+  keys.sort(function(a,b){
+    var na=Number((String(a).match(/[1-4]/)||[])[0]||0);
+    var nb=Number((String(b).match(/[1-4]/)||[])[0]||0);
+    return na-nb;
+  });
+  var activeKey=keys.length?keys[keys.length-1]:'';
+  var row=activeKey&&batting.find(function(x){return inningsKey(x)===activeKey&&teamIdOf(x,'batsman')!=null;});
+  var tid=row&&teamIdOf(row,'batsman');
+  if(tid==null&&runs.length){
+    var ordered=runs.slice().sort(function(a,b){
+      var na=Number((String(inningsKey(a)).match(/[1-4]/)||[])[0]||0);
+      var nb=Number((String(inningsKey(b)).match(/[1-4]/)||[])[0]||0);
+      return na-nb;
+    });
+    tid=runTeamId(ordered[ordered.length-1]);
+  }
+  if(tid!=null&&String(tid)===String(d.visitorteam_id))return'away';
+  return'home';
 }
 function playerMatchFigures(player,d){
   var pl=unwrapRelation(player&&player.player)||player||{};
@@ -893,7 +955,7 @@ var stadiumAudioFiles={
   over:'/audio/crowd_chant.mp3'
 };
 function getStadiumAudio(kind){
-  var file=stadiumAudioFiles[kind]||stadiumAudioFiles.over;
+  var file=stadiumAudioFiles[kind]; if(!file)return null;
   if(!stadiumAudioPlayers[file]){
     var a=new Audio(file);
     a.preload='auto';
@@ -1416,6 +1478,9 @@ function App(){
     }
     tryPlan(0).then(function(data){
       data=normaliseMatchDetail(data||best,m);
+      var activeSide=currentBattingSide(data);
+      setBatTeam(activeSide);setScTeam(activeSide);
+      setBowlTeamTab(activeSide==='home'?'away':'home');
       setDetail(data);setSelected(data);
       if(!hasScorecardRows(data)&&statusOf(data)!=='upcoming'&&!silent){
         var hasBat=relationRows(data.batting).length>0;
@@ -1431,6 +1496,8 @@ function App(){
   }
 
   var selectMatch=function(m){
+    var battingSide=currentBattingSide(m||{});
+    setBatTeam(battingSide);setScTeam(battingSide);setBowlTeamTab(battingSide==='home'?'away':'home');
     setSelected(m);setDetail(m);setTab('commentary');lsSet('mcs_tab','commentary');
     if(m&&m.id){var rid='m'+m.id;setRoomId(rid);lsSet('last_room',rid);lsSet('last_match',String(m.id));}
     loadDetail(m);
@@ -2117,8 +2184,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
         (function(){
           var rows=(d&&d.batting)||[];
           var tid=batTeam==='home'?(d&&d.localteam_id):(d&&d.visitorteam_id);
-          var filtered=rows.filter(function(b){var id=b.team_id||(b.team&&b.team.id);if(id==null)return true;return String(id)===String(tid);});
-          if(!filtered.length&&rows.length){var m=Math.ceil(rows.length/2);filtered=batTeam==='home'?rows.slice(0,m):rows.slice(m);}
+          var filtered=rowsForScorecardTeam(rows,batTeam,d,'batting');
           if(!filtered.length)return h('div',{className:'muted'},loading?'Loading…':'No batting data');
           return h('table',{className:'table'},
             h('thead',null,h('tr',null,h('th',null,'Batter'),h('th',null,'R'),h('th',null,'B'),h('th',null,'4s'),h('th',null,'6s'),h('th',null,'SR'))),
@@ -2140,8 +2206,7 @@ tab==='bowling'?(!selected?h('div',{className:'empty'},'Select a match'):h('div'
         (function(){
           var rows=(d&&d.bowling)||[];
           var tid=bowlTeamTab==='home'?(d&&d.localteam_id):(d&&d.visitorteam_id);
-          var filtered=rows.filter(function(b){var id=b.team_id||(b.team&&b.team.id);if(id==null)return true;return String(id)===String(tid);});
-          if(!filtered.length&&rows.length){var m=Math.ceil(rows.length/2);filtered=bowlTeamTab==='home'?rows.slice(0,m):rows.slice(m);}
+          var filtered=rowsForScorecardTeam(rows,bowlTeamTab==='home'?'away':'home',d,'bowling');
           if(!filtered.length)return h('div',{className:'muted'},loading?'Loading…':'No bowling data');
           return h('table',{className:'table'},
             h('thead',null,h('tr',null,h('th',null,'Bowler'),h('th',null,'O'),h('th',null,'R'),h('th',null,'W'),h('th',null,'Econ'))),
@@ -2176,10 +2241,7 @@ tab==='squad'?(!selected?h('div',{className:'empty'},'Select a match'):h('div',{
             if(tname&&awayName)return String(tname).toLowerCase()===String(awayName).toLowerCase();
             return false;
           });
-          if(!filtered.length&&list.length){
-            var mid=Math.ceil(list.length/2);
-            filtered=squadTeam==='home'?list.slice(0,mid):list.slice(mid);
-          }
+          
           if(!list.length)return h('div',{className:'muted'},loading?'Loading…':'No lineup on this fixture yet.');
           if(!filtered.length)return h('div',{className:'muted'},'No players listed for this team.');
           return h('div',null,
