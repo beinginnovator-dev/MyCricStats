@@ -136,6 +136,8 @@ if(!window.React||!window.ReactDOM){document.getElementById('root').innerHTML='<
 var h=React.createElement,useState=React.useState,useEffect=React.useEffect,useRef=React.useRef,useCallback=React.useCallback;
 var THEMES=['dark','light','pitch','night'];
 var CACHE_MS=45000;
+var LIVE_CACHE_MS=7000;
+var DETAIL_CACHE_MS=6500;
 var memCache={};
 /* Default stadium/pitch images (Unsplash) */
 var DEFAULT_BG={
@@ -167,10 +169,12 @@ async function smGet(url){
   var cached=cacheGet(cacheKey);
   if(cached)return{data:cached,fromCache:true};
   var json=await fetchJson(url);
-  if(json.message&&json.data==null&&!Array.isArray(json.data))throw new Error(json.message);
+  if(json.message&&json.data==null&&!Array.isArray(json.data))throw new Error(typeof json.message==='string'?json.message:JSON.stringify(json.message));
   if(json.error)throw new Error(typeof json.error==='string'?json.error:(json.error.message||JSON.stringify(json.error)));
   var data=json.data!=null?json.data:json;
-  cacheSet(cacheKey,data,CACHE_MS);
+  var path=(new URL(url,location.origin)).searchParams.get('path')||'';
+  var ttl=/^livescores/i.test(path)?LIVE_CACHE_MS:(/^fixtures%2F|^fixtures\//i.test(path)?DETAIL_CACHE_MS:CACHE_MS);
+  cacheSet(cacheKey,data,ttl);
   return{data:data,fromCache:false,meta:json.meta};
 }
 function fbUrl(path,token,include){
@@ -180,6 +184,7 @@ function fbUrl(path,token,include){
 }
 function ckUrl(path,token,include){
   var u='/api/proxy?sport=cricket&path='+encodeURIComponent(path.replace(/^\\//,''))+'&api_token='+encodeURIComponent(token);
+  try{if(qs().get('view')==='1')u+='&guest=1&view=1';}catch(e){}
   if(include)u+='&include='+encodeURIComponent(include);
   return u;
 }
@@ -253,9 +258,9 @@ function App(){
 
   useEffect(function(){document.body.className='theme-'+theme;},[theme]);
 
-  var loadList=useCallback(function(force){
+  var loadList=useCallback(function(force,silent){
     if(!token){setError('Add Sportmonks token in ⚙ Settings.');return;}
-    setLoading(true);setError(null);
+    if(!silent){setLoading(true);setError(null);}
     if(force)cacheClear();
     var p;
     if(sport==='cricket'){
@@ -274,11 +279,18 @@ function App(){
         var m=list.find(function(x){return String(x.id)===String(shareId);});
         if(m){setSelected(m);setDetail(m);setTab('live');}
       }
-    }).catch(function(e){setError(e.message||'Load failed');})
-     .finally(function(){setLoading(false);});
+    }).catch(function(e){if(!silent)setError(e.message||'Load failed');})
+     .finally(function(){if(!silent)setLoading(false);});
   },[token,sport,shareId]);
 
   useEffect(function(){if(token)loadList(false);},[token,sport]);
+  useEffect(function(){
+    if(!token)return;
+    var id=setInterval(function(){if(document.visibilityState==='visible')loadList(false,true);},15000);
+    var onVisible=function(){if(document.visibilityState==='visible')loadList(false,true);};
+    document.addEventListener('visibilitychange',onVisible);
+    return function(){clearInterval(id);document.removeEventListener('visibilitychange',onVisible);};
+  },[token,sport,loadList]);
 
   var selectMatch=function(m){
     setSelected(m);setDetail(m);setTab('live');
@@ -288,16 +300,23 @@ function App(){
       if(prev&&(sc.home+sc.away)>(prev.home+prev.away))triggerAd('goal');
     }
   };
-  var loadDetail=function(m){
+  var loadDetail=function(m,silent){
     if(!token||!m)return;
-    setLoading(true);setError(null);
+    if(!silent){setLoading(true);setError(null);}
     var p=sport==='cricket'
       ?smGet(ckUrl('fixtures/'+m.id,token,'localteam,visitorteam,runs,batting,bowling,league,venue,lineup'))
       :smGet(fbUrl('fixtures/'+m.id,token,'participants;scores;events;state;league;venue;lineups'));
     p.then(function(r){setDetail(r.data||m);setSelected(r.data||m);})
-     .catch(function(e){setError(e.message);})
-     .finally(function(){setLoading(false);});
+     .catch(function(e){if(!silent)setError(e.message);})
+     .finally(function(){if(!silent)setLoading(false);});
   };
+  useEffect(function(){
+    if(!selected||!selected.id)return;
+    var live=!!selected.live||/live|innings|1st|2nd/i.test(String(selected.status||''));
+    if(!live)return;
+    var id=setInterval(function(){if(document.visibilityState==='visible')loadDetail(selected,true);},8000);
+    return function(){clearInterval(id);};
+  },[selected&&selected.id,selected&&selected.status,selected&&selected.live,token,sport]);
   function triggerAd(event){
     if(!ads.enabled||adShow)return;
     var item=(ads.items||[]).find(function(x){return x.event===event;});
@@ -573,7 +592,7 @@ export default {
     const path = url.pathname;
 
     if (path === "/api/proxy" || path.startsWith("/api/proxy")) {
-      return handleProxy(request, url);
+      return handleProxy(request, url, env);
     }
 
     if (path === "/manifest.webmanifest") {
@@ -606,13 +625,14 @@ export default {
   }
 };
 
-async function handleProxy(request, url) {
+async function handleProxy(request, url, env) {
   const h = cors(request);
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: h });
 
   const sport = (url.searchParams.get("sport") || "football").toLowerCase();
   const apiPath = (url.searchParams.get("path") || "").replace(/^\/+/, "");
-  const token = request.headers.get("X-Sportmonks-Token") || url.searchParams.get("api_token") || "";
+  const guest = url.searchParams.get("guest") === "1" || url.searchParams.get("view") === "1";
+  const token = request.headers.get("X-Sportmonks-Token") || url.searchParams.get("api_token") || (guest && env && env.SPORTMONKS_TOKEN) || "";
 
   if (!apiPath) {
     h.set("Content-Type", "application/json");
@@ -634,15 +654,24 @@ async function handleProxy(request, url) {
   upstream.searchParams.set("api_token", token);
 
   try {
-    const res = await fetch(upstream.toString(), {
-      headers: { Accept: "application/json", "User-Agent": "MyCricStats-Worker/4.0" }
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    let res;
+    try {
+      res = await fetch(upstream.toString(), {
+        headers: { Accept: "application/json", "User-Agent": "MyCricStats-Worker/4.0" },
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
+    }
     const text = await res.text();
     h.set("Content-Type", res.headers.get("Content-Type") || "application/json");
     return new Response(text, { status: res.status, headers: h });
   } catch (e) {
     h.set("Content-Type", "application/json");
-    return new Response(JSON.stringify({ message: String(e.message || e) }), { status: 502, headers: h });
+    const timedOut = e && e.name === "AbortError";
+    return new Response(JSON.stringify({ message: timedOut ? "Sportmonks upstream timed out after 12 seconds" : String(e.message || e) }), { status: timedOut ? 504 : 502, headers: h });
   }
 }
 
