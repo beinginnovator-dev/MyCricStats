@@ -277,6 +277,8 @@ body.theme-light .broadcast .tname,body.theme-light .broadcast .score-num,body.t
 'use strict';
 if(!window.React){
   document.write('<script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"><\/script>');
+}
+if(!window.ReactDOM){
   document.write('<script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"><\/script>');
 }
 })();
@@ -961,7 +963,8 @@ function App(){
   var _viewCount=useState(function(){return parseInt(lsGet('mcs_viewers_base','12'),10)||12;});
   var viewCount=_viewCount[0],setViewCount=_viewCount[1];
   useEffect(function(){
-    loadDomestic();
+    // Domestic fixtures are supplied by the main match list; do not call the
+    // removed loadDomestic() helper (it caused a ReferenceError on startup).
     // soft presence: tick local counter for display (real concurrent needs backend)
     try{
       var base=parseInt(lsGet('mcs_viewers_base','12'),10)||12;
@@ -1137,6 +1140,12 @@ function App(){
           setUnread(function(u){return (u||0)+(msgs.length-prevLen);});
         }
       }).catch(function(){});
+  }
+  function chatDelete(id){
+    fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room:roomId,name:chatName,id:id,type:'delete'})}).then(function(){chatLoad();}).catch(function(){});
+  }
+  function chatEdit(id,newText){
+    fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room:roomId,name:chatName,id:id,text:newText,type:'edit'})}).then(function(){chatLoad();}).catch(function(){});
   }
   function chatSend(text, type){
     type=type||'chat';
@@ -1935,8 +1944,14 @@ tab==='squad'?(!selected?h('div',{className:'empty'},'Select a match'):h('div',{
 }
 
 var root=document.getElementById('root');
-if(ReactDOM.createRoot)ReactDOM.createRoot(root).render(h(App));
-else ReactDOM.render(h(App),root);
+try{
+  if(!root)throw new Error('App root element #root is missing');
+  if(ReactDOM.createRoot)ReactDOM.createRoot(root).render(h(App));
+  else ReactDOM.render(h(App),root);
+}catch(err){
+  console.error('MyCricStats startup failed:',err);
+  root.innerHTML='<div style="padding:24px;color:#fecaca;font:14px system-ui;line-height:1.5"><b>MyCricStats could not start.</b><br>'+String(err&&err.message||err).replace(/[&<>]/g,function(c){return ({"&":"&amp;","<":"&lt;",">":"&gt;"})[c];})+'<br><br>Refresh the page. If the issue continues, clear this site’s cached data.</div>';
+}
 })();
 </script>
 </body>
