@@ -312,10 +312,12 @@ var DETAIL_CACHE_MS=6500;
 var FIXTURE_CACHE_MS=120000;
 var memCache={};
 var DEFAULT_BG='https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=1200&q=60';
-var INCLUDE_LIST='localteam,visitorteam,runs,league,venue,scoreboards,batting,batting.batsman,batting.team,bowling,bowling.bowler,bowling.team,balls,balls.batsman,balls.bowler,lineup,lineup.player,tosswon,manofmatch,firstumpire,secondumpire,referee,stage,season';
-var INCLUDE_LIST_SCORECARD='localteam,visitorteam,runs,league,venue,scoreboards,batting,batting.batsman,batting.team,bowling,bowling.bowler,bowling.team,lineup,lineup.player,tosswon,manofmatch';
-var INCLUDE_LIST_SCORECARD_LIGHT='localteam,visitorteam,runs,scoreboards,batting,bowling,lineup';
-var INCLUDE_LIST_LIGHT='localteam,visitorteam,runs,league,venue';
+// Sportmonks fixture endpoint allows up to 10 nested includes. Keep this request
+// within that limit; oversized include lists can return HTTP 400 and break both tabs.
+var INCLUDE_LIST='localteam,visitorteam,runs,batting,bowling,lineup,lineup.player,balls,balls.batsman,balls.bowler';
+var INCLUDE_LIST_SCORECARD='runs,batting,bowling,lineup,lineup.player';
+var INCLUDE_LIST_SCORECARD_LIGHT='runs,batting,bowling,lineup';
+var INCLUDE_LIST_LIGHT='localteam,visitorteam,runs';
 
 function qs(){try{return new URLSearchParams(location.search);}catch(e){return new URLSearchParams();}}
 function isViewMode(){return qs().get('view')==='1';}
@@ -1431,13 +1433,12 @@ function App(){
     var isGuest=false;try{isGuest=qs().get('view')==='1';}catch(e){}
     if((!tok&&!isGuest)||!m||!m.id)return;
     if(!silent){setLoading(true);setError(null);}
-    var plans=[INCLUDE_LIST,INCLUDE_LIST_SCORECARD,INCLUDE_LIST_SCORECARD_LIGHT];
     var best=normaliseMatchDetail(m,m);
     function mergeData(incoming){
       incoming=normaliseMatchDetail(incoming||{},m);
       ['runs','scoreboards','batting','bowling','balls','lineup'].forEach(function(k){
         var next=relationRows(incoming[k]),prior=relationRows(best[k]);
-        if(next.length>prior.length)best[k]=next;
+        if(next.length>=prior.length&&next.length)best[k]=next;
       });
       ['localteam','visitorteam','league','venue','tosswon','manofmatch','firstumpire','secondumpire','referee','stage','season'].forEach(function(k){
         if(incoming[k]!=null)best[k]=incoming[k];
@@ -1449,34 +1450,24 @@ function App(){
     }
     function recoverMissingRows(){
       var jobs=[];
-      if(!relationRows(best.batting).length){
-        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'batting,batting.batsman,batting.team'),{force:true})
+      // Fetch scorecard records together only if the main response omitted them.
+      if(!relationRows(best.batting).length||!relationRows(best.bowling).length){
+        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,INCLUDE_LIST_SCORECARD),{force:true})
           .then(function(r){mergeData(r.data||{});})
-          .catch(function(e){console.warn('Sportmonks batting-only recovery failed',e);}));
+          .catch(function(e){console.warn('Sportmonks scorecard recovery failed',e);}));
       }
-      if(!relationRows(best.bowling).length){
-        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'bowling,bowling.bowler,bowling.team'),{force:true})
+      // Ball-by-ball is a separate, small include request only when absent.
+      if(!relationRows(best.balls).length){
+        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'balls,balls.batsman,balls.bowler'),{force:true})
           .then(function(r){mergeData(r.data||{});})
-          .catch(function(e){console.warn('Sportmonks bowling-only recovery failed',e);}));
+          .catch(function(e){console.warn('Sportmonks commentary recovery failed',e);}));
       }
       return Promise.all(jobs).then(function(){return normaliseMatchDetail(best,m);});
     }
-    function tryPlan(index){
-      var url=ckUrl('fixtures/'+m.id,tok,plans[index]);
-      return smGet(url,{force:true}).then(function(r){
-        var data=mergeData(r.data||m);
-        if(hasScorecardRows(data)||statusOf(data)==='upcoming')return data;
-        if(index<plans.length-1)return tryPlan(index+1);
-        return recoverMissingRows();
-      }).catch(function(err){
-        if(index<plans.length-1)return tryPlan(index+1);
-        return recoverMissingRows().then(function(data){
-          if(!relationRows(data.batting).length&&!relationRows(data.bowling).length)throw err;
-          return data;
-        });
-      });
-    }
-    tryPlan(0).then(function(data){
+    smGet(ckUrl('fixtures/'+m.id,tok,INCLUDE_LIST),{force:true}).then(function(r){
+      mergeData(r.data||m);
+      return recoverMissingRows();
+    }).then(function(data){
       data=normaliseMatchDetail(data||best,m);
       var activeSide=currentBattingSide(data);
       setBatTeam(activeSide);setScTeam(activeSide);
@@ -1485,7 +1476,7 @@ function App(){
       if(!hasScorecardRows(data)&&statusOf(data)!=='upcoming'&&!silent){
         var hasBat=relationRows(data.batting).length>0;
         var hasBowl=relationRows(data.bowling).length>0;
-        setError('Scorecard is incomplete: '+(hasBat?'bowling':'batting')+' rows were not returned. The app tried combined and individual documented includes. Check this fixture’s data availability and API access.');
+        setError('Scorecard is incomplete: '+(hasBat?'bowling':'batting')+' rows were not returned. The app retried the documented scorecard includes. Check the fixture data, token permissions and API response.');
       }
       return data;
     }).catch(function(err){
