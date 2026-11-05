@@ -961,6 +961,7 @@ function App(){
   var _viewCount=useState(function(){return parseInt(lsGet('mcs_viewers_base','12'),10)||12;});
   var viewCount=_viewCount[0],setViewCount=_viewCount[1];
   useEffect(function(){
+    loadDomestic();
     // soft presence: tick local counter for display (real concurrent needs backend)
     try{
       var base=parseInt(lsGet('mcs_viewers_base','12'),10)||12;
@@ -1478,7 +1479,13 @@ function App(){
       h('div',{className:'cp-body'},
         (chatMsgs.length?chatMsgs:[{name:'MCS',text:'Say hi to your friends 🏏',t:Date.now()}]).map(function(m,i){
           var me=(m.name===chatName);
-          return h('div',{key:m.id||i,className:'cp-msg '+(me?'me':'them')},h('b',null,(m.name||'Fan')+': '),m.text);
+          return h('div',{key:m.id||i,className:'cp-msg '+(me?'me':'them'),style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:6}},
+            h('div',null,h('b',null,(m.name||'Fan')+': '),m.text,m.edited?h('span',{style:{fontSize:10,opacity:.6}},' (edited)'):null),
+            me&&m.id?h('span',{style:{fontSize:10,opacity:.7,cursor:'pointer'}},
+              h('span',{onClick:function(){var nt=prompt('Edit message',m.text);if(nt&&nt!==m.text)chatEdit(m.id,nt);}},'✏️ '),
+              h('span',{onClick:function(){if(confirm('Delete?'))chatDelete(m.id);}},'🗑')
+            ):null
+          );
         })
       ),
       h('div',{className:'emoji-row',style:{padding:'4px 8px',background:'#1f2c34'}},
@@ -1595,7 +1602,7 @@ function App(){
 
       tab==='matches'?h(React.Fragment,null,
         h('div',{className:'filter-row'},
-          [['all','All'],['live','Live'],['upcoming','Upcoming'],['finished','Finished']].map(function(f){
+          [['all','All'],['live','Live'],['upcoming','Upcoming'],['finished','Finished'],['domestic','Domestic']].map(function(f){
             return h('button',{key:f[0],className:filter===f[0]?'on':'',onClick:function(){setFilter(f[0]);}},f[1]);
           })
         ),
