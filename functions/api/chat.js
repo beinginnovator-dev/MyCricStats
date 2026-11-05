@@ -1,8 +1,9 @@
 /**
- * Room chat — improved reliability for multi-user
+ * Room chat — multi-user presence
+ * Note: Cloudflare cache is best-effort. For production use KV or Durable Objects.
  */
-const MAX = 150;
-const TTL = 60 * 60 * 12;
+const MAX = 200;
+const TTL = 60 * 60 * 24;
 
 export async function onRequest(context) {
   const { request } = context;
@@ -11,7 +12,7 @@ export async function onRequest(context) {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Content-Type': 'application/json',
-    'Cache-Control': 'no-store'
+    'Cache-Control': 'no-store, no-cache, must-revalidate'
   };
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
 
@@ -43,17 +44,19 @@ export async function onRequest(context) {
         viewer.last = now;
         viewer.online = true;
       }
-      // Offline if inactive > 30s
       data.viewers.forEach(v => {
-        if ((now - (v.last || 0)) > 30000) v.online = false;
+        v.online = (now - (v.last || 0)) < 60000;
       });
-      data.viewers = data.viewers.filter(v => (now - (v.last || 0)) < 120000).slice(-60);
+      data.viewers = data.viewers.filter(v => (now - (v.last || 0)) < 600000).slice(-100);
 
-      if ((type === 'join' || type === 'view') && text) {
-        data.messages.push({ id: id(), name: 'System', text: name + ' joined', type: 'system', t: now });
+      if (type === 'join' && text) {
+        const lastJoin = data.messages.filter(m => m.type === 'system' && m.text === name + ' joined').pop();
+        if (!lastJoin || (now - lastJoin.t) > 30000) {
+          data.messages.push({ id: id(), name: 'System', text: name + ' joined', type: 'system', t: now });
+        }
       } else if (type === 'leave') {
         viewer.online = false;
-      } else if (text) {
+      } else if (text && type !== 'view') {
         data.messages.push({ id: id(), name, text, type: 'chat', t: now });
       }
       data.messages = data.messages.slice(-MAX);
@@ -73,7 +76,7 @@ function id() {
 async function readRoom(room) {
   try {
     const cache = caches.default;
-    const key = new Request('https://mcs-chat.internal/v4/room/' + room);
+    const key = new Request('https://mcs-chat.internal/v5/room/' + room);
     const hit = await cache.match(key);
     if (hit) return await hit.json();
   } catch (e) {}
@@ -83,7 +86,7 @@ async function readRoom(room) {
 async function writeRoom(room, data) {
   try {
     const cache = caches.default;
-    const key = new Request('https://mcs-chat.internal/v4/room/' + room);
+    const key = new Request('https://mcs-chat.internal/v5/room/' + room);
     await cache.put(key, new Response(JSON.stringify(data), {
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=' + TTL }
     }));
