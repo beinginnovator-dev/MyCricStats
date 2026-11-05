@@ -306,7 +306,10 @@ if(!window.React||!window.ReactDOM){
 }
 var h=React.createElement,useState=React.useState,useEffect=React.useEffect,useCallback=React.useCallback,useRef=React.useRef;
 var THEMES=['dark','light','pitch','night'];
-var CACHE_MS=40000;
+var CACHE_MS=45000;
+var LIVE_CACHE_MS=7000;
+var DETAIL_CACHE_MS=6500;
+var FIXTURE_CACHE_MS=120000;
 var memCache={};
 var DEFAULT_BG='https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=1200&q=60';
 var INCLUDE_LIST='localteam,visitorteam,runs,league,venue,scoreboards,batting,batting.batsman,bowling,bowling.bowler,balls,balls.batsman,balls.bowler,lineup,tosswon,manofmatch';
@@ -336,7 +339,14 @@ function roleText(v){
 function playerName(p){if(!p)return'';if(typeof p==='string')return p;return p.fullname||p.fullname||p.fullnamename||p.lastname||'';}
 
 async function fetchJson(url){
-  var res=await fetch(url);
+  var controller=typeof AbortController!=='undefined'?new AbortController():null;
+  var timer=controller?setTimeout(function(){controller.abort();},12000):null;
+  var res;
+  try{res=await fetch(url,{cache:'no-store',signal:controller?controller.signal:undefined});}
+  catch(netErr){
+    if(netErr&&netErr.name==='AbortError')throw new Error('Sportmonks request timed out after 12 seconds. Check API response time or plan limits.');
+    throw new Error('Sportmonks network/proxy error: '+String(netErr&&netErr.message||netErr));
+  }finally{if(timer)clearTimeout(timer);}
   if(!res.ok){
     var t='';try{t=await res.text();}catch(e){}
     var msg='HTTP '+res.status;
@@ -351,28 +361,52 @@ async function fetchJson(url){
       else if(t)detail=t.slice(0,160);
       if(detail)msg+=' — '+detail;
     }catch(e){if(t)msg+=': '+String(t).slice(0,160);}
-    if(res.status===404)msg='HTTP 404 — API proxy missing. Pages output dir must be public + functions/api/proxy.js';
-    if(res.status===400)msg+=' (bad request — check includes/filters)';
+    if(res.status===404)msg='HTTP 404 — API proxy missing. Put proxy.js at functions/api/proxy.js and deploy the Pages Functions folder.';
+    if(res.status===400)msg+=' (bad request — check Sportmonks filters/includes)';
+    if(res.status===401||res.status===403)msg+=' (verify Sportmonks API token and subscription access)';
+    if(res.status===429)msg+=' (Sportmonks rate limit reached; reduce polling or check quota)';
     throw new Error(msg);
   }
   return res.json();
 }
-async function smGet(url){
+async function smGet(url,options){
+  options=options||{};
   var cacheKey=url.replace(/api_token=[^&]+/,'api_token=***');
-  var cached=cacheGet(cacheKey);
+  var pathMatch=url.match(/[?&]path=([^&]+)/);
+  var apiPath=pathMatch?decodeURIComponent(pathMatch[1]):'';
+  var ttl=/^livescores(?:$|%2F)/i.test(apiPath)?LIVE_CACHE_MS:
+          (/^fixtures%2F/i.test(apiPath)||/^fixtures\//i.test(apiPath))?DETAIL_CACHE_MS:
+          /fixtures/i.test(apiPath)?FIXTURE_CACHE_MS:CACHE_MS;
+  var cached=options.force?null:cacheGet(cacheKey);
   if(cached)return{data:cached,fromCache:true};
-  var json=await fetchJson(url);
-  if(json.message&&json.data==null&&!Array.isArray(json.data)){
-    var m=json.message;
-    throw new Error(typeof m==='string'?m:JSON.stringify(m));
+  try{
+    var json=await fetchJson(url);
+    if(json.message&&json.data==null&&!Array.isArray(json.data)){
+      var m=json.message;
+      throw new Error(typeof m==='string'?m:JSON.stringify(m));
+    }
+    if(json.error){
+      var er=json.error;
+      throw new Error(typeof er==='string'?er:(er.message||JSON.stringify(er)));
+    }
+    var data=json.data!=null?json.data:json;
+    cacheSet(cacheKey,data,ttl);
+    return{data:data,fromCache:false};
+  }catch(err){
+    // Keep the last good response available during a transient upstream outage.
+    var stale=cacheGetStale(cacheKey,5*60*1000);
+    if(stale)return{data:stale,fromCache:true,stale:true,warning:String(err.message||err)};
+    throw err;
   }
-  if(json.error){
-    var er=json.error;
-    throw new Error(typeof er==='string'?er:(er.message||JSON.stringify(er)));
-  }
-  var data=json.data!=null?json.data:json;
-  cacheSet(cacheKey,data,CACHE_MS);
-  return{data:data,fromCache:false};
+}
+function cacheGetStale(key,maxAge){
+  try{
+    var m=memCache[key];
+    if(m&&Date.now()-m.t<=maxAge)return m.d;
+    var raw=localStorage.getItem('sm_cache_'+key);
+    if(raw){var o=JSON.parse(raw);if(o&&Date.now()-o.t<=maxAge)return o.d;}
+  }catch(e){}
+  return null;
 }
 function ckUrl(path,token,include){
   var u='/api/proxy?sport=cricket&path='+encodeURIComponent(path.replace(/^\//,''));
@@ -977,22 +1011,24 @@ function App(){
 
   useEffect(function(){document.body.className='theme-'+theme;},[theme]);
 
-  var loadList=useCallback(function(force){
+  var loadList=useCallback(function(force,silent){
     var isGuest=false;try{isGuest=qs().get('view')==='1';}catch(e){}
     if(!token&&!isGuest){setError('Add Sportmonks token in Settings ⚙');return;}
-    setLoading(true);setError(null);
+    if(!silent){setLoading(true);setError(null);}
     if(force)cacheClear();
     var today=ymd(new Date());
     var past=ymd(addDays(new Date(),-7));
     var future=ymd(addDays(new Date(),7));
     // Cricket API: livescores + fixtures with starts_between filter (not fixtures/date)
     var fixUrl=ckUrl('fixtures',token,INCLUDE_LIST_LIGHT)+'&filter[starts_between]='+encodeURIComponent(past+','+future);
+    var apiErrors=[];
     var tasks=[
-      smGet(ckUrl('livescores',token,INCLUDE_LIST_LIGHT)).catch(function(e){console.warn('livescores',e);return{data:[]};}),
+      smGet(ckUrl('livescores',token,INCLUDE_LIST_LIGHT)).catch(function(e){apiErrors.push('Livescores: '+(e.message||e));console.warn('livescores',e);return{data:[]};}),
       smGet(fixUrl).catch(function(e){
+        apiErrors.push('Fixtures: '+(e.message||e));
         console.warn('fixtures range',e);
         // fallback: bare fixtures (paginated recent)
-        return smGet(ckUrl('fixtures',token,INCLUDE_LIST_LIGHT)+'&sort=-starting_at').catch(function(e2){console.warn(e2);return{data:[]};});
+        return smGet(ckUrl('fixtures',token,INCLUDE_LIST_LIGHT)+'&sort=-starting_at').catch(function(e2){apiErrors.push('Fixture fallback: '+(e2.message||e2));console.warn(e2);return{data:[]};});
       })
     ];
     Promise.all(tasks).then(function(results){
@@ -1016,15 +1052,19 @@ function App(){
         return String(b.starting_at||'').localeCompare(String(a.starting_at||''));
       });
       setMatches(list);
-      if(!list.length)setError(null); // empty plan is not an error
+      if(!list.length && !silent && apiErrors.length){
+        setError(apiErrors.join(' · '));
+      } else if(!list.length && !silent){
+        setError('Sportmonks returned no matches for this date range. Check cricket API access and subscription coverage.');
+      }
 
       if(shareId){
         var m=list.find(function(x){return String(x.id)===String(shareId);});
         if(m){setSelected(m);setTab('scorecard');loadDetail(m,token);}
         else loadDetail({id:shareId},token);
       }
-    }).catch(function(e){setError(String((e&&e.message)||e||'Load failed'));})
-     .finally(function(){setLoading(false);});
+    }).catch(function(e){if(!silent)setError(String((e&&e.message)||e||'Sportmonks load failed'));})
+     .finally(function(){if(!silent)setLoading(false);});
   },[token,shareId]);
 
   useEffect(function(){
@@ -1042,6 +1082,24 @@ function App(){
       },1200);
     }
   },[token]);
+  // Refresh the live match list automatically; pause while the app is backgrounded.
+  useEffect(function(){
+    if(!token && !isViewMode())return;
+    var id=setInterval(function(){
+      if(document.visibilityState==='visible')loadList(false,true);
+    },15000);
+    var onVisible=function(){if(document.visibilityState==='visible')loadList(false,true);};
+    document.addEventListener('visibilitychange',onVisible);
+    return function(){clearInterval(id);document.removeEventListener('visibilitychange',onVisible);};
+  },[token,loadList]);
+  // Refresh the selected live fixture more frequently than the general fixture list.
+  useEffect(function(){
+    if(!selected||!selected.id||statusOf(selected)!=='live')return;
+    var id=setInterval(function(){
+      if(document.visibilityState==='visible')loadDetail(selected,token,true);
+    },8000);
+    return function(){clearInterval(id);};
+  },[selected&&selected.id,selected&&statusOf(selected),token]);
   useEffect(function(){
     try{
       var r=qs().get('room');
@@ -1100,12 +1158,11 @@ function App(){
     return function(){clearInterval(id);try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){};};
   },[tab,news,newsTts,newsPlaying]);
 
-  function loadDetail(m,tok){
+  function loadDetail(m,tok,silent){
     tok=tok||token;
     var isGuest=false;try{isGuest=qs().get('view')==='1';}catch(e){}
     if((!tok&&!isGuest)||!m||!m.id)return;
-    setLoading(true);
-    setError(null);
+    if(!silent){setLoading(true);setError(null);}
     var full=ckUrl('fixtures/'+m.id,tok,INCLUDE_LIST);
     var light=ckUrl('fixtures/'+m.id,tok,'localteam,visitorteam,runs,league,venue,scoreboards,batting,bowling,balls,lineup');
     smGet(full)
@@ -1116,11 +1173,11 @@ function App(){
           .catch(function(e2){
             var msg=(e2&&e2.message)||(e1&&e1.message)||'Load failed';
             if(msg.indexOf('[object Object]')>=0)msg='HTTP error — try Refresh or simpler plan includes';
-            setError(String(msg));
+            if(!silent)setError(String(msg));
             setDetail(m);
           });
       })
-      .finally(function(){setLoading(false);});
+      .finally(function(){if(!silent)setLoading(false);});
   }
 
   var selectMatch=function(m){
