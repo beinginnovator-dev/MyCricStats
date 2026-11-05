@@ -781,7 +781,7 @@ function batStats(b){
   var f=b.four_x!=null?b.four_x:(b.fours!=null?b.fours:0);
   var s=b.six_x!=null?b.six_x:(b.sixes!=null?b.sixes:0);
   var sr=(bl>0)?((Number(r)/Number(bl))*100).toFixed(1):'—';
-  return{line1:r+'('+bl+')',line2:'SR: '+sr,line3:'4s '+f+' · 6s '+s};
+  return{line1:r+'('+bl+')',line2:sr,line3:'4s '+f+' · 6s '+s,r:r,b:bl,fours:f,sixes:s,sr:sr};
 }
 function bowlStats(b){
   if(!b)return{line1:'',line2:''};
@@ -804,17 +804,19 @@ function currentPlayers(d){
     return !b.out;
   });
   if(notOut.length<2)notOut=batting.slice(-2);
-  var bowlSorted=bowling.slice().sort(function(a,b){
+  var striker=notOut[0], non=notOut[1];
+  var batTeamId=striker&&(striker.team_id||(striker.batsman&&striker.batsman.team_id));
+  var bowlSorted=bowling.slice().filter(function(b){
+    var tid=b.team_id||(b.bowler&&b.bowler.team_id);
+    return !batTeamId||tid!==batTeamId;
+  });
+  if(!bowlSorted.length)bowlSorted=bowling.slice();
+  bowlSorted.sort(function(a,b){
     var ao=Number(a.overs)||0,bo=Number(b.overs)||0;
     if(ao!==bo)return bo-ao;
     return (Number(b.wickets)||0)-(Number(a.wickets)||0);
   });
-  var striker=notOut[0], non=notOut[1], bowler=bowlSorted[0];
-  if(bowler&&striker){
-    var sn=playerName(striker.batsman||striker);
-    var bn=playerName(bowler.bowler||bowler);
-    if(sn&&bn&&sn===bn&&bowlSorted[1])bowler=bowlSorted[1];
-  }
+  var bowler=bowlSorted[0];
   return{
     striker:playerName(striker&&(striker.batsman||striker))||'—',
     nonstriker:playerName(non&&(non.batsman||non))||'—',
@@ -1492,6 +1494,11 @@ function App(){
 
     
             h('div',{className:'players-bar'},
+              h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}},
+                h('span',{style:{fontSize:11,fontWeight:800,color:'#fde68a'}},'Scorecard'),
+                h('button',{className:'btn',style:{fontSize:10,padding:'2px 8px'},onClick:function(){setPlayersOpen(!playersOpen);}},playersOpen?'−':'＋')
+              ),
+              playersOpen?h(React.Fragment,null,
               h('table',{className:'players-table',style:{width:'100%',borderCollapse:'collapse',fontSize:12}},
                 h('thead',null,h('tr',null,
                   h('th',{style:{textAlign:'left',padding:'4px 6px'}},'🏏 Batter'),
@@ -1504,19 +1511,19 @@ function App(){
                 h('tbody',null,
                   h('tr',null,
                     h('td',{style:{padding:'4px 6px'}},'* '+(liveP.striker||'—')),
-                    h('td',{style:{textAlign:'center',fontWeight:800}},(liveP.strikerS&&liveP.strikerS.line1)||'—'),
-                    h('td',{style:{textAlign:'center'}},''),
-                    h('td',{style:{textAlign:'center'}},''),
-                    h('td',{style:{textAlign:'center'}},''),
-                    h('td',{style:{textAlign:'center'}},(liveP.strikerS&&liveP.strikerS.line2)||'')
+                    h('td',{style:{textAlign:'center',fontWeight:800}},(liveP.strikerS&&liveP.strikerS.r!=null?liveP.strikerS.r:'—')),
+                    h('td',{style:{textAlign:'center'}},(liveP.strikerS&&liveP.strikerS.b!=null?liveP.strikerS.b:'')),
+                    h('td',{style:{textAlign:'center'}},(liveP.strikerS&&liveP.strikerS.fours!=null?liveP.strikerS.fours:'')),
+                    h('td',{style:{textAlign:'center'}},(liveP.strikerS&&liveP.strikerS.sixes!=null?liveP.strikerS.sixes:'')),
+                    h('td',{style:{textAlign:'center'}},(liveP.strikerS&&liveP.strikerS.sr)||'')
                   ),
                   h('tr',null,
                     h('td',{style:{padding:'4px 6px'}},liveP.nonstriker||'—'),
-                    h('td',{style:{textAlign:'center',fontWeight:800}},(liveP.nonstrikerS&&liveP.nonstrikerS.line1)||'—'),
-                    h('td',{style:{textAlign:'center'}},''),
-                    h('td',{style:{textAlign:'center'}},''),
-                    h('td',{style:{textAlign:'center'}},''),
-                    h('td',{style:{textAlign:'center'}},(liveP.nonstrikerS&&liveP.nonstrikerS.line2)||'')
+                    h('td',{style:{textAlign:'center',fontWeight:800}},(liveP.nonstrikerS&&liveP.nonstrikerS.r!=null?liveP.nonstrikerS.r:'—')),
+                    h('td',{style:{textAlign:'center'}},(liveP.nonstrikerS&&liveP.nonstrikerS.b!=null?liveP.nonstrikerS.b:'')),
+                    h('td',{style:{textAlign:'center'}},(liveP.nonstrikerS&&liveP.nonstrikerS.fours!=null?liveP.nonstrikerS.fours:'')),
+                    h('td',{style:{textAlign:'center'}},(liveP.nonstrikerS&&liveP.nonstrikerS.sixes!=null?liveP.nonstrikerS.sixes:'')),
+                    h('td',{style:{textAlign:'center'}},(liveP.nonstrikerS&&liveP.nonstrikerS.sr)||'')
                   )
                 )
               ),
@@ -1530,12 +1537,13 @@ function App(){
                 )),
                 h('tbody',null,h('tr',null,
                   h('td',{style:{padding:'4px 6px',fontWeight:700}},liveP.bowler||'—'),
-                  h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.line1)||'—'),
-                  h('td',{style:{textAlign:'center'}},''),
-                  h('td',{style:{textAlign:'center'}},''),
-                  h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.line2)||'')
+                  h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.o)||'—'),
+                  h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.r!=null?liveP.bowlerS.r:'')),
+                  h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.w!=null?liveP.bowlerS.w:'')),
+                  h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.econ)||'')
                 ))
               )
+              ):null
             ),h('div',{className:'tabs'},
       tabs.map(function(p){
         return h('button',{key:p[0],className:tab===p[0]?'on':'',onClick:function(){
