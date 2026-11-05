@@ -891,6 +891,8 @@ function App(){
   var _token=useState(function(){return lsGet('sportmonks_token','');});
   var token=_token[0],setToken=_token[1];
   var _matches=useState([]);var matches=_matches[0],setMatches=_matches[1];
+  var _domestic=useState([]);var domestic=_domestic[0],setDomestic=_domestic[1];
+  var _matchFilter=useState('all');var matchFilter=_matchFilter[0],setMatchFilter=_matchFilter[1];
   var _selected=useState(null);var selected=_selected[0],setSelected=_selected[1];
   var _detail=useState(null);var detail=_detail[0],setDetail=_detail[1];
   var _tab=useState(function(){return lsGet('mcs_tab','matches');});var tab=_tab[0],setTab=_tab[1];
@@ -1601,7 +1603,7 @@ function App(){
         loading&&!matches.length?h('div',{className:'empty'},h('span',{className:'spinner'}),' Loading…'):null,
         !loading&&token&&!filtered.length?h('div',{className:'empty'},'No matches in this filter. Free plan: T20I, BBL, CSA T20.'):null,
         h('div',{className:'match-list'},
-          filtered.map(function(m){
+          (matchFilter==='domestic'?domestic:filtered).map(function(m){
             var hn=teamName(m,'local'),an=teamName(m,'visitor');
             var s=scoreLine(m);var st2=statusOf(m);
             var lg=(m.league&&m.league.name)||m.type||'';
