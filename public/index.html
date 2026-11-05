@@ -313,6 +313,8 @@ var FIXTURE_CACHE_MS=120000;
 var memCache={};
 var DEFAULT_BG='https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=1200&q=60';
 var INCLUDE_LIST='localteam,visitorteam,runs,league,venue,scoreboards,batting,batting.batsman,bowling,bowling.bowler,balls,balls.batsman,balls.bowler,lineup,tosswon,manofmatch';
+var INCLUDE_LIST_SCORECARD='localteam,visitorteam,runs,league,venue,scoreboards,batting,batting.batsman,bowling,bowling.bowler';
+var INCLUDE_LIST_SCORECARD_LIGHT='localteam,visitorteam,runs,scoreboards,batting,bowling';
 var INCLUDE_LIST_LIGHT='localteam,visitorteam,runs,league,venue';
 
 function qs(){try{return new URLSearchParams(location.search);}catch(e){return new URLSearchParams();}}
@@ -430,6 +432,25 @@ function scoreLine(m){
     if(totals[1])b=totals[1].total+(totals[1].wickets!=null?'/'+totals[1].wickets:'')+(totals[1].overs!=null?' ('+totals[1].overs+')':'');
   }
   return{a:a,b:b};
+}
+function relationRows(value){
+  if(Array.isArray(value))return value;
+  if(value&&Array.isArray(value.data))return value.data;
+  if(value&&value.data&&Array.isArray(value.data.data))return value.data.data;
+  return [];
+}
+function normaliseMatchDetail(value,fallback){
+  var d=value&&typeof value==='object'?value:(fallback||{});
+  ['runs','scoreboards','batting','bowling','balls','lineup'].forEach(function(k){
+    if(d[k]!=null&&!Array.isArray(d[k])){
+      var rows=relationRows(d[k]);
+      if(rows.length)d[k]=rows;
+    }
+  });
+  return d;
+}
+function hasScorecardRows(d){
+  return !!(d&&(relationRows(d.batting).length||relationRows(d.bowling).length));
 }
 function statusOf(m){
   if(m.live)return 'live';
@@ -734,8 +755,9 @@ function unlockAudio(){
       g.gain.value=0.001;o.connect(g);g.connect(stadCtx.destination);
       o.start(stadCtx.currentTime);o.stop(stadCtx.currentTime+0.05);
     }catch(e0){}
+    unlockStadiumAudio();
     return stadCtx;
-  }catch(e){return null;}
+  }catch(e){unlockStadiumAudio();return null;}
 }
 function stadNoiseBurst(ctx, now, dur, vol){
   try{
@@ -750,39 +772,53 @@ function stadNoiseBurst(ctx, now, dur, vol){
     src.connect(g);g.connect(ctx.destination);src.start(now);src.stop(now+dur);
   }catch(e){}
 }
-function stadBeep(kind){
-  try{
-    unlockAudio();
-    var ctx=stadCtx;if(!ctx)return;
-    if(ctx.state==='suspended')ctx.resume();
-    var now=ctx.currentTime;
-    function tone(freq,dur,type,vol,delay){
-      delay=delay||0;
-      var o2=ctx.createOscillator();var g2=ctx.createGain();
-      o2.type=type||'sine';o2.frequency.value=freq;
-      g2.gain.setValueAtTime(0.0001,now+delay);
-      g2.gain.exponentialRampToValueAtTime(vol||0.12,now+delay+0.02);
-      g2.gain.exponentialRampToValueAtTime(0.001,now+delay+dur);
-      o2.connect(g2);g2.connect(ctx.destination);
-      o2.start(now+delay);o2.stop(now+delay+dur+0.02);
-    }
-    // crowd-like noise + tones
-    if(kind==='six'){
-      stadNoiseBurst(ctx,now,0.55,0.14);
-      tone(392,0.2,'triangle',0.1,0);tone(523,0.25,'sine',0.1,0.08);tone(659,0.35,'sine',0.09,0.15);
-    } else if(kind==='four'){
-      stadNoiseBurst(ctx,now,0.4,0.1);
-      tone(440,0.18,'sine',0.11,0);tone(554,0.28,'triangle',0.09,0.1);
-    } else if(kind==='wicket'){
-      stadNoiseBurst(ctx,now,0.5,0.12);
-      tone(180,0.25,'square',0.11,0);tone(140,0.35,'square',0.09,0.12);tone(90,0.4,'sawtooth',0.06,0.2);
-    } else if(kind==='run'){
-      tone(360,0.12,'sine',0.07,0);
-    } else {
-      tone(280,0.08,'sine',0.04,0);
-    }
-  }catch(e){console.warn('stad',e);}
+var stadiumAudioUnlocked=false;
+var stadiumAudioPlayers={};
+var stadiumAudioFiles={
+  six:'/audio/crowd_roar.mp3',
+  four:'/audio/crowd_cheer.mp3',
+  wicket:'/audio/crowd_whistle.mp3',
+  run:'/audio/crowd_short.mp3',
+  dot:'/audio/crowd_short.mp3',
+  chant:'/audio/crowd_chant.mp3'
+};
+function getStadiumAudio(kind){
+  var file=stadiumAudioFiles[kind]||stadiumAudioFiles.run;
+  if(!stadiumAudioPlayers[file]){
+    var a=new Audio(file);
+    a.preload='auto';
+    a.volume=(kind==='wicket'?0.72:0.82);
+    stadiumAudioPlayers[file]=a;
+  }
+  return stadiumAudioPlayers[file];
 }
+function unlockStadiumAudio(){
+  try{
+    Object.keys(stadiumAudioFiles).forEach(function(kind){
+      var a=getStadiumAudio(kind);
+      a.muted=true;
+      var p=a.play();
+      if(p&&p.then)p.then(function(){
+        a.pause();a.currentTime=0;a.muted=false;stadiumAudioUnlocked=true;
+      }).catch(function(){a.muted=false;});
+      else{a.pause();a.currentTime=0;a.muted=false;stadiumAudioUnlocked=true;}
+    });
+  }catch(e){}
+}
+function playStadiumClip(kind){
+  try{
+    var a=getStadiumAudio(kind);
+    a.pause();a.currentTime=0;
+    a.volume=kind==='wicket'?0.72:(kind==='dot'?0.48:0.82);
+    var p=a.play();
+    if(p&&p.catch)p.catch(function(err){console.warn('Stadium audio blocked until user interaction',err);});
+  }catch(e){console.warn('Stadium audio',e);}
+}
+function stadBeep(kind){
+  // Keep the existing event API, but play the supplied stadium recordings.
+  playStadiumClip(kind);
+}
+
 function showBounce(setBounce, payload){
   // payload: number runs OR {runs, kind, label}
   var runs=0, kind='run', label='';
@@ -963,6 +999,42 @@ function App(){
   var _stadOn=useState(function(){var v=lsGet('stad_on','1');return v!=='0';});
   var stadOn=_stadOn[0],setStadOn=_stadOn[1];
   var lastBallKey=useRef('');
+  var lastAudioBallKey=useRef('');
+  var lastAudioMatchId=useRef('');
+  useEffect(function(){
+    var match=detail||selected;
+    if(!match||!match.id||!Array.isArray(match.balls)||!match.balls.length)return;
+    var ball=match.balls[match.balls.length-1];
+    if(!ball)return;
+    var matchId=String(match.id);
+    var key=matchId+'|'+String(ball.id||ball.ball||ball.updated_at||'')+'|'+String(ballRuns(ball))+'|'+String(ballIsWicket(ball));
+    if(lastAudioMatchId.current!==matchId){
+      lastAudioMatchId.current=matchId;
+      lastAudioBallKey.current=key; // establish baseline; do not play an old ball on initial selection
+      return;
+    }
+    if(!lastAudioBallKey.current){lastAudioBallKey.current=key;return;}
+    if(key===lastAudioBallKey.current)return;
+    lastAudioBallKey.current=key;
+    if(!stadOn)return;
+    var runs=ballRuns(ball),isW=ballIsWicket(ball);
+    if(isW)stadBeep('wicket');
+    else if(runs===6)stadBeep('six');
+    else if(runs===4)stadBeep('four');
+    else if(runs>0)stadBeep('run');
+    else stadBeep('dot');
+  },[detail,selected,stadOn]);
+  useEffect(function(){
+    function onFirstGesture(){unlockStadiumAudio();}
+    document.addEventListener('pointerdown',onFirstGesture,{once:true,passive:true});
+    document.addEventListener('touchstart',onFirstGesture,{once:true,passive:true});
+    document.addEventListener('keydown',onFirstGesture,{once:true});
+    return function(){
+      document.removeEventListener('pointerdown',onFirstGesture);
+      document.removeEventListener('touchstart',onFirstGesture);
+      document.removeEventListener('keydown',onFirstGesture);
+    };
+  },[]);
   var _evBanner=useState(null);var evBanner=_evBanner[0],setEvBanner=_evBanner[1];
   var _bounce=useState(null);var bounce=_bounce[0],setBounce=_bounce[1];
   var _newsIdx=useState(0);var newsIdx=_newsIdx[0],setNewsIdx=_newsIdx[1];
@@ -1163,21 +1235,35 @@ function App(){
     var isGuest=false;try{isGuest=qs().get('view')==='1';}catch(e){}
     if((!tok&&!isGuest)||!m||!m.id)return;
     if(!silent){setLoading(true);setError(null);}
-    var full=ckUrl('fixtures/'+m.id,tok,INCLUDE_LIST);
-    var light=ckUrl('fixtures/'+m.id,tok,'localteam,visitorteam,runs,league,venue,scoreboards,batting,bowling,balls,lineup');
-    smGet(full)
-      .then(function(r){setDetail(r.data||m);setSelected(r.data||m);})
-      .catch(function(e1){
-        // retry lighter includes on 400
-        return smGet(light).then(function(r){setDetail(r.data||m);setSelected(r.data||m);})
-          .catch(function(e2){
-            var msg=(e2&&e2.message)||(e1&&e1.message)||'Load failed';
-            if(msg.indexOf('[object Object]')>=0)msg='HTTP error — try Refresh or simpler plan includes';
-            if(!silent)setError(String(msg));
-            setDetail(m);
-          });
-      })
-      .finally(function(){if(!silent)setLoading(false);});
+    var plans=[
+      INCLUDE_LIST,
+      INCLUDE_LIST_SCORECARD,
+      INCLUDE_LIST_SCORECARD_LIGHT
+    ];
+    var lastErr=null;
+    function tryPlan(index){
+      var url=ckUrl('fixtures/'+m.id,tok,plans[index]);
+      return smGet(url,{force:true}).then(function(r){
+        var data=normaliseMatchDetail(r.data||m,m);
+        if(hasScorecardRows(data)||index===plans.length-1){
+          setDetail(data);setSelected(data);
+          if(!hasScorecardRows(data)&&statusOf(data)!=='upcoming'&&!silent){
+            setError('Match details loaded, but Sportmonks returned no batting/bowling rows. Check that your API plan includes fixture batting and bowling data.');
+          }
+          return data;
+        }
+        return tryPlan(index+1);
+      }).catch(function(err){
+        lastErr=err;
+        if(index<plans.length-1)return tryPlan(index+1);
+        throw lastErr||err;
+      });
+    }
+    tryPlan(0).catch(function(err){
+      var msg=(err&&err.message)||'Could not load match scorecard';
+      if(!silent)setError(String(msg));
+      setDetail(normaliseMatchDetail(m,m));
+    }).finally(function(){if(!silent)setLoading(false);});
   }
 
   var selectMatch=function(m){
@@ -1433,7 +1519,7 @@ function App(){
         h('button',{onClick:function(){var v=!ttsOn;setTtsOn(v);lsSet('tts_on',v?'1':'0');}},ttsOn?'TTS / Commentary: On':'TTS / Commentary: Off'),
         h('button',{onClick:function(){var L=ttsLang==='en'?'hi':'en';setTtsLang(L);lsSet('tts_lang',L);}},'TTS language: '+(ttsLang==='hi'?'हिन्दी':'English')),
         h('button',{onClick:function(){var v=!stadOn;setStadOn(v);lsSet('stad_on',v?'1':'0');if(v){try{unlockAudio();stadBeep('four');}catch(e){}}}},stadOn?'Stadium sounds: On':'Stadium sounds: Off'),
-        h('button',{onClick:function(){try{unlockAudio();stadBeep('six');}catch(e){}}},'Test stadium sound'),
+        h('button',{onClick:function(){try{unlockAudio();stadBeep('chant');}catch(e){}}},'Test stadium sound'),
         h('div',{className:'dd-title'},'Animation'),
         h('button',{onClick:function(){
           var cur=Number(lsGet('anim_ms','5000'))||5000;
@@ -1742,22 +1828,26 @@ tab==='schedule'?h('div',{className:'card'},
       ):null,
 
       tab==='scorecard'?(!selected?h('div',{className:'empty'},'Select a match'):h('div',{className:'card'},
-        h('h3',null,'Scorecard'),
+        h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}},
+          h('h3',null,'Scorecard'),
+          h('button',{className:'btn',style:{fontSize:11,padding:'5px 9px'},onClick:function(){if(selected)loadDetail(selected,token,false);}},loading?'Loading…':'↻ Refresh')
+        ),
         h('div',{className:'filter-row'},
           h('button',{className:scTeam==='home'?'on':'',onClick:function(){setScTeam('home');}},homeName||'Home'),
           h('button',{className:scTeam==='away'?'on':'',onClick:function(){setScTeam('away');}},awayName||'Away')
         ),
         h('div',{style:{fontSize:18,fontWeight:900,textAlign:'center',margin:'8px 0'}},scTeam==='home'?sc.a:sc.b),
+        (loading?h('div',{className:'muted',style:{textAlign:'center',padding:'8px 0'}},'Loading scorecard from Sportmonks…'):null),
         h('h3',null,'Batting'),
         (function(){
           var rows=(d&&d.batting)||[];
           var tid=scTeam==='home'?(d&&d.localteam_id):(d&&d.visitorteam_id);
-          var filtered=rows.filter(function(b){
+          var hasTeamIds=rows.some(function(b){return b.team_id!=null||(b.team&&b.team.id!=null);});
+          var filtered=hasTeamIds?rows.filter(function(b){
             var id=b.team_id||(b.team&&b.team.id);
-            if(id==null)return true;
-            return String(id)===String(tid);
-          });
-          if(!filtered.length)filtered=scTeam==='home'?rows.slice(0,Math.ceil(rows.length/2)):rows.slice(Math.ceil(rows.length/2));
+            return id!=null&&String(id)===String(tid);
+          }):(scTeam==='home'?rows.slice(0,Math.ceil(rows.length/2)):rows.slice(Math.ceil(rows.length/2)));
+          if(hasTeamIds&&!filtered.length)filtered=scTeam==='home'?rows.slice(0,Math.ceil(rows.length/2)):rows.slice(Math.ceil(rows.length/2));
           if(!filtered.length)return h('div',{className:'muted'},'No batting');
           return h('table',{className:'table'},
             h('thead',null,h('tr',null,h('th',null,'Batter'),h('th',null,'R'),h('th',null,'B'),h('th',null,'4s'),h('th',null,'6s'),h('th',null,'SR'))),
@@ -1814,7 +1904,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
                   var line=descriptiveLine(top,ttsLang);
                   if(ttsOn)speakText(line,ttsLang);
                   var runs=ballRuns(top), isW=ballIsWicket(top);
-                  try{unlockAudio();}catch(e){}if(stadOn){if(isW)stadBeep('wicket');else if(runs===6)stadBeep('six');else if(runs===4)stadBeep('four');else if(runs>0)stadBeep('run');else stadBeep('dot');}
+                  
                   if(isW){
                   showEventBanner(setEvBanner,'wicket','WICKET');
                   var wLabel='Wicket';try{var sn=String((top.score&&(top.score.out||top.score.dismissal||top.score.name))||'').toLowerCase();if(/caught|catch/.test(sn))wLabel='Wicket - Caught';else if(/bowled/.test(sn))wLabel='Wicket - Bowled';else if(/lbw/.test(sn))wLabel='Wicket - LBW';else if(/run.?out/.test(sn))wLabel='Wicket - Run out';else if(/stump/.test(sn))wLabel='Wicket - Stumped';}catch(e){}showBounce(setBounce,{kind:'wicket',label:wLabel,runs:0,ballNo:String(top.ball||'')});
