@@ -52,6 +52,36 @@ export async function onRequest(context) {
       dest.searchParams.set(k, v);
     });
 
+    // Short Cloudflare edge cache coalesces repeated requests from viewers.
+    // Keep cache keys token-specific so different subscriptions never share data.
+    let cache = null;
+    let cacheKey = null;
+    let cacheTtl = 0;
+    try {
+      cache = caches.default;
+      const requestPath = path.toLowerCase();
+      cacheTtl = requestPath === 'livescores' ? 10
+        : (requestPath.startsWith('fixtures/') ? 6
+        : (requestPath === 'fixtures' ? 12 : 0));
+      if (cache && cacheTtl > 0) {
+        const keyUrl = new URL(request.url);
+        keyUrl.pathname = '/__mcs_edge_cache/sportmonks';
+        keyUrl.search = '';
+        keyUrl.searchParams.set('request', dest.toString());
+        cacheKey = new Request(keyUrl.toString(), { method: 'GET' });
+        const hit = await cache.match(cacheKey);
+        if (hit) {
+          const hitHeaders = new Headers(headers);
+          hitHeaders.set('Content-Type', hit.headers.get('Content-Type') || 'application/json');
+          hitHeaders.set('X-MCS-Edge-Cache', 'HIT');
+          return new Response(hit.body, { status: hit.status, headers: hitHeaders });
+        }
+      }
+    } catch (_) {
+      cache = null;
+      cacheKey = null;
+    }
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12000);
     let res;
@@ -71,10 +101,17 @@ export async function onRequest(context) {
       clearTimeout(timer);
     }
     const text = await res.text();
-    return new Response(text, {
-      status: res.status,
-      headers: { ...Object.fromEntries(headers), 'Content-Type': res.headers.get('Content-Type') || 'application/json' }
-    });
+    const contentType = res.headers.get('Content-Type') || 'application/json';
+    if (res.ok && cache && cacheKey && cacheTtl > 0) {
+      try {
+        const storedHeaders = new Headers({ 'Content-Type': contentType, 'Cache-Control': 'public, max-age=' + cacheTtl });
+        await cache.put(cacheKey, new Response(text, { status: res.status, headers: storedHeaders }));
+      } catch (_) {}
+    }
+    const outHeaders = new Headers(headers);
+    outHeaders.set('Content-Type', contentType);
+    outHeaders.set('X-MCS-Edge-Cache', 'MISS');
+    return new Response(text, { status: res.status, headers: outHeaders });
   } catch (e) {
     return new Response(JSON.stringify({ message: String(e.message || e) }), { status: 502, headers });
   }
