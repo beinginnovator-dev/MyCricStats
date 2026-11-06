@@ -155,6 +155,7 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 .done-pill{font-size:10px;font-weight:800;color:#94a3b8;background:rgba(148,163,184,.15);padding:4px 10px;border-radius:999px}
 .view-badge{font-size:10px;font-weight:800;background:rgba(255,15,80,.2);color:#F78DA7;padding:3px 8px;border-radius:999px}
+.viewers-page-tag{border:1px solid rgba(125,211,252,.45);background:rgba(14,116,144,.24);color:#bae6fd;border-radius:999px;padding:4px 7px;font:800 9px Montserrat,system-ui,sans-serif;letter-spacing:.04em;white-space:nowrap;cursor:pointer;margin-left:4px}.viewers-page-tag:active{transform:scale(.96)}
 .players-bar{width:100%;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:12px;padding:6px;margin:6px 0}
 .scoreboard-body{padding:0 14px 4px;display:flex;flex-direction:column;justify-content:flex-start}
 .sponsor-slot{display:flex;align-items:center;justify-content:center;gap:6px;min-height:28px;margin-bottom:4px;font-size:11px;font-weight:700;color:#fde68a}
@@ -293,8 +294,8 @@ body.theme-light .broadcast .tname,body.theme-light .broadcast .score-num,body.t
 </head>
 <body class="theme-dark">
 <div id="root"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin="anonymous" onerror="this.onerror=function(){this.onerror=null;this.src='https://unpkg.com/react@18.2.0/umd/react.production.min.js';};this.src='https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js';"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin="anonymous" onerror="this.onerror=function(){this.onerror=null;this.src='https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js';};this.src='https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js';"></script>
 <script>
 (function(){
 'use strict';
@@ -1727,7 +1728,7 @@ function App(){
         h('div',{className:'bar',style:{justifyContent:'space-between'}},
           h('div',{style:{display:'flex',alignItems:'center',minWidth:70}},
             h('span',{className:'brand-chip'},h('img',{src:'/icons/icon-192.png',alt:'MCS'}),'MCS'),
-            viewOnly?h('span',{className:'view-badge'},'VIEW ONLY'):null
+            viewOnly?h(React.Fragment,null,h('span',{className:'view-badge'},'VIEW ONLY'),h('button',{type:'button',className:'viewers-page-tag',title:'Open match viewers',onClick:function(){setTab('chat');setChatSub('viewers');setChatPop(false);chatLoad();}},'👥 VIEWERS')):null
           ),
           h('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',flex:1}},
             selected&&st==='live'?h('span',{className:'live-pill',style:{position:'relative',top:2}},h('i'),'LIVE · '+chatViewers.filter(function(v){return v.online;}).length):
@@ -2458,13 +2459,30 @@ tab==='squad'?(!selected?h('div',{className:'empty'},'Select a match'):h('div',{
 }
 
 var root=document.getElementById('root');
+class MCSBootErrorBoundary extends React.Component {
+  constructor(props){super(props);this.state={error:null};}
+  static getDerivedStateFromError(error){return {error:error};}
+  componentDidCatch(error,info){console.error('MyCricStats render failed:',error,info);}
+  render(){
+    if(this.state.error){
+      var msg=String(this.state.error.message||this.state.error);
+      return h('div',{style:{padding:22,color:'#fecaca',font:'14px system-ui',lineHeight:1.5}},
+        h('b',null,'MyCricStats could not render this page.'),
+        h('p',{style:{marginTop:10,whiteSpace:'pre-wrap'}},msg),
+        h('p',{style:{marginTop:10,color:'#cbd5e1'}},'Please capture this message and share it with support. Your match URL has been preserved.'),
+        h('button',{style:{marginTop:14,padding:'10px 16px',borderRadius:10,border:0,fontWeight:800},onClick:function(){location.reload();}},'Reload page'));
+    }
+    return this.props.children;
+  }
+}
 try{
   if(!root)throw new Error('App root element #root is missing');
-  if(ReactDOM.createRoot)ReactDOM.createRoot(root).render(h(App));
-  else ReactDOM.render(h(App),root);
+  if(!window.React||!window.ReactDOM)throw new Error('React UI libraries did not load. Check your network connection or CDN access.');
+  if(ReactDOM.createRoot)ReactDOM.createRoot(root).render(h(MCSBootErrorBoundary,null,h(App)));
+  else ReactDOM.render(h(MCSBootErrorBoundary,null,h(App)),root);
 }catch(err){
   console.error('MyCricStats startup failed:',err);
-  root.innerHTML='<div style="padding:24px;color:#fecaca;font:14px system-ui;line-height:1.5"><b>MyCricStats could not start.</b><br>'+String(err&&err.message||err).replace(/[&<>]/g,function(c){return ({"&":"&amp;","<":"&lt;",">":"&gt;"})[c];})+'<br><br>Refresh the page. If the issue continues, clear this site’s cached data.</div>';
+  if(root)root.innerHTML='<div style="padding:24px;color:#fecaca;font:14px system-ui;line-height:1.5"><b>MyCricStats could not start.</b><br>'+String(err&&err.message||err).replace(/[&<>]/g,function(c){return ({"&":"&amp;","<":"&lt;",">":"&gt;"})[c];})+'<br><br>Reload the page. If this continues, send this exact error message.</div>';
 }
 })();
 </script>
