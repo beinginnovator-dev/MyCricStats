@@ -266,6 +266,23 @@ body.theme-light .tabs,body.theme-light .settings-dd,body.theme-light .modal-car
 body.theme-light .settings-dd button{color:#01002C}
 body.theme-light .broadcast .title,body.theme-light .broadcast .sub,body.theme-light .broadcast .status-line,
 body.theme-light .broadcast .tname,body.theme-light .broadcast .score-num,body.theme-light .broadcast .overs,body.theme-light .broadcast .meta-row,body.theme-light .broadcast .vs-label,body.theme-light .lp .v{color:#f8fafc!important}
+
+.f1-race{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;margin:10px 4px 6px;padding:7px 10px;border-radius:12px;background:rgba(1,5,25,.62);border:1px solid rgba(255,255,255,.16)}
+.race-label{font-size:9px;font-weight:900;letter-spacing:.04em;color:#cbd5e1;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.race-track{height:22px;position:relative;border-top:2px dashed rgba(255,255,255,.35);border-bottom:2px dashed rgba(255,255,255,.15);min-width:60px}
+.race-ball{position:absolute;left:0;top:-7px;width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff9aa8 0,#e11d48 38%,#7f102e 100%);box-shadow:0 0 8px #fb315f;animation:f1Race 1.7s cubic-bezier(.18,.72,.22,1) both}.race-ball:after{content:'';position:absolute;left:7px;top:1px;width:2px;height:14px;border-left:1px dashed rgba(255,255,255,.9);transform:rotate(28deg)}
+@keyframes f1Race{0%{left:0;transform:translateX(0) rotate(0)}85%{left:100%;transform:translateX(-100%) rotate(540deg)}100%{left:100%;transform:translateX(-100%) rotate(720deg)}}
+.room-status{font-size:11px;color:#8fe7c0;margin:8px 0;padding:7px 9px;border-radius:9px;background:rgba(16,185,129,.1)}
+.room-roster{display:flex;flex-direction:column;gap:7px}
+.room-user{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 10px;border-radius:11px;background:#111f36;border:1px solid rgba(255,255,255,.08)}
+.room-user-main{display:flex;align-items:center;gap:7px;min-width:0;color:#eaf2ff;font-size:12px}
+.presence-dot{font-size:10px;color:#64748b}.presence-dot.online{color:#22c55e}.host-tag{font-size:9px;font-weight:900;color:#ffd166;background:rgba(245,158,11,.15);padding:3px 6px;border-radius:5px}
+.room-actions{display:flex;gap:5px;flex-shrink:0}.room-actions .btn{font-size:10px;padding:5px 7px}.room-actions .danger{border-color:#ef4444;color:#fecaca}
+.chat-pop{left:2vw;right:2vw;transform:none;width:96vw;max-width:720px;height:min(84vh,780px);bottom:1vh;z-index:9999;border:1px solid rgba(255,255,255,.2);border-radius:18px;background:#071426;box-shadow:0 0 0 9999px rgba(0,0,0,.55),0 16px 50px rgba(0,0,0,.65)}
+.chat-pop .cp-head{background:linear-gradient(110deg,#071a36,#123f59 65%,#07533f);padding:12px 14px}.chat-pop .cp-head .t{font-size:15px;letter-spacing:.02em}.cp-room-tag{font-size:9px;font-weight:900;color:#c6f6df;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);border-radius:7px;padding:5px 7px;white-space:nowrap}
+.chat-pop .cp-body{background:linear-gradient(180deg,#071426,#0b1d30);padding:12px}.chat-pop .cp-msg{font-size:13px;max-width:88%;padding:10px 12px;border:1px solid rgba(255,255,255,.08);box-shadow:0 3px 10px rgba(0,0,0,.12)}.chat-pop .cp-msg.me{background:linear-gradient(135deg,#075e54,#087e69);border-radius:13px 13px 3px 13px}.chat-pop .cp-msg.them{background:#18314a;border-radius:13px 13px 13px 3px}.chat-pop .cp-foot{background:#10253b;padding:10px}.chat-pop .cp-foot input{background:#203950;border:1px solid #36516a}.chat-pop .cp-foot .btn{background:#0d8a69;color:white;border:0}
+@media(max-width:520px){.chat-pop{left:1vw;right:1vw;width:98vw;height:88vh;bottom:1vh}.room-user{align-items:flex-start}.room-actions{flex-direction:column}}
+
 </style>
 </head>
 <body class="theme-dark">
@@ -314,7 +331,7 @@ var memCache={};
 var DEFAULT_BG='https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=1200&q=60';
 // Sportmonks fixture endpoint allows up to 10 nested includes. Use only documented fixture relations. Keep this request
 // within that limit; oversized include lists can return HTTP 400 and break both tabs.
-var INCLUDE_LIST='localteam,visitorteam,runs,runs.team,batting,batting.batsman,bowling,bowling.bowler,lineup';
+var INCLUDE_LIST='localteam,visitorteam,runs,runs.team,batting,batting.batsman,bowling,bowling.bowler,lineup,venue';
 var INCLUDE_LIST_SCORECARD='runs,runs.team,batting,batting.batsman,batting.team,bowling,bowling.bowler,bowling.team,lineup';
 var INCLUDE_LIST_SCORECARD_LIGHT='runs,batting,bowling,lineup';
 var INCLUDE_LIST_LIGHT='localteam,visitorteam,runs';
@@ -448,37 +465,31 @@ function scoreText(row){
   return String(score)+(wickets!=null?'/'+wickets:'')+(overs!=null?' ('+overs+')':'');
 }
 function scoreLine(m){
-  var runs=relationRows(m&&m.runs), homeId=m&&m.localteam_id, awayId=m&&m.visitorteam_id;
-  var a='—',b='—';
-  // Sportmonks runs are innings records: bind each score to its team_id,
-  // never to array position (the batting team is not necessarily localteam).
-  runs.forEach(function(r){
-    var tid=runTeamId(r);
-    if(tid==null)return;
-    if(homeId!=null&&String(tid)===String(homeId))a=scoreText(r);
-    if(awayId!=null&&String(tid)===String(awayId))b=scoreText(r);
-  });
-  // If a run record omits team_id, correlate its innings key with batting rows.
-  if(a==='—'||b==='—'){
-    var bat=relationRows(m&&m.batting);
-    runs.forEach(function(r){
-      var key=inningsKey(r); if(!key)return;
+  var homeId=m&&m.localteam_id, awayId=m&&m.visitorteam_id;
+  var bat=relationRows(m&&m.batting), runs=relationRows(m&&m.runs), boards=relationRows(m&&m.scoreboards);
+  var all=runs.length?runs:boards;
+  var mapped=[];
+  function inningsOrder(row){
+    var k=inningsKey(row);var n=String(k).match(/[1-4]/);return n?Number(n[0]):0;
+  }
+  all.forEach(function(row){
+    var tid=runTeamId(row), key=inningsKey(row);
+    if(tid==null&&key){
       var related=bat.find(function(x){return inningsKey(x)===key&&teamIdOf(x,'batsman')!=null;});
-      var tid=related&&teamIdOf(related,'batsman');
-      if(tid!=null&&String(tid)===String(homeId))a=scoreText(r);
-      if(tid!=null&&String(tid)===String(awayId))b=scoreText(r);
-    });
+      if(related)tid=teamIdOf(related,'batsman');
+    }
+    if(tid==null){
+      var relatedAny=bat.find(function(x){return inningsKey(x)===key&&teamIdOf(x,'batsman')!=null;});
+      if(relatedAny)tid=teamIdOf(relatedAny,'batsman');
+    }
+    if(tid!=null)mapped.push({teamId:String(tid),order:inningsOrder(row),row:row});
+  });
+  function latestFor(id){
+    if(id==null)return'—';
+    var rows=mapped.filter(function(x){return x.teamId===String(id);}).sort(function(a,b){return a.order-b.order;});
+    return rows.length?scoreText(rows[rows.length-1].row):'—';
   }
-  // Scoreboard fallback is also keyed by team/innings where possible.
-  if((a==='—'||b==='—')&&Array.isArray(m&&m.scoreboards)){
-    m.scoreboards.forEach(function(r){
-      var tid=runTeamId(r), key=inningsKey(r), related=relationRows(m&&m.batting).find(function(x){return key&&inningsKey(x)===key&&teamIdOf(x,'batsman')!=null;});
-      if(tid==null&&related)tid=teamIdOf(related,'batsman');
-      if(tid!=null&&String(tid)===String(homeId))a=scoreText(r);
-      if(tid!=null&&String(tid)===String(awayId))b=scoreText(r);
-    });
-  }
-  return{a:a,b:b};
+  return {a:latestFor(homeId),b:latestFor(awayId)};
 }
 function relationRows(value){
   if(Array.isArray(value))return value;
@@ -490,7 +501,8 @@ function relationRows(value){
 function playerIdOf(row,role){
   if(!row)return null;
   var rel=unwrapRelation(row[role]||row.player);
-  return row.player_id||row.batsman_id||row.bowler_id||(rel&&(rel.id||rel.player_id))||null;
+  var specific=role==='batsmanout'?row.batsmanout_id:role==='catchstump'?row.catchstump_id:role==='runoutby'?row.runoutby_id:role==='bowler'?row.bowler_id:role==='batsman'?row.batsman_id:null;
+  return specific||row.player_id||row.batsman_id||row.bowler_id||(rel&&(rel.id||rel.player_id))||null;
 }
 function teamIdOf(row,role){
   if(!row)return null;
@@ -536,6 +548,10 @@ function normaliseMatchDetail(value,fallback){
   hydrate(d.batting,'batsman');
   hydrate(d.bowling,'bowler');
   hydrate(d.balls,'batsman');
+  hydrate(d.balls,'bowler');
+  hydrate(d.balls,'batsmanout');
+  hydrate(d.balls,'catchstump');
+  hydrate(d.balls,'runoutby');
   d.lineup.forEach(function(p){
     if(p&&p.player&&p.player.data)p.player=unwrapRelation(p.player);
   });
@@ -546,7 +562,7 @@ function hasScorecardRows(d){
 }
 function inningsKey(row){
   if(!row)return'';
-  var v=row.scoreboard!=null?row.scoreboard:(row.inning!=null?row.inning:(row.innings!=null?row.innings:''));
+  var v=row.mcs_innings!=null?row.mcs_innings:(row.scoreboard!=null?row.scoreboard:(row.inning!=null?row.inning:(row.innings!=null?row.innings:'')));
   if(v&&typeof v==='object')v=v.id||v.name||v.scoreboard||'';
   return String(v==null?'':v).toLowerCase();
 }
@@ -603,28 +619,16 @@ function currentBattingSide(d){
 function playerMatchFigures(player,d){
   var pl=unwrapRelation(player&&player.player)||player||{};
   var pid=player.player_id||pl.id||player.id;
-  if(pid==null)return'';
   var pname=playerName(pl).toLowerCase();
-  var bat=relationRows(d&&d.batting).find(function(r){
-    var rid=playerIdOf(r,'batsman');
-    return (rid!=null&&String(rid)===String(pid))||(!rid&&pname&&playerName(r.batsman||r.player||r).toLowerCase()===pname);
-  });
-  var bowl=relationRows(d&&d.bowling).find(function(r){
-    var rid=playerIdOf(r,'bowler');
-    return (rid!=null&&String(rid)===String(pid))||(!rid&&pname&&playerName(r.bowler||r.player||r).toLowerCase()===pname);
-  });
+  var bat=relationRows(d&&d.batting).find(function(r){var rid=playerIdOf(r,'batsman');return (rid!=null&&pid!=null&&String(rid)===String(pid))||(!rid&&pname&&playerName(r.batsman||r.player||r).toLowerCase()===pname);});
+  var bowl=relationRows(d&&d.bowling).find(function(r){var rid=playerIdOf(r,'bowler');return (rid!=null&&pid!=null&&String(rid)===String(pid))||(!rid&&pname&&playerName(r.bowler||r.player||r).toLowerCase()===pname);});
   var parts=[];
-  if(bat){
-    var r=bat.score!=null?bat.score:(bat.runs!=null?bat.runs:'—');
-    var b=bat.ball!=null?bat.ball:(bat.balls!=null?bat.balls:'—');
-    parts.push('Bat '+r+' ('+b+') · 4s '+(bat.four_x||0)+' · 6s '+(bat.six_x||0));
-  }
-  if(bowl){
-    var o=bowl.overs!=null?bowl.overs:'—';
-    var rr=bowl.runs!=null?bowl.runs:'—';
-    var w=bowl.wickets!=null?bowl.wickets:'—';
-    parts.push('Bowl '+o+'-'+rr+'-'+w);
-  }
+  if(bat){var r=bat.score!=null?bat.score:(bat.runs!=null?bat.runs:'—');var b=bat.ball!=null?bat.ball:(bat.balls!=null?bat.balls:'—');parts.push('Bat '+r+' ('+b+') · 4s '+(bat.four_x||0)+' · 6s '+(bat.six_x||0));}
+  if(bowl){parts.push('Bowl '+(bowl.overs!=null?bowl.overs:'—')+'-'+(bowl.runs!=null?bowl.runs:'—')+'-'+(bowl.wickets!=null?bowl.wickets:'—'));}
+  // Sportmonks lineup may also carry per-player in-play stats. Display only known values.
+  var st=(player&&player.stats)||(pl&&pl.stats);
+  if(!parts.length&&Array.isArray(st)){st.forEach(function(x){if(!x)return;var k=x.type||x.name||x.code||'Stat',v=x.value!=null?x.value:(x.total!=null?x.total:null);if(v!=null)parts.push(String(k).replace(/_/g,' ')+': '+v);});}
+  else if(!parts.length&&st&&typeof st==='object'){var keys=Object.keys(st);keys.forEach(function(k){var v=st[k];if(v!=null&&['batting','bowling'].indexOf(k)<0)parts.push(k.replace(/_/g,' ')+': '+(typeof v==='object'?JSON.stringify(v):v));});}
   return parts.join('  |  ');
 }
 function statusOf(m){
@@ -647,7 +651,7 @@ function ballIsWicket(b){
   var s=b&&b.score||{};
   if(s.is_wicket===true||s.is_wicket===1||b.is_wicket===true||b.is_wicket===1)return true;
   if(s.is_wicket===false||b.is_wicket===false)return false;
-  var o=s.out||s.dismissal||b.dismissal;
+  var o=s.out||s.dismissal||b.dismissal||b.batsmanout||b.wicket||s.wicket||b.catchstump||b.runoutby;
   if(o&&o!==true&&o!=='true'&&String(o).length>0)return true;
   return false;
 }
@@ -666,15 +670,15 @@ function ballIsLegal(b){
 function parseBallNotation(b){
   if(!b)return{over:null,ballInOver:null};
   var ball=b.ball;
+  if(ball&&typeof ball==='object')ball=ball.name||ball.value||ball.ball||'';
   if(typeof ball==='string'&&ball.indexOf('.')>=0){
     var parts=ball.split('.');
     return{over:parseInt(parts[0],10),ballInOver:parseInt(parts[1],10)||0};
   }
-  if(typeof ball==='number'&&ball>=1){
-    // sequential index fallback
-    return{over:null,ballInOver:null,seq:ball};
+  if(b.over!=null||b.over_number!=null){
+    return{over:Number(b.over!=null?b.over:b.over_number),ballInOver:b.ball_in_over!=null?Number(b.ball_in_over):(b.ball_number!=null?Number(b.ball_number):null)};
   }
-  if(b.over!=null)return{over:Number(b.over),ballInOver:b.ball_in_over!=null?Number(b.ball_in_over):null};
+  if(typeof ball==='number'&&ball>=1)return{over:null,ballInOver:null,seq:ball};
   return{over:null,ballInOver:null};
 }
 function ballOverIndex(b, idxFallback){
@@ -690,7 +694,7 @@ function ballDedupeKey(b){
   var bats=playerName(b.batsman)||'';
   var bowl=playerName(b.bowler)||'';
   var nm=(b.score&&b.score.name)||'';
-  return [p.over,p.ballInOver,r,w,bats,bowl,nm].join('|');
+  return [inningsKey(b)||b.innings_id||b.inning_id||'',p.over,p.ballInOver,r,w,playerIdOf(b,'batsman')||bats,playerIdOf(b,'bowler')||bowl,nm].join('|');
 }
 function normalizeBalls(raw){
   var arr=(raw||[]).slice();
@@ -703,6 +707,8 @@ function normalizeBalls(raw){
     out.push(b);
   });
   out.sort(function(a,b){
+    var ia=Number((String(inningsKey(a)).match(/[1-4]/)||[])[0]||1),ib=Number((String(inningsKey(b)).match(/[1-4]/)||[])[0]||1);
+    if(ia!==ib)return ia-ib;
     var pa=parseBallNotation(a),pb=parseBallNotation(b);
     if(pa.over!=null&&pb.over!=null&&pa.over!==pb.over)return pa.over-pb.over;
     if(pa.ballInOver!=null&&pb.ballInOver!=null&&pa.ballInOver!==pb.ballInOver)return pa.ballInOver-pb.ballInOver;
@@ -710,64 +716,83 @@ function normalizeBalls(raw){
   });
   return out;
 }
-function groupIntoOvers(balls){
-  var list=normalizeBalls(balls);
+function activeInningsKey(d){
+  var runs=relationRows(d&&d.runs),keys=runs.map(inningsKey).filter(Boolean);
+  if(keys.length){keys.sort(function(a,b){var na=Number((String(a).match(/[1-4]/)||[])[0]||0),nb=Number((String(b).match(/[1-4]/)||[])[0]||0);return na-nb;});return keys[keys.length-1];}
+  if(runs.length)return 'S'+Math.min(4,runs.length);
+  var st=String(d&&d.status||'').toLowerCase(),m=st.match(/([1-4])(st|nd|rd|th) innings/);return m?'S'+m[1]:'';
+}
+function mergeBallHistory(matchId, incoming, inningHint){
+  var key='mcs_balls_'+String(matchId||'unknown');
+  var old=[];try{old=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(old))old=[];}catch(e){}
   var map={};
-  var order=[];
-  list.forEach(function(b,idx){
-    var p=parseBallNotation(b);
-    var on=p.over;
-    if(on==null||isNaN(on)){
-      // sequential 6-legal fallback
-      return;
-    }
-    if(!map[on]){map[on]={overNo:on,balls:[],runs:0,wickets:0,legal:0};order.push(on);}
-    var o=map[on];
-    // avoid duplicate same ball id
-    if(o.balls.some(function(x){return String(x.ball)===String(b.ball)&&ballDedupeKey(x)===ballDedupeKey(b);}))return;
+  old.concat(relationRows(incoming)).forEach(function(raw){
+    if(!raw||typeof raw!=='object')return;
+    var b=raw;
+    if(!inningsKey(b)&&inningHint){b=Object.assign({},b,{mcs_innings:inningHint});}
+    var k=ballDedupeKey(b);
+    if(!map[k]||Object.keys(b).length>Object.keys(map[k]).length)map[k]=b;
+  });
+  var merged=Object.keys(map).map(function(k){return map[k];});
+  merged.sort(function(a,b){
+    var ia=Number((String(inningsKey(a)).match(/[1-4]/)||[])[0]||1), ib=Number((String(inningsKey(b)).match(/[1-4]/)||[])[0]||1);
+    if(ia!==ib)return ia-ib;
+    var pa=parseBallNotation(a),pb=parseBallNotation(b);
+    if(pa.over!=null&&pb.over!=null&&pa.over!==pb.over)return pa.over-pb.over;
+    if(pa.ballInOver!=null&&pb.ballInOver!=null&&pa.ballInOver!==pb.ballInOver)return pa.ballInOver-pb.ballInOver;
+    return String(a.ball||'').localeCompare(String(b.ball||''),undefined,{numeric:true});
+  });
+  try{localStorage.setItem(key,JSON.stringify(merged.slice(-1200)));}catch(e){}
+  return merged;
+}
+function samePlayerRow(row, player){
+  if(!row||!player)return false;
+  var a=playerIdOf(row,'batsman'), b=playerIdOf(player,'batsman');
+  if(a!=null&&b!=null)return String(a)===String(b);
+  var an=playerName(row.batsman||row.player||row).toLowerCase();
+  var bn=playerName(player.batsman||player.player||player).toLowerCase();
+  return !!an&&an===bn;
+}
+function rowIsOut(row){
+  if(!row)return false;
+  if(row.out===true||row.out===1||row.out==='1'||row.wicket===true||row.dismissal||row.batsmanout)return true;
+  var outText=String(row.out||'').toLowerCase().trim();
+  return !!outText&&['false','0','no','not out','not_out'].indexOf(outText)<0;
+}
+function groupIntoOvers(balls){
+  var list=normalizeBalls(balls), map={}, order=[];
+  list.forEach(function(b){
+    var p=parseBallNotation(b), on=p.over;
+    if(on==null||isNaN(on))return;
+    var ik=inningsKey(b)||String(b.innings_id||b.inning_id||b.innings||'');
+    var key=ik+'|'+on;
+    if(!map[key]){map[key]={overNo:on,inningsKey:ik,balls:[],runs:0,wickets:0,legal:0};order.push(key);}
+    var o=map[key];
+    if(o.balls.some(function(x){return ballDedupeKey(x)===ballDedupeKey(b);}))return;
     o.balls.push(b);
-    o.runs+=ballRuns(b);
-    if(ballIsWicket(b))o.wickets++;
-    if(ballIsLegal(b))o.legal++;
   });
   if(order.length){
-    order.sort(function(a,b){return a-b;});
-    var minO=order[0];
-    var offset=(minO===0)?1:0; // 0-based API → 1-based display
-    return order.map(function(k){
-      var o=map[k];
-      o.displayOver=(k===0?1:k+offset);
-      var o=map[k];
-      o.balls.sort(function(a,b){
-        var pa=parseBallNotation(a),pb=parseBallNotation(b);
-        if(pa.ballInOver!=null&&pb.ballInOver!=null)return pa.ballInOver-pb.ballInOver;
-        return String(a.ball).localeCompare(String(b.ball),undefined,{numeric:true});
-      });
-      // one entry per ball stamp (13.2) keep last (most complete)
-      var byStamp={};var order=[];
-      o.balls.forEach(function(b){
-        var p=parseBallNotation(b);
-        var stamp=(p.over!=null&&p.ballInOver!=null)?(p.over+'.'+p.ballInOver):ballDedupeKey(b);
-        if(!byStamp[stamp])order.push(stamp);
-        byStamp[stamp]=b;
-      });
-      o.balls=order.map(function(s){return byStamp[s];});
+    order.sort(function(a,b){
+      var aa=a.split('|'),bb=b.split('|');
+      var ia=Number((aa[0].match(/[1-4]/)||[])[0]||1),ib=Number((bb[0].match(/[1-4]/)||[])[0]||1);
+      if(ia!==ib)return ia-ib;return Number(aa[1])-Number(bb[1]);
+    });
+    var perInnings={};
+    return order.map(function(key){
+      var o=map[key];o.balls.sort(function(a,b){var pa=parseBallNotation(a),pb=parseBallNotation(b);return (pa.ballInOver||0)-(pb.ballInOver||0);});
       o.runs=0;o.wickets=0;o.legal=0;
       o.balls.forEach(function(b){o.runs+=ballRuns(b);if(ballIsWicket(b))o.wickets++;if(ballIsLegal(b))o.legal++;});
+      perInnings[o.inningsKey]=(perInnings[o.inningsKey]||0)+1;
+      o.displayOver=o.overNo===0?1:o.overNo;
+      o.overIndex=perInnings[o.inningsKey];
       return o;
     });
   }
-  // fallback sequential legal
-  var overs=[],cur={overNo:1,balls:[],runs:0,wickets:0,legal:0};
-  list.forEach(function(b){
-    cur.balls.push(b);
-    cur.runs+=ballRuns(b);
-    if(ballIsWicket(b))cur.wickets++;
-    if(ballIsLegal(b))cur.legal++;
-    if(cur.legal>=6){overs.push(cur);cur={overNo:overs.length+1,balls:[],runs:0,wickets:0,legal:0};}
-  });
-  if(cur.balls.length)overs.push(cur);
-  return overs;
+  // No notation in this payload: retain the balls instead of dropping them.
+  if(!list.length)return[];
+  var overs=[],cur={overNo:1,inningsKey:'',balls:[],runs:0,wickets:0,legal:0};
+  list.forEach(function(b){cur.balls.push(b);cur.runs+=ballRuns(b);if(ballIsWicket(b))cur.wickets++;if(ballIsLegal(b))cur.legal++;if(cur.legal>=6){overs.push(cur);cur={overNo:overs.length+1,inningsKey:inningsKey(b),balls:[],runs:0,wickets:0,legal:0};}});
+  if(cur.balls.length)overs.push(cur);return overs;
 }
 function chipClass(b){
   if(ballIsWicket(b))return 'cw';
@@ -831,8 +856,8 @@ function descriptiveLine(b, lang, forceOver){
   var isW=ballIsWicket(b);
   var bats=playerName(b.batsman)||playerName(s.batsman)||'';
   var bowl=playerName(b.bowler)||playerName(s.bowler)||'';
-  var catcher=playerName(b.catchstump)||playerName(s.catchstump)||playerName(b.runoutby)||playerName(s.runoutby)||'';
-  var outRaw=s.out||s.dismissal||b.dismissal||s.name||'';
+  var catcher=playerName(b.catchstump)||playerName(s.catchstump)||playerName(b.runoutby)||playerName(s.runoutby)||playerName(b.fielder)||playerName(s.fielder)||'';
+  var outRaw=s.out||s.dismissal||b.dismissal||b.batsmanout||b.wicket||s.wicket||s.name||'';
   if(outRaw===true||outRaw==='true'||outRaw===1)outRaw='';
   var outType=String(outRaw||'').replace(/\*/g,'').trim();
   var scoreName=String(s.name||b.score_name||s.action||'').replace(/\*/g,'');
@@ -840,11 +865,11 @@ function descriptiveLine(b, lang, forceOver){
   var stamp=ballStampPhrase(b, lang);
 
   function dismissKind(){
-    var t=(outType||scoreName||'').toLowerCase();
-    if(/caught|catch/.test(t))return 'catch';
+    var t=[outType,scoreName,b.wicket_type,b.dismissal_type,playerName(b.batsmanout),playerName(b.catchstump),playerName(b.runoutby)].join(' ').toLowerCase();
+    if(/caught|catch/.test(t)||b.catchstump)return 'catch';
     if(/bowled|clean/.test(t))return 'bowled';
     if(/lbw/.test(t))return 'lbw';
-    if(/run.?out/.test(t))return 'runout';
+    if(/run.?out/.test(t)||b.runoutby)return 'runout';
     if(/stump/.test(t))return 'stumped';
     if(/hit.?wicket/.test(t))return 'hitwicket';
     if(isW)return 'wicket';
@@ -1033,49 +1058,65 @@ function batStats(b){
   var sr=(bl>0)?((Number(r)/Number(bl))*100).toFixed(1):'—';
   return{line1:r+'('+bl+')',line2:sr,line3:'4s '+f+' · 6s '+s,r:r,b:bl,fours:f,sixes:s,sr:sr};
 }
+function oversAsDecimal(overs, balls){
+  if(balls!=null&&Number.isFinite(Number(balls)))return Number(balls)/6;
+  if(overs==null||overs==='—')return 0;
+  var n=String(overs).match(/^(\d+)(?:\.(\d+))?$/);
+  if(!n)return Number(overs)||0;
+  return Number(n[1])+(n[2]?Number(n[2])/6:0);
+}
 function bowlStats(b){
-  if(!b)return{line1:'',line2:''};
-  var o=b.overs!=null?b.overs:'—';
-  var r=b.runs!=null?b.runs:0;
-  var w=b.wickets!=null?b.wickets:0;
+  if(!b)return{line1:'',line2:'',o:'—',m:'—',r:'—',w:'—',econ:'—'};
+  var o=b.overs!=null?b.overs:'—',m=b.medians!=null?b.medians:(b.maidens!=null?b.maidens:0);
+  var r=b.runs!=null?b.runs:0,w=b.wickets!=null?b.wickets:0;
   var balls=b.balls!=null?b.balls:null;
-  var econ='—';
-  if(o!=null&&o!=='—'&&Number(o)>0)econ=(Number(r)/Number(o)).toFixed(2);
+  var oversNum=oversAsDecimal(o,balls),econ='—';
+  if(oversNum>0)econ=(Number(r)/oversNum).toFixed(2);
   var line1=r+'('+ (balls!=null?balls:o) +')/'+w+(balls!=null?(' · '+balls+'b'):'');
-  return{line1:line1,line2:'Econ:  '+econ};
+  return{o:o,m:m,r:r,w:w,econ:econ,line1:line1,line2:'Econ: '+econ};
 }
 function currentPlayers(d){
-  if(!d)return{striker:'—',nonstriker:'—',bowler:'—',strikerStat:'',nonstrikerStat:'',bowlerStat:'',batTeam:'',bowlTeam:''};
-  var batting=d.batting||[];
-  var bowling=d.bowling||[];
-  var notOut=batting.filter(function(b){
-    if(b.active===true)return true;
-    if(b.active===false)return false;
-    return !b.out;
-  });
-  if(notOut.length<2)notOut=batting.slice(-2);
-  var striker=notOut[0], non=notOut[1];
-  var batTeamId=striker&&(striker.team_id||(striker.batsman&&striker.batsman.team_id));
-  var bowlSorted=bowling.slice().filter(function(b){
-    var tid=b.team_id||(b.bowler&&b.bowler.team_id);
-    return !batTeamId||tid!==batTeamId;
-  });
+  if(!d)return{striker:'—',nonstriker:'—',bowler:'—',strikerS:{},nonstrikerS:{},bowlerS:{}};
+  var batting=relationRows(d.batting), bowling=relationRows(d.bowling), balls=normalizeBalls(d.balls||[]);
+  var dismissed={};
+  balls.forEach(function(x){if(ballIsWicket(x)){var outId=playerIdOf(x,'batsmanout')||playerIdOf(x,'batsman');if(outId!=null)dismissed[String(outId)]=true;}});
+  var notOut=batting.filter(function(b){var id=playerIdOf(b,'batsman');return !rowIsOut(b)&&!(id!=null&&dismissed[String(id)]);});
+  var active=notOut.filter(function(b){return b.active===true||b.active===1||b.active==='1';});
+  if(active.length>=2)notOut=active;
+  if(notOut.length<2)notOut=batting.filter(function(b){var id=playerIdOf(b,'batsman');return !rowIsOut(b)&&!(id!=null&&dismissed[String(id)]);}).slice(-2);
+  var striker=null, non=null, last=balls.length?balls[balls.length-1]:null;
+  if(last&&notOut.length>=2){
+    var lastId=playerIdOf(last,'batsman'), lastName=playerName(last.batsman||last.player||last).toLowerCase();
+    var faced=notOut.find(function(r){var id=playerIdOf(r,'batsman');return (lastId!=null&&id!=null&&String(id)===String(lastId))||(!lastId&&lastName&&playerName(r.batsman||r.player||r).toLowerCase()===lastName);});
+    if(faced){
+      var p=parseBallNotation(last), overBalls=balls.filter(function(x){var q=parseBallNotation(x);return (p.over!=null&&q.over===p.over);});
+      var legalInOver=overBalls.filter(ballIsLegal).length;
+      var odd=(ballRuns(last)%2)===1;
+      var overEnded=legalInOver>=6;
+      var swap=odd!==overEnded;
+      striker=swap?notOut.find(function(r){return r!==faced;}):faced;
+      non=swap?faced:notOut.find(function(r){return r!==faced;});
+      if(ballIsWicket(last)){
+        // A dismissed batter cannot remain on strike; prefer explicit active flags if supplied.
+        var activeOthers=active.filter(function(r){return !samePlayerRow(r,faced);});
+        if(activeOthers.length>=1){striker=activeOthers[0];non=activeOthers[1]||notOut.find(function(r){return r!==faced&&r!==activeOthers[0];});}
+      }
+    }
+  }
+  if(!striker||!non){striker=notOut[0]||null;non=notOut[1]||null;}
+  var batTeamId=(striker&&teamIdOf(striker,'batsman'))||(last&&last.batsman&&last.batsman.team_id);
+  var bowlSorted=bowling.filter(function(b){var tid=teamIdOf(b,'bowler');return batTeamId==null||tid==null||String(tid)!==String(batTeamId);});
   if(!bowlSorted.length)bowlSorted=bowling.slice();
-  bowlSorted.sort(function(a,b){
-    var ao=Number(a.overs)||0,bo=Number(b.overs)||0;
-    if(ao!==bo)return bo-ao;
-    return (Number(b.wickets)||0)-(Number(a.wickets)||0);
-  });
-  var bowler=bowlSorted[0];
+  var lastBowlerId=last&&playerIdOf(last,'bowler');
+  var bowler=lastBowlerId!=null?bowlSorted.find(function(b){return String(playerIdOf(b,'bowler'))===String(lastBowlerId);}):null;
+  if(!bowler){bowlSorted.sort(function(a,b){return (Number(b.overs)||0)-(Number(a.overs)||0);});bowler=bowlSorted[0];}
   return{
     striker:playerName(striker&&(striker.batsman||striker))||'—',
     nonstriker:playerName(non&&(non.batsman||non))||'—',
-    bowler:playerName(bowler&&(bowler.bowler||bowler))||'—',
-    strikerS:batStats(striker),
-    nonstrikerS:batStats(non),
-    bowlerS:bowlStats(bowler),
-    batTeam:'',
-    bowlTeam:''
+    bowler:playerName(bowler&&(bowler.bowler||bowler))||playerName(last&&last.bowler)||'—',
+    strikerS:batStats(striker),nonstrikerS:batStats(non),bowlerS:bowlStats(bowler),
+    strikerId:striker&&playerIdOf(striker,'batsman'),nonstrikerId:non&&playerIdOf(non,'batsman'),
+    batTeam:batTeamId,bowlTeam:''
   };
 }
 function teamFlagUrl(team){
@@ -1134,6 +1175,8 @@ function loadNewsRss(){
     .then(function(arr){return (arr||[]).filter(function(n){return n&&n.title;});})
     .catch(function(){return [];});
 }
+function randomRoomToken(){try{var a=new Uint8Array(24);crypto.getRandomValues(a);return Array.from(a).map(function(x){return x.toString(16).padStart(2,'0');}).join('');}catch(e){return String(Date.now())+Math.random().toString(36).slice(2);}}
+
 function App(){
 
   var viewOnly=isViewMode();
@@ -1261,6 +1304,10 @@ function App(){
   var _chatViewers=useState([]);var chatViewers=_chatViewers[0],setChatViewers=_chatViewers[1];
   var _floatMsg=useState(null);var floatMsg=_floatMsg[0],setFloatMsg=_floatMsg[1];
   var _chatPop=useState(false);var chatPop=_chatPop[0],setChatPop=_chatPop[1];
+  var _memberId=useState(function(){var x=lsGet('mcs_member_id','');if(!x){x='u'+randomRoomToken();lsSet('mcs_member_id',x);}return x;});var memberId=_memberId[0];
+  var _roomOwnerToken=useState(function(){var r=qs().get('room')||lsGet('last_room')||'lobby';if(isViewMode())return '';var k='mcs_room_owner_'+r;var x=lsGet(k,'');if(!x){x=randomRoomToken();lsSet(k,x);}return x;});var roomOwnerToken=_roomOwnerToken[0],setRoomOwnerToken=_roomOwnerToken[1];
+  var _isRoomHost=useState(false);var isRoomHost=_isRoomHost[0],setIsRoomHost=_isRoomHost[1];
+  var _roomStatus=useState('Connecting to room…');var roomStatus=_roomStatus[0],setRoomStatus=_roomStatus[1];
   var _room=useState(function(){return qs().get('room')||lsGet('last_room')||'lobby';});var roomId=_room[0],setRoomId=_room[1];
   var _news=useState([]);var news=_news[0],setNews=_news[1];
   var _newsLoading=useState(false);var newsLoading=_newsLoading[0],setNewsLoading=_newsLoading[1];
@@ -1380,7 +1427,7 @@ function App(){
     if(tab!=='chat'&&!chatPop)return;
     chatLoad();
     if(!lsGet('joined_'+roomId)){chatSend((chatName||'Fan')+' joined','join');lsSet('joined_'+roomId,'1');}
-    var id=setInterval(chatLoad,1800);
+    var id=setInterval(chatLoad,2500);
     return function(){clearInterval(id);};
   },[tab,roomId,chatPop]);
   /* no floating praise */
@@ -1434,11 +1481,13 @@ function App(){
     if((!tok&&!isGuest)||!m||!m.id)return;
     if(!silent){setLoading(true);setError(null);}
     var best=normaliseMatchDetail(m,m);
+    try{var saved=JSON.parse(localStorage.getItem('mcs_balls_'+String(m.id))||'[]');if(Array.isArray(saved)&&saved.length)best.balls=mergeBallHistory(m.id,saved.concat(best.balls||[]),activeInningsKey(best));}catch(e){}
     function mergeData(incoming){
       incoming=normaliseMatchDetail(incoming||{},m);
       ['runs','scoreboards','batting','bowling','balls','lineup'].forEach(function(k){
         var next=relationRows(incoming[k]),prior=relationRows(best[k]);
-        if(next.length>=prior.length&&next.length)best[k]=next;
+        if(k==='balls'){var all=mergeBallHistory(m.id,prior.concat(next),activeInningsKey(best));if(all.length)best[k]=all;}
+        else if(next.length>=prior.length&&next.length)best[k]=next;
       });
       ['localteam','visitorteam','league','venue','tosswon','manofmatch','firstumpire','secondumpire','referee','stage','season'].forEach(function(k){
         if(incoming[k]!=null)best[k]=incoming[k];
@@ -1457,8 +1506,8 @@ function App(){
           .catch(function(e){console.warn('Sportmonks scorecard recovery failed',e);}));
       }
       // Ball-by-ball is a separate, small include request only when absent.
-      if(!relationRows(best.balls).length){
-        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'balls,balls.batsman,balls.bowler,balls.score'),{force:true})
+      if(statusOf(m)==='live'||!relationRows(best.balls).length){
+        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'balls,balls.batsman,balls.bowler,balls.score,balls.batsmanout,balls.catchstump,balls.runoutby'),{force:true})
           .then(function(r){mergeData(r.data||{});})
           .catch(function(e){console.warn('Sportmonks commentary recovery failed',e);}));
       }
@@ -1469,6 +1518,7 @@ function App(){
       return recoverMissingRows();
     }).then(function(data){
       data=normaliseMatchDetail(data||best,m);
+      data.balls=mergeBallHistory(m.id,data.balls||[],activeInningsKey(data));
       var activeSide=currentBattingSide(data);
       setBatTeam(activeSide);setScTeam(activeSide);
       setBowlTeamTab(activeSide==='home'?'away':'home');
@@ -1490,58 +1540,57 @@ function App(){
     var battingSide=currentBattingSide(m||{});
     setBatTeam(battingSide);setScTeam(battingSide);setBowlTeamTab(battingSide==='home'?'away':'home');
     setSelected(m);setDetail(m);setTab('commentary');lsSet('mcs_tab','commentary');
-    if(m&&m.id){var rid='m'+m.id;setRoomId(rid);lsSet('last_room',rid);lsSet('last_match',String(m.id));}
+    if(m&&m.id){var rid='m'+m.id;setRoomId(rid);lsSet('last_room',rid);lsSet('last_match',String(m.id));if(!isViewMode()){var ok=lsGet('mcs_room_owner_'+rid,'');if(!ok){ok=randomRoomToken();lsSet('mcs_room_owner_'+rid,ok);}setRoomOwnerToken(ok);}}
     loadDetail(m);
   };
+  function chatRequest(action,extra){
+    var payload=Object.assign({action:action,room:roomId,memberId:memberId,name:chatName||'Fan',ownerToken:roomOwnerToken||''},extra||{});
+    return fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),cache:'no-store'})
+      .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.message||('Chat error '+r.status));return j;});});
+  }
   function chatLoad(){
-    fetch('/api/chat?room='+encodeURIComponent(roomId),{cache:'no-store'})
-      .then(function(r){return r.json();})
-      .then(function(j){
-        var msgs=Array.isArray(j.messages)?j.messages:[];
-        var prevLen=(chatMsgs||[]).length;
-        setChatMsgs(msgs);
-        setChatViewers(Array.isArray(j.viewers)?j.viewers:[]);
-        if(!chatPop && msgs.length>prevLen && prevLen>0){
-          setUnread(function(u){return (u||0)+(msgs.length-prevLen);});
-        }
-      }).catch(function(){});
+    chatRequest('heartbeat').then(function(j){
+      setChatMsgs(Array.isArray(j.messages)?j.messages:[]);
+      setChatViewers(Array.isArray(j.viewers)?j.viewers:[]);
+      setIsRoomHost(!!j.isHost);setRoomStatus(j.message||'Connected');
+    }).catch(function(e){setRoomStatus((e&&e.message)||'Room connection failed');});
   }
-  function chatDelete(id){
-    fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room:roomId,name:chatName,id:id,type:'delete'})}).then(function(){chatLoad();}).catch(function(){});
-  }
-  function chatEdit(id,newText){
-    fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room:roomId,name:chatName,id:id,text:newText,type:'edit'})}).then(function(){chatLoad();}).catch(function(){});
-  }
-  function chatSend(text, type){
+  function chatDelete(id){chatRequest('delete',{id:id}).then(chatLoad).catch(function(e){setRoomStatus(e.message);});}
+  function chatEdit(id,newText){chatRequest('edit',{id:id,text:newText}).then(chatLoad).catch(function(e){setRoomStatus(e.message);});}
+  function chatSend(text,type){
     type=type||'chat';
-    var body={room:roomId,name:chatName||'Fan',text:text,type:type};
-    fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
-      .then(function(r){return r.json();})
-      .then(function(j){
-        setChatMsgs(Array.isArray(j.messages)?j.messages:[]);
-        setChatViewers(Array.isArray(j.viewers)?j.viewers:[]);
-      }).catch(function(){
-        // local fallback
-        setChatMsgs(function(prev){return prev.concat([{id:Date.now(),name:chatName,text:text,type:type,t:Date.now()}]).slice(-80);});
-      });
+    var action=type==='join'?'heartbeat':'send';
+    chatRequest(action,{text:text,type:type}).then(function(j){
+      setChatMsgs(Array.isArray(j.messages)?j.messages:[]);setChatViewers(Array.isArray(j.viewers)?j.viewers:[]);setIsRoomHost(!!j.isHost);setRoomStatus('Connected');
+    }).catch(function(e){setRoomStatus((e&&e.message)||'Message not sent');});
+  }
+  function moderateRoom(memberIdToAct,action){
+    var v=chatViewers.find(function(x){return x.memberId===memberIdToAct;});
+    if(!v)return;
+    var label=action==='remove'?'Remove':action==='block'?'Block':'Unblock';
+    if(!confirm(label+' '+(v.name||'this user')+'?'))return;
+    chatRequest('moderate',{targetMemberId:memberIdToAct,moderation:action}).then(function(){chatLoad();}).catch(function(e){setRoomStatus(e.message);});
   }
   function inviteChat(){
-    var u=new URL(location.href);
-    u.searchParams.set('room',roomId);
-    if(selected&&selected.id)u.searchParams.set('match',selected.id);
-    u.searchParams.set('view','1');
-    var link=u.toString();
-    var title='Join MyCricStats live';
-    var text='Join me to celebrate the match - '+(chatName||'Friend');
-    if(navigator.share){
-      navigator.share({title:title,text:text,url:link}).catch(function(){
+    if(viewOnly){setRoomStatus('Only the room host can invite members.');return;}
+    chatRequest('heartbeat').then(function(){
+      var u=new URL(location.href);
+      u.searchParams.set('room',roomId);
+      if(selected&&selected.id)u.searchParams.set('match',selected.id);
+      u.searchParams.set('view','1');
+      var link=u.toString();
+      var title='Join MyCricStats live';
+      var text='Join me to celebrate the match - '+(chatName||'Friend');
+      if(navigator.share){
+        navigator.share({title:title,text:text,url:link}).catch(function(){
+          window.open('https://wa.me/?text='+encodeURIComponent(text+' '+link),'_blank');
+        });
+      } else {
         window.open('https://wa.me/?text='+encodeURIComponent(text+' '+link),'_blank');
-      });
-    } else {
-      window.open('https://wa.me/?text='+encodeURIComponent(text+' '+link),'_blank');
-      try{if(navigator.clipboard)navigator.clipboard.writeText(link);}catch(e){}
-      setToast('Invite sent');setTimeout(function(){setToast(null);},2000);
-    }
+        try{if(navigator.clipboard)navigator.clipboard.writeText(link);}catch(e){}
+        setToast('Invite ready');setTimeout(function(){setToast(null);},2000);
+      }
+    }).catch(function(e){setRoomStatus(e.message||'Could not create room');});
   }
 
   var shareView=function(){
@@ -1572,6 +1621,7 @@ function App(){
   var awayName=d?teamName(d,'visitor'):'—';
   var sc=d?scoreLine(d):{a:'—',b:'—'};
   var status=d?(d.status||d.note||''):'';
+  if(d&&statusOf(d)==='finished'&&d.winner_team_id!=null){var winnerId=String(d.winner_team_id);status=(winnerId===String(d.localteam_id)?homeName:winnerId===String(d.visitorteam_id)?awayName:'A team')+' won · '+(d.note||d.result||d.status||'Match finished');}
   var venue=d&&d.venue?d.venue.name:'';
   var league=d?(d.league&&d.league.name)||d.type||d.round||'':'';
   var st=d?statusOf(d):'';
@@ -1650,7 +1700,7 @@ function App(){
                   (d&&d.localteam&&teamFlagUrl(d.localteam))?h('img',{className:'flag',src:teamFlagUrl(d.localteam),alt:''}):null,
                   h('span',null,shortName(homeName))
                 ),
-                h('div',{className:'score-num'},String(sc.a).split(' ')[0]),
+                h('div',{className:'score-num'},sc.a==='—'&&sc.b!=='—'?'Yet to bat':String(sc.a).split(' ')[0]),
                 h('div',{className:'overs'},sc.a.indexOf('(')>=0?sc.a.slice(sc.a.indexOf('(')):'' )
               ),
               h('div',{className:'match-center'},h('div',{className:'vs-label'},'VS')),
@@ -1659,9 +1709,14 @@ function App(){
                   h('span',null,shortName(awayName)),
                   (d&&d.visitorteam&&teamFlagUrl(d.visitorteam))?h('img',{className:'flag',src:teamFlagUrl(d.visitorteam),alt:''}):null
                 ),
-                h('div',{className:'score-num'},String(sc.b).split(' ')[0]),
+                h('div',{className:'score-num'},sc.b==='—'&&sc.a!=='—'?'Yet to bat':String(sc.b).split(' ')[0]),
                 h('div',{className:'overs'},sc.b.indexOf('(')>=0?sc.b.slice(sc.b.indexOf('(')):'' )
               )
+            ),
+            h('div',{className:'f1-race',key:String((d&&d.id)||'')+'-'+String((d&&d.balls&&d.balls.length)||0)},
+              h('div',{className:'race-label'},shortName(currentBattingSide(d)==='home'?homeName:awayName)+' batting'),
+              h('div',{className:'race-track'},h('span',{className:'race-ball'},'')),
+              h('div',{className:'race-label'},shortName(currentBattingSide(d)==='home'?awayName:homeName)+' bowling')
             ),
             h('div',{className:'meta-row'},
               d.starting_at?h('span',null,fmtWhen(d.starting_at)):null,
@@ -1846,12 +1901,12 @@ function App(){
     chatPop?h('div',{className:'chat-pop'},
       h('div',{className:'cp-head'},
         h('div',{className:'t',onClick:function(){setModalVal(chatName);setModal('chatname');},style:{cursor:'pointer'}},'Chat · '+(chatName||'Fan')),
-        h('button',{className:'btn',onClick:inviteChat},'↗'),
+        h('span',{className:'cp-room-tag'},'🏏 LIVE ROOM'),
         h('button',{className:'btn',onClick:function(){setChatPop(false);}},'✕')
       ),
       h('div',{className:'cp-body'},
         (chatMsgs.length?chatMsgs:[{name:'MCS',text:'Say hi to your friends 🏏',t:Date.now()}]).map(function(m,i){
-          var me=(m.name===chatName);
+          var me=(m.memberId===memberId)||(m.name===chatName&&!m.memberId);
           return h('div',{key:m.id||i,className:'cp-msg '+(me?'me':'them'),style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:6}},
             h('div',null,h('b',null,(m.name||'Fan')+': '),m.text,m.edited?h('span',{style:{fontSize:10,opacity:.6}},' (edited)'):null),
             me&&m.id?h('span',{style:{fontSize:10,opacity:.7,cursor:'pointer'}},
@@ -1915,6 +1970,7 @@ function App(){
                 h('thead',null,h('tr',null,
                   h('th',{style:{textAlign:'left',padding:'4px 6px'}},'⚾ Bowler'),
                   h('th',{style:{textAlign:'center',padding:'4px 6px'}},'O'),
+                  h('th',{style:{textAlign:'center',padding:'4px 6px'}},'M'),
                   h('th',{style:{textAlign:'center',padding:'4px 6px'}},'R'),
                   h('th',{style:{textAlign:'center',padding:'4px 6px'}},'W'),
                   h('th',{style:{textAlign:'center',padding:'4px 6px'}},'Econ')
@@ -1922,6 +1978,7 @@ function App(){
                 h('tbody',null,h('tr',null,
                   h('td',{style:{padding:'4px 6px',fontWeight:700}},liveP.bowler||'—'),
                   h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.o)||'—'),
+                  h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.m!=null?liveP.bowlerS.m:'—')),
                   h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.r!=null?liveP.bowlerS.r:'')),
                   h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.w!=null?liveP.bowlerS.w:'')),
                   h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.econ)||'')
@@ -2002,24 +2059,32 @@ function App(){
 
       
       tab==='chat'?h('div',{className:'card'},
-        h('h3',null,'Invite your friends to group chat & celebrate the event'),
+        h('h3',null,'🏏 Match Room'),
         h('div',{className:'muted',style:{marginBottom:8}},'Shared with invitees · room '+roomId),
         h('div',{className:'btn-row'},
           h('button',{className:'btn primary',onClick:function(){setChatPop(true);chatLoad();}},'Open chat window'),
           h('button',{className:'btn',onClick:function(){setModalVal(chatName);setModal('chatname');}},'Name: '+(chatName||'Fan')),
-          h('button',{className:'btn',onClick:inviteChat},'↗ Invite'),
+          viewOnly?null:h('button',{className:'btn',onClick:inviteChat},'↗ Invite'),
           h('button',{className:'btn',onClick:chatLoad},'↻')
         ),
         h('div',{className:'filter-row'},
-          h('button',{className:chatSub==='room'?'on':'',onClick:function(){setChatSub('room');}},'Room'),
-          h('button',{className:chatSub==='viewers'?'on':'',onClick:function(){setChatSub('viewers');}},'Viewers')
+          h('button',{className:chatSub==='room'?'on':'',onClick:function(){setChatSub('room');chatLoad();}},'Room & Members'),
+          h('button',{className:chatSub==='viewers'?'on':'',onClick:function(){setChatSub('viewers');chatLoad();}},'Online')
         ),
-        chatSub==='viewers'?h('div',null,
-          h('div',{className:'btn-row'},h('button',{className:'btn primary',onClick:inviteChat},'↗ Share invite')),
-          (chatViewers.length?chatViewers:[{name:chatName||'You',online:true,last:Date.now()}]).map(function(v,i){
-            return h('div',{key:i,className:'chat-msg'},h('b',null,v.name||'Fan'),' · ',(v.online?'🟢':'⚫'),v.last?(' · '+new Date(v.last).toLocaleTimeString()):'');
-          })
-        ):h('div',{className:'muted'},'Invite friends — same room, live chat. Open the chat window to message.')
+        h('div',{className:'room-status'},roomStatus+(isRoomHost?' · HOST':' · MEMBER')),
+        h('div',{className:'room-roster'},
+          (chatViewers.filter(function(v){return chatSub==='room'||v.online;}).length?chatViewers.filter(function(v){return chatSub==='room'||v.online;}):[]).map(function(v,i){
+            return h('div',{key:v.memberId||i,className:'room-user'},
+              h('div',{className:'room-user-main'},h('span',{className:'presence-dot '+(v.online?'online':'')},'●'),h('b',null,v.name||'Fan'),v.role==='host'?h('span',{className:'host-tag'},'HOST'):null,v.blocked?h('span',{className:'host-tag'},'BLOCKED'):null),
+              isRoomHost&&v.memberId!==memberId?h('div',{className:'room-actions'},
+                h('button',{className:'btn',onClick:function(){moderateRoom(v.memberId,v.blocked?'unblock':'block');}},v.blocked?'Unblock':'Block'),
+                h('button',{className:'btn danger',onClick:function(){moderateRoom(v.memberId,'remove');}},'Remove')
+              ):null
+            );
+          }),
+          !chatViewers.length?h('div',{className:'muted'},'No members have joined yet. Share the room link to invite people.'):null
+        ),
+        isRoomHost?h('div',{className:'muted',style:{marginTop:8}},'Host controls: remove a member or block/unblock access to this room.'):null
       ):null,
 
 tab==='schedule'?h('div',{className:'card'},
@@ -2057,7 +2122,7 @@ tab==='schedule'?h('div',{className:'card'},
           h('button',{className:scTeam==='home'?'on':'',onClick:function(){setScTeam('home');}},homeName||'Home'),
           h('button',{className:scTeam==='away'?'on':'',onClick:function(){setScTeam('away');}},awayName||'Away')
         ),
-        h('div',{style:{fontSize:18,fontWeight:900,textAlign:'center',margin:'8px 0'}},scTeam==='home'?sc.a:sc.b),
+        h('div',{style:{fontSize:18,fontWeight:900,textAlign:'center',margin:'8px 0'}},(scTeam==='home'?sc.a:sc.b)==='—'?(scTeam==='home'?sc.b:sc.a)!=='—'?'Yet to bat':'Score not available':(scTeam==='home'?sc.a:sc.b)),
         (loading?h('div',{className:'muted',style:{textAlign:'center',padding:'8px 0'}},'Loading scorecard from Sportmonks…'):null),
         h('h3',null,'Batting'),
         (function(){
@@ -2068,9 +2133,10 @@ tab==='schedule'?h('div',{className:'card'},
             h('thead',null,h('tr',null,h('th',null,'Batter'),h('th',null,'R'),h('th',null,'B'),h('th',null,'4s'),h('th',null,'6s'),h('th',null,'SR'))),
             h('tbody',null,filtered.slice(0,15).map(function(b,i){
               var name=playerName(b.batsman)||b.player_name||playerName(b.player)||'—';
+              var isStriker=(liveP.strikerId!=null&&String(playerIdOf(b,'batsman'))===String(liveP.strikerId))||(!liveP.strikerId&&name.toLowerCase()===String(liveP.striker||'').toLowerCase());
               var r=b.score!=null?b.score:b.runs;var bl=b.ball!=null?b.ball:b.balls;
               var sr=(r!=null&&bl)?((Number(r)/Math.max(1,Number(bl)))*100).toFixed(1):'—';
-              return h('tr',{key:i},h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:6}},(unwrapRelation(b.batsman)&&unwrapRelation(b.batsman).image_path)?h('img',{src:unwrapRelation(b.batsman).image_path,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,h('span',null,name))),h('td',null,r!=null?r:'—'),h('td',null,bl!=null?bl:'—'),h('td',null,b.four_x!=null?b.four_x:'—'),h('td',null,b.six_x!=null?b.six_x:'—'),h('td',null,sr));
+              return h('tr',{key:i},h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:6}},(unwrapRelation(b.batsman)&&unwrapRelation(b.batsman).image_path)?h('img',{src:unwrapRelation(b.batsman).image_path,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,h('span',null,(isStriker?'* ':'')+name))),h('td',null,r!=null?r:'—'),h('td',null,bl!=null?bl:'—'),h('td',null,b.four_x!=null?b.four_x:'—'),h('td',null,b.six_x!=null?b.six_x:'—'),h('td',null,sr));
             }))
           );
         })(),
@@ -2081,11 +2147,11 @@ tab==='schedule'?h('div',{className:'card'},
           if(!rows.length)return h('div',{className:'muted'},'Bowling figures are not present in this Sportmonks response yet.');
           var filtered=rowsForScorecardTeam(rows,scTeam,d,'bowling');
           return h('table',{className:'table'},
-            h('thead',null,h('tr',null,h('th',null,'Bowler'),h('th',null,'O'),h('th',null,'R'),h('th',null,'W'),h('th',null,'Econ'))),
+            h('thead',null,h('tr',null,h('th',null,'Bowler'),h('th',null,'O'),h('th',null,'M'),h('th',null,'R'),h('th',null,'W'),h('th',null,'Econ'))),
             h('tbody',null,filtered.slice(0,12).map(function(b,i){
-              var name=playerName(b.bowler)||playerName(b.player)||b.player_name||'—';var o=b.overs,r=b.runs,w=b.wickets;
-              var econ=(o&&r!=null)?(Number(r)/Math.max(0.1,Number(o))).toFixed(2):'—';
-              return h('tr',{key:i},h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:6}},(unwrapRelation(b.bowler)&&unwrapRelation(b.bowler).image_path)?h('img',{src:unwrapRelation(b.bowler).image_path,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,h('span',null,name))),h('td',null,o!=null?o:'—'),h('td',null,r!=null?r:'—'),h('td',null,w!=null?w:'—'),h('td',null,econ));
+              var name=playerName(b.bowler)||playerName(b.player)||b.player_name||'—';var o=b.overs,m=b.medians!=null?b.medians:(b.maidens||0),r=b.runs,w=b.wickets;
+              var econ=(o&&r!=null)?(Number(r)/Math.max(0.1,oversAsDecimal(o,b.balls))).toFixed(2):'—';
+              return h('tr',{key:i},h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:6}},(unwrapRelation(b.bowler)&&unwrapRelation(b.bowler).image_path)?h('img',{src:unwrapRelation(b.bowler).image_path,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,h('span',null,name))),h('td',null,o!=null?o:'—'),h('td',null,m),h('td',null,r!=null?r:'—'),h('td',null,w!=null?w:'—'),h('td',null,econ));
             }))
           );
         })()
@@ -2108,7 +2174,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
             if(oi===0&&ov.balls.length){
               try{
                 var top=ov.balls[ov.balls.length-1];
-                var key=String(top.id||top.ball)+'-'+ballRuns(top)+'-'+ballIsWicket(top);
+                var key=String(inningsKey(top)||'')+'-'+String(top.id||top.ball)+'-'+ballRuns(top)+'-'+ballIsWicket(top);
                 if(key!==lastBallKey.current){
                   lastBallKey.current=key;
                   var line=descriptiveLine(top,ttsLang);
@@ -2141,7 +2207,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
             }
             return h('div',{key:oi,className:'over-card'},
               h('div',{className:'over-head'},
-                h('span',null,'Over '+(ov.displayOver!=null?ov.displayOver:ov.overNo)),
+                h('span',null,(ov.inningsKey?('Innings '+ov.inningsKey+' · '):'')+'Over '+(ov.displayOver!=null?ov.displayOver:ov.overNo)),
                 h('span',{className:'sum'},ov.runs+' run'+(ov.runs===1?'':'s')+(ov.wickets?' · '+ov.wickets+' wkt'+(ov.wickets>1?'s':''):'')+' · '+ov.legal+'/6 balls')
               ),
               h('div',{className:'ball-row'},
@@ -2158,7 +2224,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
                 );
               }),
               h('div',{className:'over-end'},
-                'End of over '+ov.overNo+': '+ov.runs+' runs'+(ov.wickets?', '+ov.wickets+' wicket'+(ov.wickets>1?'s':''):'')+
+                (ov.inningsKey?('Innings '+ov.inningsKey+' · '):'')+'End of over '+ov.overNo+': '+ov.runs+' runs'+(ov.wickets?', '+ov.wickets+' wicket'+(ov.wickets>1?'s':''):'')+
                 (d?(' · Match '+sc.a+' vs '+sc.b):'')
               )
             );
@@ -2180,9 +2246,9 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
           return h('table',{className:'table'},
             h('thead',null,h('tr',null,h('th',null,'Batter'),h('th',null,'R'),h('th',null,'B'),h('th',null,'4s'),h('th',null,'6s'),h('th',null,'SR'))),
             h('tbody',null,filtered.slice(0,20).map(function(b,i){
-              var name=playerName(b.batsman)||'—';var r=b.score!=null?b.score:b.runs;var bl=b.ball!=null?b.ball:b.balls;
+              var name=playerName(b.batsman)||'—';var isStriker=(liveP.strikerId!=null&&String(playerIdOf(b,'batsman'))===String(liveP.strikerId))||(!liveP.strikerId&&name.toLowerCase()===String(liveP.striker||'').toLowerCase());var r=b.score!=null?b.score:b.runs;var bl=b.ball!=null?b.ball:b.balls;
               var sr=(r!=null&&bl)?((Number(r)/Math.max(1,Number(bl)))*100).toFixed(1):'—';
-              return h('tr',{key:i},h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:6}},(unwrapRelation(b.batsman)&&unwrapRelation(b.batsman).image_path)?h('img',{src:unwrapRelation(b.batsman).image_path,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,h('span',null,name))),h('td',null,r!=null?r:'—'),h('td',null,bl!=null?bl:'—'),h('td',null,b.four_x!=null?b.four_x:'—'),h('td',null,b.six_x!=null?b.six_x:'—'),h('td',null,sr));
+              return h('tr',{key:i},h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:6}},(unwrapRelation(b.batsman)&&unwrapRelation(b.batsman).image_path)?h('img',{src:unwrapRelation(b.batsman).image_path,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,h('span',null,(isStriker?'* ':'')+name))),h('td',null,r!=null?r:'—'),h('td',null,bl!=null?bl:'—'),h('td',null,b.four_x!=null?b.four_x:'—'),h('td',null,b.six_x!=null?b.six_x:'—'),h('td',null,sr));
             }))
           );
         })()
@@ -2200,11 +2266,11 @@ tab==='bowling'?(!selected?h('div',{className:'empty'},'Select a match'):h('div'
           var filtered=rowsForScorecardTeam(rows,bowlTeamTab==='home'?'away':'home',d,'bowling');
           if(!filtered.length)return h('div',{className:'muted'},loading?'Loading…':'No bowling data');
           return h('table',{className:'table'},
-            h('thead',null,h('tr',null,h('th',null,'Bowler'),h('th',null,'O'),h('th',null,'R'),h('th',null,'W'),h('th',null,'Econ'))),
+            h('thead',null,h('tr',null,h('th',null,'Bowler'),h('th',null,'O'),h('th',null,'M'),h('th',null,'R'),h('th',null,'W'),h('th',null,'Econ'))),
             h('tbody',null,filtered.slice(0,20).map(function(b,i){
-              var name=playerName(b.bowler)||playerName(b.player)||b.player_name||'—';var o=b.overs,r=b.runs,w=b.wickets;
-              var econ=(o&&r!=null)?(Number(r)/Math.max(0.1,Number(o))).toFixed(2):'—';
-              return h('tr',{key:i},h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:6}},(unwrapRelation(b.bowler)&&unwrapRelation(b.bowler).image_path)?h('img',{src:unwrapRelation(b.bowler).image_path,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,h('span',null,name))),h('td',null,o!=null?o:'—'),h('td',null,r!=null?r:'—'),h('td',null,w!=null?w:'—'),h('td',null,econ));
+              var name=playerName(b.bowler)||playerName(b.player)||b.player_name||'—';var o=b.overs,m=b.medians!=null?b.medians:(b.maidens||0),r=b.runs,w=b.wickets;
+              var econ=(o&&r!=null)?(Number(r)/Math.max(0.1,oversAsDecimal(o,b.balls))).toFixed(2):'—';
+              return h('tr',{key:i},h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:6}},(unwrapRelation(b.bowler)&&unwrapRelation(b.bowler).image_path)?h('img',{src:unwrapRelation(b.bowler).image_path,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,h('span',null,name))),h('td',null,o!=null?o:'—'),h('td',null,m),h('td',null,r!=null?r:'—'),h('td',null,w!=null?w:'—'),h('td',null,econ));
             }))
           );
         })()
