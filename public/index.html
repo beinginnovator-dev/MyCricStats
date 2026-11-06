@@ -282,7 +282,7 @@ body.theme-light .broadcast .tname,body.theme-light .broadcast .score-num,body.t
 .room-user-main{display:flex;align-items:center;gap:7px;min-width:0;color:#eaf2ff;font-size:12px}
 .presence-dot{font-size:10px;color:#64748b}.presence-dot.online{color:#22c55e}.host-tag{font-size:9px;font-weight:900;color:#ffd166;background:rgba(245,158,11,.15);padding:3px 6px;border-radius:5px}
 .room-actions{display:flex;gap:5px;flex-shrink:0}.room-actions .btn{font-size:10px;padding:5px 7px}.room-actions .danger{border-color:#ef4444;color:#fecaca}
-.chat-pop{left:1vw;right:1vw;transform:none;width:98vw;max-width:760px;top:var(--mcs-chat-top,56vh);bottom:1vh;height:auto;max-height:none;z-index:45;border:1px solid rgba(255,255,255,.2);border-radius:18px;background:#071426;box-shadow:0 -10px 34px rgba(0,0,0,.42);resize:vertical;overflow:hidden}
+.chat-pop{left:1vw;right:1vw;transform:none;width:98vw;max-width:760px;top:var(--mcs-chat-top,56vh);bottom:1vh;height:auto;max-height:none;z-index:45;border:1px solid rgba(255,255,255,.2);border-radius:18px;background:#071426;box-shadow:0 -10px 34px rgba(0,0,0,.42);resize:none;overflow:hidden}
 .chat-pop.compact{top:var(--mcs-chat-top,56vh);bottom:auto;height:30vh;max-height:55vh}
 .chat-pop.large{top:var(--mcs-chat-top,56vh);bottom:1vh;height:auto;max-height:70vh}
 .chat-pop.maximized{top:2vh!important;height:auto;max-height:96vh;bottom:2vh;z-index:9999}.chat-pop.minimized{top:auto!important;height:54px;max-height:54px;bottom:1vh}.chat-pop.minimized .cp-head{min-height:52px}.chat-pop.minimized .cp-body,.chat-pop.minimized .cp-foot,.chat-pop.minimized .emoji-row{display:none!important}.chat-pop .cp-head button{white-space:nowrap}.room-empty{padding:12px;border:1px dashed rgba(255,255,255,.18);border-radius:12px;color:#b7c6d8;font-size:12px;text-align:center}
@@ -296,13 +296,25 @@ body.theme-light .broadcast .tname,body.theme-light .broadcast .score-num,body.t
 .chat-pop .cp-head .t{flex:1 1 150px;min-width:120px}
 .chat-pop .cp-head .cp-room-tag{flex:0 0 auto}
 .chat-pop .cp-head button{flex:0 0 40px;min-width:40px;min-height:38px;padding:7px 8px}
-.chat-pop .cp-head button.chat-close-btn{margin-left:auto;background:#a51d3d!important;color:#fff!important;border:1px solid rgba(255,255,255,.2)!important;font-size:18px;font-weight:900}
+.chat-pop .cp-head button.chat-close-btn{flex:0 0 34px!important;width:34px;min-width:34px!important;min-height:34px;height:34px;padding:0!important;margin-left:auto;background:#a51d3d!important;color:#fff!important;border:1px solid rgba(255,255,255,.2)!important;border-radius:50%;font-size:17px;line-height:1;font-weight:900}
 @media(max-width:520px){
  .chat-pop .cp-head{padding:10px;gap:6px}
  .chat-pop .cp-head .t{flex:1 1 100%;font-size:14px}
  .chat-pop .cp-head button{flex:1 1 38px;min-width:38px;padding:7px 5px}
- .chat-pop .cp-head button.chat-close-btn{flex:0 0 44px;margin-left:auto}
+ .chat-pop .cp-head button.chat-close-btn{flex:0 0 34px!important;width:34px;min-width:34px!important;min-height:34px;height:34px;margin-left:auto}
 }
+
+
+/* Slim single-row chat header: only invite, minimize and close. */
+.chat-pop .cp-head{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;min-height:48px;padding:7px 10px;border-radius:16px 16px 0 0}
+.chat-pop .cp-head .t{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;line-height:1.2}
+.chat-pop .cp-head .cp-room-tag{flex:0 0 auto;font-size:8px;padding:4px 6px;letter-spacing:.04em}
+.chat-pop .cp-head-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.chat-pop .cp-head button.cp-head-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 34px!important;width:34px;min-width:34px!important;height:34px;min-height:34px;padding:0!important;margin:0!important;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.09);color:#fff;font:800 17px/1 Montserrat,system-ui,sans-serif;box-shadow:none}
+.chat-pop .cp-head button.cp-head-btn:active{transform:scale(.96)}
+.chat-pop.minimized{height:48px;max-height:48px}
+.chat-pop.minimized .cp-head{min-height:46px}
+@media(max-width:380px){.chat-pop .cp-head{gap:5px;padding:6px 8px}.chat-pop .cp-head .t{font-size:12px}.chat-pop .cp-head .cp-room-tag{font-size:7px;padding:3px 4px}.chat-pop .cp-head-actions{gap:4px}.chat-pop .cp-head button.cp-head-btn{flex-basis:32px!important;width:32px;min-width:32px!important;height:32px;min-height:32px}}
 
 </style>
 </head>
@@ -2000,13 +2012,12 @@ function App(){
     chatPop?h('div',{className:'chat-pop '+chatSize,style:(chatSize==='maximized'||chatSize==='minimized')?{}:{top:chatTop}}, 
       h('div',{className:'cp-head'},
         h('div',{className:'t',onClick:function(){setModalVal(chatName);setModal('chatname');},style:{cursor:'pointer'}},'Chat · '+(chatName||'Fan')),
-        h('span',{className:'cp-room-tag'},'🏏 LIVE ROOM'),
-        h('button',{className:'btn',title:'Invite to this match',onClick:inviteChat},'↗'),
-        h('button',{className:'btn',title:'Room members',onClick:function(){setChatSub(chatSub==='viewers'?'room':'viewers');chatLoad();}},'👥 '+chatViewers.filter(function(v){return v.online;}).length),
-        h('button',{className:'btn',title:'Minimize',onClick:function(){setChatSize('minimized');}},'−'),
-        h('button',{className:'btn',title:'Resize chat',onClick:function(){setChatSize(chatSize==='compact'?'normal':(chatSize==='normal'?'large':'compact'));}},'↕'),
-        h('button',{className:'btn',title:'Maximize / restore',onClick:function(){setChatSize(chatSize==='maximized'?'normal':'maximized');}},'□'),
-        h('button',{className:'btn chat-close-btn',type:'button',title:'Close chat','aria-label':'Close chat',onClick:function(){setChatPop(false);setChatSize('normal');}},'✕')
+        h('span',{className:'cp-room-tag'},'LIVE ROOM'),
+        h('div',{className:'cp-head-actions'},
+          h('button',{className:'btn cp-head-btn',title:'Invite to this match','aria-label':'Invite',onClick:inviteChat},'↗'),
+          h('button',{className:'btn cp-head-btn',title:'Minimize chat','aria-label':'Minimize chat',onClick:function(){setChatSize('minimized');}},'−'),
+          h('button',{className:'btn cp-head-btn',type:'button',title:'Close chat','aria-label':'Close chat',onClick:function(){setChatPop(false);setChatSize('normal');}},'✕')
+        )
       ),
       chatSize==='minimized'?null:h('div',{className:'cp-body'},
         chatSub==='viewers'?h('div',{className:'room-roster'},chatViewers.map(function(v,i){return h('div',{key:v.memberId||i,className:'room-user'},h('div',{className:'room-user-main'},h('span',{className:'presence-dot '+(v.online?'online':'')},'●'),h('b',null,v.name||'Fan'),v.role==='host'?h('span',{className:'host-tag'},'HOST'):null),isRoomHost&&v.memberId!==memberId?h('div',{className:'room-actions'},h('button',{className:'btn danger',onClick:function(){moderateRoom(v.memberId,'remove');}},'Remove'),h('button',{className:'btn',onClick:function(){moderateRoom(v.memberId,v.blocked?'unblock':'block');}},v.blocked?'Unblock':'Block')):null);}),!chatViewers.length?h('div',{className:'room-empty'},'No room members yet.'):null):
