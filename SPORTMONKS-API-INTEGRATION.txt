@@ -1,0 +1,39 @@
+SPORTMONKS CRICKET API 2.0 — IMPLEMENTATION NOTES
+=================================================
+Base URL: https://cricket.sportmonks.com/api/v2.0/
+
+Fixture endpoint documented includes used by MyCricStats:
+- localteam, visitorteam
+- runs and runs.team (innings totals and team mapping)
+- batting and batting.batsman (batter scorecard and player relation)
+- bowling and bowling.bowler (bowling figures and player relation)
+- lineup (playing XI and lineup/player fields)
+- venue (ground details)
+
+Ball-by-ball is requested separately to keep the fixture call small:
+- balls
+- balls.batsman
+- balls.bowler
+- balls.score
+- balls.batsmanout
+- balls.catchstump
+- balls.runoutby
+
+Data mapping:
+- Fixture localteam_id / visitorteam_id define the two sides.
+- runs.team_id maps each innings score to a team.
+- runs.inning corresponds to batting/bowling scoreboard key (S1/S2/S3/S4).
+- batting.score, batting.ball, batting.four_x, batting.six_x provide batter figures.
+- bowling.overs, bowling.medians, bowling.runs, bowling.wickets provide bowling figures.
+- balls.ball, balls.batsman_id, balls.bowler_id, balls.score.runs, balls.score.name, balls.score.is_wicket provide delivery detail.
+- lineup carries the playing XI, player names and team_id; lineup stats can be displayed where returned.
+
+Do not request `lineup.player` on the fixture endpoint: the user's endpoint explicitly rejected it.
+Do not merge the same over number across separate innings. Preserve inning keys when grouping commentary.
+Do not infer a team's score from whether it appears first or second in an array.
+
+Useful official references:
+https://docs.sportmonks.com/v2/cricket-api/our-api/fixtures/get-fixture-by-id
+https://docs.sportmonks.com/v2/cricket-api/relationships/scoreboards
+https://docs.sportmonks.com/v2/cricket-api/getting-started/enriching-your-response
+https://docs.sportmonks.com/v2/cricket-api/our-api/fixtures/get-all-fixtures
