@@ -319,7 +319,7 @@ if('serviceWorker' in navigator){
     }).catch(function(){});
     // clear old caches once
     try{
-      caches.keys().then(function(ks){ks.forEach(function(k){if(k.indexOf('mcs-')===0&&k!=='mcs-v9')caches.delete(k);});});
+      caches.keys().then(function(ks){ks.forEach(function(k){if(k.indexOf('mcs-')===0&&k!=='mcs-v10')caches.delete(k);});});
     }catch(e){}
   });
 }
@@ -1307,7 +1307,7 @@ function App(){
   var chatName=_chatName[0],setChatName=_chatName[1];
   var _chatInput=useState('');var chatInput=_chatInput[0],setChatInput=_chatInput[1];
   var _chatMsgs=useState([]);var chatMsgs=_chatMsgs[0],setChatMsgs=_chatMsgs[1];
-  var _chatViewers=useState([]);var chatViewers=_chatViewers[0],setChatViewers=_chatViewers[1];
+  var _chatActivity=useState([]);var chatActivity=_chatActivity[0],setChatActivity=_chatActivity[1];
   var _floatMsg=useState(null);var floatMsg=_floatMsg[0],setFloatMsg=_floatMsg[1];
   var _chatPop=useState(false);var chatPop=_chatPop[0],setChatPop=_chatPop[1];
   var _chatSize=useState('normal');var chatSize=_chatSize[0],setChatSize=_chatSize[1];
@@ -1339,20 +1339,7 @@ function App(){
   var _room=useState(function(){return qs().get('room')||lsGet('last_room')||'lobby';});var roomId=_room[0],setRoomId=_room[1];
   var _news=useState([]);var news=_news[0],setNews=_news[1];
   var _newsLoading=useState(false);var newsLoading=_newsLoading[0],setNewsLoading=_newsLoading[1];
-  var _viewCount=useState(function(){return parseInt(lsGet('mcs_viewers_base','12'),10)||12;});
-  var viewCount=_viewCount[0],setViewCount=_viewCount[1];
-  useEffect(function(){
-    // Domestic fixtures are supplied by the main match list; do not call the
-    // removed loadDomestic() helper (it caused a ReferenceError on startup).
-    // soft presence: tick local counter for display (real concurrent needs backend)
-    try{
-      var base=parseInt(lsGet('mcs_viewers_base','12'),10)||12;
-      var n=base+Math.floor(Math.random()*7);
-      setViewCount(n);
-      var t=setInterval(function(){setViewCount(function(v){return Math.max(3,v+Math.floor(Math.random()*3)-1);});},45000);
-      return function(){clearInterval(t);};
-    }catch(e){}
-  },[]);
+  // Live viewer count is derived from real room presence returned by /api/chat.
 
   useEffect(function(){document.body.className='theme-'+theme;},[theme]);
   useEffect(function(){lsSet('mcs_tab',tab);try{var u=new URL(location.href);u.searchParams.set('tab',tab);if(selected&&selected.id){u.searchParams.set('match',String(selected.id));lsSet('last_match',String(selected.id));}if(roomId&&roomId!=='lobby'){u.searchParams.set('room',roomId);lsSet('last_room',roomId);}history.replaceState({},'',u.toString());}catch(e){}},[tab,selected&&selected.id,roomId]);
@@ -1400,7 +1387,7 @@ function App(){
       });
       setMatches(list);
       var restoreId=shareId||lsGet('last_match','');
-      if(restoreId){var restored=list.find(function(x){return String(x.id)===String(restoreId);});if(restored){setSelected(restored);setDetail(restored);if(!shareId)setTab(qs().get('tab')||lsGet('mcs_tab','scorecard'));loadDetail(restored,token,true);}}
+      if(restoreId){var restored=list.find(function(x){return String(x.id)===String(restoreId);});if(restored){setSelected(restored);setDetail(restored);activateMatchRoom(restored);if(!shareId)setTab(qs().get('tab')||lsGet('mcs_tab','scorecard'));loadDetail(restored,token,true);}}
       if(!list.length && !silent && apiErrors.length){
         setError(apiErrors.join(' · '));
       } else if(!list.length && !silent){
@@ -1409,8 +1396,8 @@ function App(){
 
       if(shareId){
         var m=list.find(function(x){return String(x.id)===String(shareId);});
-        if(m){setSelected(m);var savedTab=qs().get('tab')||lsGet('mcs_tab','scorecard');setTab(savedTab);loadDetail(m,token);}
-        else loadDetail({id:shareId},token);
+        if(m){setSelected(m);activateMatchRoom(m);var savedTab=qs().get('tab')||lsGet('mcs_tab','scorecard');setTab(savedTab);loadDetail(m,token);}
+        else {var placeholder={id:shareId};setSelected(placeholder);activateMatchRoom(placeholder);loadDetail(placeholder,token);}
       }
     }).catch(function(e){if(!silent)setError(String((e&&e.message)||e||'Sportmonks load failed'));})
      .finally(function(){if(!silent)setLoading(false);});
@@ -1431,7 +1418,7 @@ function App(){
       setDomestic(mapped);
       var restoreDomestic=shareId||lsGet('last_match','');
       var dm=mapped.find(function(x){return String(x.id)===String(restoreDomestic);});
-      if(dm){setSelected(dm);setDetail(dm);setTab(qs().get('tab')||lsGet('mcs_tab','scorecard'));}
+      if(dm){setSelected(dm);setDetail(dm);activateMatchRoom(dm);setTab(qs().get('tab')||lsGet('mcs_tab','scorecard'));}
     }).catch(function(e){console.warn('Domestic feed',e);});
   }
   useEffect(function(){loadDomestic();var id=setInterval(function(){if(document.visibilityState==='visible')loadDomestic();},10000);var onv=function(){if(document.visibilityState==='visible')loadDomestic();};document.addEventListener('visibilitychange',onv);return function(){clearInterval(id);document.removeEventListener('visibilitychange',onv);};},[]);
@@ -1468,7 +1455,6 @@ function App(){
   useEffect(function(){
     if(tab!=='chat'&&!chatPop)return;
     chatLoad();
-    if(!lsGet('joined_'+roomId)){chatSend((chatName||'Fan')+' joined','join');lsSet('joined_'+roomId,'1');}
     var id=setInterval(chatLoad,2500);
     return function(){clearInterval(id);};
   },[tab,roomId,chatPop]);
@@ -1578,35 +1564,51 @@ function App(){
     }).finally(function(){if(!silent)setLoading(false);});
   }
 
+  function activateMatchRoom(m){
+    if(!m||!m.id)return;
+    var queryMatch=qs().get('match'),queryRoom=qs().get('room');
+    var rid=(queryRoom&&String(queryMatch||'')===String(m.id))?queryRoom:('m'+m.id);
+    setRoomId(rid);lsSet('last_room',rid);lsSet('last_match',String(m.id));
+    if(!viewOnly){var key='mcs_room_owner_'+rid,owner=lsGet(key,'');if(!owner){owner=randomRoomToken();lsSet(key,owner);}setRoomOwnerToken(owner);}
+  }
   var selectMatch=function(m){
     var battingSide=currentBattingSide(m||{});
     setBatTeam(battingSide);setScTeam(battingSide);setBowlTeamTab(battingSide==='home'?'away':'home');
     setSelected(m);setDetail(m);setTab('commentary');lsSet('mcs_tab','commentary');
-    if(m&&m.id){var rid='m'+m.id;setRoomId(rid);lsSet('last_room',rid);lsSet('last_match',String(m.id));if(!isViewMode()){var ok=lsGet('mcs_room_owner_'+rid,'');if(!ok){ok=randomRoomToken();lsSet('mcs_room_owner_'+rid,ok);}setRoomOwnerToken(ok);}}
+    if(m&&m.id)activateMatchRoom(m);
     if(m&&m._domestic){lsSet('last_match',String(m.id));setDetail(m);return;}
     loadDetail(m);
   };
   function chatRequest(action,extra){
     var payload=Object.assign({action:action,room:roomId,memberId:memberId,name:chatName||'Fan',ownerToken:roomOwnerToken||''},extra||{});
-    return fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),cache:'no-store'})
-      .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.message||('Chat error '+r.status));return j;});});
+    var controller=typeof AbortController!=='undefined'?new AbortController():null;
+    var timer=controller?setTimeout(function(){controller.abort();},10000):null;
+    return fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload),cache:'no-store',signal:controller?controller.signal:undefined})
+      .then(function(r){return r.text().then(function(raw){var j={};try{j=raw?JSON.parse(raw):{};}catch(e){throw new Error('Chat API returned invalid JSON (HTTP '+r.status+').');}if(!r.ok)throw new Error((j.message||('Chat HTTP '+r.status))+' [HTTP '+r.status+']');return j;});})
+      .catch(function(e){if(e&&e.name==='AbortError')throw new Error('Chat request timed out. Check the MCS_DB binding and retry.');throw e;})
+      .finally(function(){if(timer)clearTimeout(timer);});
   }
-  function chatLoad(){
-    chatRequest('heartbeat').then(function(j){
-      setChatMsgs(Array.isArray(j.messages)?j.messages:[]);
-      setChatViewers(Array.isArray(j.viewers)?j.viewers:[]);
-      setIsRoomHost(!!j.isHost);setRoomStatus(j.message||'Connected');
-    }).catch(function(e){setRoomStatus((e&&e.message)||'Room connection failed');});
+  function applyChatState(j){
+    setChatMsgs(Array.isArray(j.messages)?j.messages:[]);setChatViewers(Array.isArray(j.viewers)?j.viewers:[]);
+    setChatActivity(Array.isArray(j.activity)?j.activity:[]);setIsRoomHost(!!j.isHost);setRoomStatus(j.message||'Connected');
   }
+  function chatLoad(){return chatRequest('heartbeat').then(function(j){applyChatState(j);return j;}).catch(function(e){setRoomStatus((e&&e.message)||'Room connection failed');return null;});}
   function chatDelete(id){chatRequest('delete',{id:id}).then(chatLoad).catch(function(e){setRoomStatus(e.message);});}
   function chatEdit(id,newText){chatRequest('edit',{id:id,text:newText}).then(chatLoad).catch(function(e){setRoomStatus(e.message);});}
   function chatSend(text,type){
-    type=type||'chat';
-    var action=type==='join'?'heartbeat':'send';
-    chatRequest(action,{text:text,type:type}).then(function(j){
-      setChatMsgs(Array.isArray(j.messages)?j.messages:[]);setChatViewers(Array.isArray(j.viewers)?j.viewers:[]);setIsRoomHost(!!j.isHost);setRoomStatus('Connected');
-    }).catch(function(e){setRoomStatus((e&&e.message)||'Message not sent');});
+    type=type||'chat';var action=type==='join'?'join':type==='leave'?'leave':'send';
+    return chatRequest(action,{text:text,type:type}).then(function(j){applyChatState(j);return j;}).catch(function(e){setRoomStatus((e&&e.message)||'Message not sent');throw e;});
   }
+  useEffect(function(){
+    if(!selected||!selected.id||!roomId||roomId==='lobby')return;
+    var stopped=false,timer=null,attempts=0;
+    function connect(){if(stopped)return;attempts++;chatRequest('join').then(function(j){if(!stopped)applyChatState(j);}).catch(function(e){if(!stopped){setRoomStatus((e&&e.message)||'Connecting…');if(viewOnly&&attempts<80)timer=setTimeout(connect,2500);}});}
+    connect();var heartbeatId=setInterval(connect,15000);return function(){stopped=true;if(timer)clearTimeout(timer);clearInterval(heartbeatId);};
+  },[selected&&selected.id,roomId,roomOwnerToken,viewOnly]);
+  useEffect(function(){
+    function leave(){if(!roomId||roomId==='lobby'||!memberId)return;try{var body=JSON.stringify({action:'leave',room:roomId,memberId:memberId,name:chatName||'Fan',ownerToken:roomOwnerToken||''});if(navigator.sendBeacon)navigator.sendBeacon('/api/chat',new Blob([body],{type:'application/json'}));else fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:body,keepalive:true});}catch(e){}}
+    window.addEventListener('pagehide',leave);return function(){window.removeEventListener('pagehide',leave);};
+  },[roomId,memberId,chatName,roomOwnerToken]);
   function moderateRoom(memberIdToAct,action){
     var v=chatViewers.find(function(x){return x.memberId===memberIdToAct;});
     if(!v)return;
@@ -1618,13 +1620,14 @@ function App(){
     try{
       var c=document.createElement('canvas');c.width=1080;c.height=600;var x=c.getContext('2d');
       var g=x.createLinearGradient(0,0,1080,600);g.addColorStop(0,'#06152d');g.addColorStop(.58,'#102f50');g.addColorStop(1,'#073b37');x.fillStyle=g;x.fillRect(0,0,1080,600);
-      x.fillStyle='#ff0f50';x.fillRect(0,0,1080,12);x.fillStyle='#fff';x.font='800 38px Montserrat,Arial';x.fillText('MYCRICSTATS · LIVE MATCH ROOM',56,78);
-      x.fillStyle='#b7c7dc';x.font='600 27px Montserrat,Arial';x.fillText((league||'LIVE CRICKET').slice(0,48),56,132);
+      x.fillStyle='#ff0f50';x.fillRect(0,0,1080,12);x.fillStyle='#fff';x.beginPath();x.arc(82,75,27,0,Math.PI*2);x.fill();x.fillStyle='#08203d';x.font='900 19px Montserrat,Arial';x.textAlign='center';x.fillText('MCS',82,82);x.textAlign='left';x.fillStyle='#fff';x.font='800 38px Montserrat,Arial';x.fillText('MYCRICSTATS · LIVE MATCH ROOM',126,88);
+      x.fillStyle='#b7c7dc';x.font='600 27px Montserrat,Arial';x.fillText((league||'LIVE CRICKET').slice(0,48),56,150);
       x.fillStyle='#fff';x.font='800 44px Montserrat,Arial';x.fillText((homeName+'  VS  '+awayName).slice(0,42),56,226);
       x.fillStyle='#f8fafc';x.font='900 66px Montserrat,Arial';x.fillText(String(sc.a||'—'),56,340);x.fillText(String(sc.b||'—'),580,340);
-      x.fillStyle='#9fb4c9';x.font='600 24px Montserrat,Arial';x.fillText('HOME',58,390);x.fillText('AWAY',582,390);
-      x.fillStyle='#fbbf24';x.font='700 26px Montserrat,Arial';x.fillText('Invited by '+(chatName||'MCS fan'),56,475);
-      x.fillStyle='#dbeafe';x.font='600 23px Montserrat,Arial';x.fillText('Join live scores, ball-by-ball commentary & match chat',56,526);
+      x.fillStyle='#9fb4c9';x.font='600 24px Montserrat,Arial';x.fillText(homeName.slice(0,22),58,390);x.fillText(awayName.slice(0,22),582,390);
+      x.fillStyle='#dbeafe';x.font='600 23px Montserrat,Arial';x.fillText('Overs: '+(sc.overs||'—')+' · '+(st==='live'?'LIVE':String(st||'MATCH').toUpperCase()),56,438);
+      x.fillStyle='#fbbf24';x.font='700 26px Montserrat,Arial';x.fillText('Invited by '+(chatName||'MCS fan'),56,492);
+      x.fillStyle='#dbeafe';x.font='600 23px Montserrat,Arial';x.fillText('Live score · commentary · match chat',56,545);
       var data=c.toDataURL('image/png'),raw=atob(data.split(',')[1]),bytes=new Uint8Array(raw.length);for(var i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
       return new File([bytes],'mycricstats-match-invite.png',{type:'image/png'});
     }catch(e){return null;}
@@ -1665,30 +1668,18 @@ function App(){
     }
     showShareFallback(fallbackText,label);
   }
-  function inviteChat(){
-    if(viewOnly){setRoomStatus('Only the host can invite to this match.');return;}
-    var u=new URL(location.href);
-    u.searchParams.set('room',roomId||('m'+(selected&&selected.id||'')));
-    if(selected&&selected.id)u.searchParams.set('match',selected.id);
-    u.searchParams.set('view','1');u.searchParams.set('tab','scorecard');
+  function shareMatchInvite(){
+    if(!selected){setToast('Select a match first');setTimeout(function(){setToast(null);},2200);return;}
+    var u=new URL(location.href);u.searchParams.set('room',roomId||('m'+selected.id));u.searchParams.set('match',selected.id);u.searchParams.set('view','1');u.searchParams.set('tab','scorecard');
     var link=u.toString(),matchTitle=(league||'Cricket match')+' · '+homeName+' vs '+awayName;
     var scoreText=homeName+' '+sc.a+' | '+awayName+' '+sc.b;
-    var inviteText=(chatName||'A MyCricStats host')+' invites you to '+matchTitle+'. Current score: '+scoreText+'. Join for live score, ball-by-ball commentary and match chat. Let us celebrate together! '+link;
-    var file=buildInviteCard();
-    var payload={title:'Join '+matchTitle,text:inviteText};
-    try{if(file&&navigator.canShare&&navigator.canShare({files:[file]}))payload.files=[file];else payload.url=link;}catch(e){payload.url=link;}
+    var inviteText=(chatName||'A MyCricStats host')+' invites you to '+matchTitle+'.\nCurrent score: '+scoreText+'.\nJoin for live score, ball-by-ball commentary and match chat. Let us celebrate together!\n'+link;
+    var file=buildInviteCard(),payload={title:'MyCricStats · '+matchTitle,text:inviteText};
+    try{if(file&&(!navigator.canShare||navigator.canShare({files:[file]})))payload.files=[file];}catch(e){}
     launchShare(payload,inviteText,'Match invitation copied');
   }
-
-  var shareView=function(){
-    if(!selected){setToast('Select a match');setTimeout(function(){setToast(null);},2000);return;}
-    var u=new URL(location.href);
-    u.searchParams.set('room',roomId||('m'+selected.id));
-    u.searchParams.set('view','1');u.searchParams.set('match',selected.id);u.searchParams.set('tab','scorecard');
-    var link=u.toString(),title=(league||'Cricket')+' · '+homeName+' vs '+awayName;
-    var text=(chatName||'MyCricStats host')+' invites you to watch '+title+' live — '+homeName+' '+sc.a+' | '+awayName+' '+sc.b+'. Join for live score, ball-by-ball commentary and match chat: '+link;
-    launchShare({title:title,text:text,url:link},text,'View-only invitation copied');
-  };
+  function inviteChat(){if(viewOnly)setRoomStatus('Sharing this live match link.');shareMatchInvite();}
+  var shareView=shareMatchInvite;
 
   function triggerAd(eventName){
     if(!ads.enabled||adShow)return;
@@ -1735,11 +1726,11 @@ function App(){
       h('div',{className:'bc-content'},
         h('div',{className:'bar',style:{justifyContent:'space-between'}},
           h('div',{style:{display:'flex',alignItems:'center',minWidth:70}},
-            !viewOnly?h('span',{className:'brand-chip'},h('img',{src:'/icons/icon-192.png',alt:'MCS'}),'MCS'):
-            h('span',{className:'view-badge'},'VIEW ONLY')
+            h('span',{className:'brand-chip'},h('img',{src:'/icons/icon-192.png',alt:'MCS'}),'MCS'),
+            viewOnly?h('span',{className:'view-badge'},'VIEW ONLY'):null
           ),
           h('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',flex:1}},
-            selected&&st==='live'?h('span',{className:'live-pill',style:{position:'relative',top:2}},h('i'),'LIVE · '+viewCount):
+            selected&&st==='live'?h('span',{className:'live-pill',style:{position:'relative',top:2}},h('i'),'LIVE · '+chatViewers.filter(function(v){return v.online;}).length):
             (selected&&st!=='live'?h('span',{className:'done-pill'},st==='finished'?'FINISHED':'UPCOMING'):null)
           ),
           h('div',{style:{display:'flex',gap:8}},
@@ -2001,8 +1992,8 @@ function App(){
         h('button',{className:'btn',onClick:function(){setChatPop(false);setChatSize('normal');}},'✕')
       ),
       chatSize==='minimized'?null:h('div',{className:'cp-body'},
-        chatSub==='viewers'?h('div',{className:'room-roster'},chatViewers.map(function(v,i){return h('div',{key:v.memberId||i,className:'room-user'},h('div',{className:'room-user-main'},h('span',{className:'presence-dot '+(v.online?'online':'')},'●'),h('b',null,v.name||'Fan'),v.role==='host'?h('span',{className:'host-tag'},'HOST'):null),isRoomHost&&v.memberId!==memberId?h('div',{className:'room-actions'},h('button',{className:'btn danger',onClick:function(){chatModerate(v.memberId,'remove');}},'Remove'),h('button',{className:'btn',onClick:function(){chatModerate(v.memberId,v.blocked?'unblock':'block');}},v.blocked?'Unblock':'Block')):null);}),!chatViewers.length?h('div',{className:'room-empty'},'No room members yet.'):null):
-        (chatMsgs.length?chatMsgs:[{name:'MCS',text:'Say hi to your friends 🏏',t:Date.now()}]).map(function(m,i){
+        chatSub==='viewers'?h('div',{className:'room-roster'},chatViewers.map(function(v,i){return h('div',{key:v.memberId||i,className:'room-user'},h('div',{className:'room-user-main'},h('span',{className:'presence-dot '+(v.online?'online':'')},'●'),h('b',null,v.name||'Fan'),v.role==='host'?h('span',{className:'host-tag'},'HOST'):null),isRoomHost&&v.memberId!==memberId?h('div',{className:'room-actions'},h('button',{className:'btn danger',onClick:function(){moderateRoom(v.memberId,'remove');}},'Remove'),h('button',{className:'btn',onClick:function(){moderateRoom(v.memberId,v.blocked?'unblock':'block');}},v.blocked?'Unblock':'Block')):null);}),!chatViewers.length?h('div',{className:'room-empty'},'No room members yet.'):null):
+        (chatMsgs.length?chatMsgs:[]).map(function(m,i){
           var me=(m.memberId===memberId)||(m.name===chatName&&!m.memberId);
           return h('div',{key:m.id||i,className:'cp-msg '+(me?'me':'them'),style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:6}},
             h('div',null,h('b',null,(m.name||'Fan')+': '),m.text,m.edited?h('span',{style:{fontSize:10,opacity:.6}},' (edited)'):null),
@@ -2011,17 +2002,22 @@ function App(){
               h('span',{onClick:function(){if(confirm('Delete?'))chatDelete(m.id);}},'🗑')
             ):null
           );
-        })
+        }),
+        chatSub!=='viewers'&&!chatMsgs.length?h('div',{className:'room-empty'},roomStatus==='Connected'?'No messages yet. Say hello!':roomStatus):null,
+        chatSub==='viewers'&&isRoomHost?h('div',{className:'room-activity',style:{padding:'10px',borderTop:'1px solid rgba(255,255,255,.12)'}},
+          h('b',null,'Recent room activity'),
+          chatActivity.length?chatActivity.slice(0,30).map(function(a,i){return h('div',{key:a.id||i,style:{fontSize:11,padding:'5px 0',color:'#cbd5e1'}},(a.event==='join'?'🟢 Joined':a.event==='leave'?'⚪ Left':a.event==='message'?'💬 Message':a.event==='remove'?'⛔ Removed':a.event==='block'?'🚫 Blocked':a.event==='unblock'?'✅ Unblocked':a.event)+' · '+(a.name||'Fan')+' · '+new Date(Number(a.createdAt||a.t||Date.now())).toLocaleString())}):h('div',{className:'room-empty'},'No activity recorded yet.')
+        ):null
       ),
       h('div',{className:'emoji-row',style:{padding:'4px 8px',background:'#1f2c34'}},
         ['👏','🔥','⭐','🏏','🎯','❤️','😂'].map(function(em){
-          return h('button',{key:em,type:'button',onClick:function(){chatSend(em);}},em);
+          return h('button',{key:em,type:'button',onClick:function(){chatSend(em,'emoji');}},em);
         })
       ),
       h('div',{className:'cp-foot'},
         h('input',{value:chatInput,placeholder:'Message',onChange:function(e){setChatInput(e.target.value);},
-          onKeyDown:function(e){if(e.key==='Enter'&&chatInput.trim()){chatSend(chatInput.trim());setChatInput('');}}}),
-        h('button',{className:'btn primary',onClick:function(){if(chatInput.trim()){chatSend(chatInput.trim());setChatInput('');}}},'Send')
+          onKeyDown:function(e){if(e.key==='Enter'&&chatInput.trim()){var msg=chatInput.trim();chatSend(msg).then(function(){setChatInput('');}).catch(function(){});}}}),
+        h('button',{className:'btn primary',onClick:function(){if(chatInput.trim()){var msg=chatInput.trim();chatSend(msg).then(function(){setChatInput('');}).catch(function(){});}}},'Send')
       )
     ):null,
     (!chatPop&&tab==='chat')?h('button',{className:'chat-fab',title:'Open chat',onClick:function(){setChatPop(true);chatLoad();}},'💬'):null,
@@ -2182,6 +2178,7 @@ function App(){
           }),
           !chatViewers.length?h('div',{className:'room-empty'},roomStatus.indexOf('Connected')>=0?'No members have joined yet. Invite friends to this match room.':roomStatus):null
         ),
+        isRoomHost?h('div',{className:'room-activity card',style:{marginTop:10}},h('h4',null,'Recent viewer activity'),chatActivity.length?chatActivity.slice(0,40).map(function(a,i){return h('div',{key:a.id||i,className:'muted',style:{padding:'5px 0'}},(a.event==='join'?'Joined':a.event==='leave'?'Left':a.event)+' · '+(a.name||'Fan')+' · '+new Date(Number(a.createdAt||a.t||Date.now())).toLocaleString())}):h('div',{className:'muted'},'No activity recorded yet.')):null,
         isRoomHost?h('div',{className:'muted',style:{marginTop:8}},'Host controls: remove a member or block/unblock access to this room.'):null
       ):null,
 
