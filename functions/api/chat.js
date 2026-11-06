@@ -1,100 +1,119 @@
 /**
- * Robust room chat with edit/delete
- * GET  /api/chat?room=xxx
- * POST /api/chat  { room, name, text, type, id? }
- *   type: chat | edit | delete | join | leave
+ * Persistent MyCricStats room chat backed by Cloudflare D1.
+ * Required binding: MCS_DB
+ * POST actions: heartbeat, send, edit, delete, moderate
+ * Moderation actions: remove, block, unblock
  */
-const MAX = 300;
-const TTL = 60 * 60 * 48;
+const MAX_MESSAGES = 200;
+const clean = (v, max = 80) => String(v || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, max);
+const json = (body, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store, no-cache, must-revalidate' }
+});
 
-export async function onRequest(context) {
-  const { request } = context;
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json',
-    'Cache-Control': 'no-store, no-cache, must-revalidate'
-  };
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
+async function sha256(value) {
+  const bytes = new TextEncoder().encode(String(value));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(x => x.toString(16).padStart(2, '0')).join('');
+}
+async function roomData(db, room, memberId, isHost) {
+  const [messages, viewers] = await Promise.all([
+    db.prepare('SELECT id, member_id AS memberId, name, text, type, created_at AS t, edited FROM mcs_messages WHERE room_id = ? ORDER BY created_at DESC LIMIT ?').bind(room, MAX_MESSAGES).all(),
+    db.prepare('SELECT member_id AS memberId, name, role, last_seen AS last, blocked, removed FROM mcs_members WHERE room_id = ? AND removed = 0 ORDER BY joined_at ASC').bind(room).all()
+  ]);
+  const now = Date.now();
+  const list = (viewers.results || []).map(v => ({
+    ...v, online: now - Number(v.last || 0) < 45000,
+    blocked: !!v.blocked, removed: !!v.removed
+  }));
+  return { messages: (messages.results || []).reverse().map(m => ({ ...m, edited: !!m.edited })), viewers: list, isHost: !!isHost, memberId };
+}
 
+export async function onRequest({ request, env }) {
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: {
+    'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
+  }});
+  const db = env && env.MCS_DB;
+  if (!db) return json({ message: 'Chat database is not connected. Add the Cloudflare D1 binding named MCS_DB.' }, 503);
   const url = new URL(request.url);
-  let room = (url.searchParams.get('room') || 'lobby').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) || 'lobby';
-
-  try {
-    if (request.method === 'GET') {
-      const data = await readRoom(room);
-      return new Response(JSON.stringify(data), { status: 200, headers });
-    }
-    if (request.method === 'POST') {
-      const body = await request.json().catch(() => ({}));
-      room = String(body.room || room).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) || 'lobby';
-      const name = String(body.name || 'Fan').slice(0, 24);
-      const text = String(body.text || '').slice(0, 280);
-      const type = String(body.type || 'chat').slice(0, 20);
-      const msgId = String(body.id || '').slice(0, 40);
-
-      const data = await readRoom(room);
-      data.messages = data.messages || [];
-      data.viewers = data.viewers || [];
-
+  if (request.method === 'GET') {
+    const room = clean(url.searchParams.get('room') || 'lobby', 40);
+    try {
+      const messages = await db.prepare('SELECT id, member_id AS memberId, name, text, type, created_at AS t, edited FROM mcs_messages WHERE room_id = ? ORDER BY created_at DESC LIMIT ?').bind(room, MAX_MESSAGES).all();
+      const viewers = await db.prepare('SELECT member_id AS memberId, name, role, last_seen AS last, blocked, removed FROM mcs_members WHERE room_id = ? AND removed = 0 ORDER BY joined_at ASC').bind(room).all();
       const now = Date.now();
-      let viewer = data.viewers.find(v => v.name === name);
-      if (!viewer) {
-        viewer = { name, joined: now, last: now, online: true };
-        data.viewers.push(viewer);
-      } else {
-        viewer.last = now;
-        viewer.online = true;
-      }
-      data.viewers.forEach(v => { v.online = (now - (v.last || 0)) < 90000; });
-      data.viewers = data.viewers.filter(v => (now - (v.last || 0)) < 900000).slice(-120);
-
-      if (type === 'delete' && msgId) {
-        data.messages = data.messages.filter(m => m.id !== msgId || m.name !== name);
-      } else if (type === 'edit' && msgId && text) {
-        const m = data.messages.find(x => x.id === msgId && x.name === name);
-        if (m) { m.text = text; m.edited = true; m.t = now; }
-      } else if (type === 'join') {
-        const recent = data.messages.filter(m => m.type === 'system' && m.text === name + ' joined').pop();
-        if (!recent || (now - recent.t) > 60000) {
-          data.messages.push({ id: id(), name: 'System', text: name + ' joined', type: 'system', t: now });
-        }
-      } else if (type === 'leave') {
-        viewer.online = false;
-      } else if (text && type === 'chat') {
-        data.messages.push({ id: id(), name, text, type: 'chat', t: now });
-      }
-      data.messages = data.messages.slice(-MAX);
-      await writeRoom(room, data);
-      return new Response(JSON.stringify(data), { status: 200, headers });
-    }
-    return new Response(JSON.stringify({ message: 'Method not allowed' }), { status: 405, headers });
-  } catch (e) {
-    return new Response(JSON.stringify({ message: String(e.message || e), messages: [], viewers: [] }), { status: 200, headers });
+      return json({ messages: (messages.results || []).reverse(), viewers: (viewers.results || []).map(v => ({...v, online: now - Number(v.last || 0) < 45000, blocked: !!v.blocked})) });
+    } catch (e) { return json({ message: String(e.message || e) }, 500); }
   }
-}
+  if (request.method !== 'POST') return json({ message: 'Method not allowed' }, 405);
 
-function id() {
-  return Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-}
-
-async function readRoom(room) {
   try {
-    const cache = caches.default;
-    const key = new Request('https://mcs-chat.internal/v6/room/' + room);
-    const hit = await cache.match(key);
-    if (hit) return await hit.json();
-  } catch (e) {}
-  return { messages: [], viewers: [] };
-}
+    const body = await request.json();
+    const room = clean(body.room, 40);
+    const memberId = clean(body.memberId, 100);
+    const name = clean(body.name || 'Fan', 24) || 'Fan';
+    const action = clean(body.action || 'heartbeat', 20);
+    const ownerToken = clean(body.ownerToken, 160);
+    if (!room || !memberId) return json({ message: 'Room and member identity are required.' }, 400);
 
-async function writeRoom(room, data) {
-  try {
-    const cache = caches.default;
-    const key = new Request('https://mcs-chat.internal/v6/room/' + room);
-    await cache.put(key, new Response(JSON.stringify(data), {
-      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=' + TTL }
-    }));
-  } catch (e) {}
+    let roomRow = await db.prepare('SELECT room_id, owner_hash FROM mcs_rooms WHERE room_id = ?').bind(room).first();
+    if (!roomRow && ownerToken) {
+      const hash = await sha256(ownerToken);
+      await db.prepare('INSERT OR IGNORE INTO mcs_rooms (room_id, owner_hash, created_at) VALUES (?, ?, ?)').bind(room, hash, Date.now()).run();
+      roomRow = await db.prepare('SELECT room_id, owner_hash FROM mcs_rooms WHERE room_id = ?').bind(room).first();
+    }
+    if (!roomRow) return json({ message: 'This match room has not been created by its host yet.' }, 404);
+    const isHost = !!(ownerToken && await sha256(ownerToken) === roomRow.owner_hash);
+
+    const existing = await db.prepare('SELECT blocked, removed FROM mcs_members WHERE room_id = ? AND member_id = ?').bind(room, memberId).first();
+    if (existing && (existing.blocked || existing.removed) && !isHost) {
+      return json({ message: existing.blocked ? 'You are blocked from this room.' : 'You were removed from this room.' }, 403);
+    }
+    const now = Date.now();
+    await db.prepare(`INSERT INTO mcs_members (room_id, member_id, name, role, joined_at, last_seen, blocked, removed)
+      VALUES (?, ?, ?, ?, ?, ?, 0, 0)
+      ON CONFLICT(room_id, member_id) DO UPDATE SET name=excluded.name, role=excluded.role, last_seen=excluded.last_seen`)
+      .bind(room, memberId, name, isHost ? 'host' : 'member', now, now).run();
+
+    if (action === 'send') {
+      const text = clean(body.text, 500);
+      if (!text) return json({ message: 'Message is empty.' }, 400);
+      const id = crypto.randomUUID ? crypto.randomUUID() : `${now}-${Math.random().toString(36).slice(2)}`;
+      await db.prepare('INSERT INTO mcs_messages (id, room_id, member_id, name, text, type, created_at, edited) VALUES (?, ?, ?, ?, ?, ?, ?, 0)')
+        .bind(id, room, memberId, name, text, 'chat', now).run();
+    } else if (action === 'edit' || action === 'delete') {
+      const id = clean(body.id, 100);
+      if (!id) return json({ message: 'Message id is required.' }, 400);
+      const msg = await db.prepare('SELECT member_id FROM mcs_messages WHERE id = ? AND room_id = ?').bind(id, room).first();
+      if (!msg) return json({ message: 'Message not found.' }, 404);
+      if (!isHost && msg.member_id !== memberId) return json({ message: 'You can only edit or delete your own messages.' }, 403);
+      if (action === 'delete') await db.prepare('DELETE FROM mcs_messages WHERE id = ? AND room_id = ?').bind(id, room).run();
+      else {
+        const text = clean(body.text, 500);
+        if (!text) return json({ message: 'Edited message cannot be empty.' }, 400);
+        await db.prepare('UPDATE mcs_messages SET text = ?, edited = 1 WHERE id = ? AND room_id = ?').bind(text, id, room).run();
+      }
+    } else if (action === 'moderate') {
+      if (!isHost) return json({ message: 'Only the room host can manage members.' }, 403);
+      const target = clean(body.targetMemberId, 100);
+      const moderation = clean(body.moderation, 20);
+      if (!target || target === memberId) return json({ message: 'Choose another room member.' }, 400);
+      if (moderation === 'remove') {
+        await db.prepare('UPDATE mcs_members SET removed = 1, last_seen = ? WHERE room_id = ? AND member_id = ?').bind(now, room, target).run();
+      } else if (moderation === 'block') {
+        await db.prepare('UPDATE mcs_members SET blocked = 1, last_seen = ? WHERE room_id = ? AND member_id = ?').bind(now, room, target).run();
+      } else if (moderation === 'unblock') {
+        await db.prepare('UPDATE mcs_members SET blocked = 0, removed = 0, last_seen = ? WHERE room_id = ? AND member_id = ?').bind(now, room, target).run();
+      } else return json({ message: 'Unknown moderation action.' }, 400);
+    }
+
+    // Bound room history and keep one live membership row per device/user.
+    await db.prepare(`DELETE FROM mcs_messages WHERE room_id = ? AND id NOT IN
+      (SELECT id FROM mcs_messages WHERE room_id = ? ORDER BY created_at DESC LIMIT ?)`)
+      .bind(room, room, MAX_MESSAGES).run();
+    return json(await roomData(db, room, memberId, isHost));
+  } catch (e) {
+    return json({ message: String(e.message || e) }, 500);
+  }
 }
