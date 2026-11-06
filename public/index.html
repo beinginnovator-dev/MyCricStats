@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>MyCricStats</title>
+<title>MyCricStats · Admin</title>
 <meta name="theme-color" content="#01002C"/>
 <link rel="manifest" href="/manifest.webmanifest"/>
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"/>
@@ -281,11 +281,13 @@ body.theme-light .broadcast .tname,body.theme-light .broadcast .score-num,body.t
 .room-user-main{display:flex;align-items:center;gap:7px;min-width:0;color:#eaf2ff;font-size:12px}
 .presence-dot{font-size:10px;color:#64748b}.presence-dot.online{color:#22c55e}.host-tag{font-size:9px;font-weight:900;color:#ffd166;background:rgba(245,158,11,.15);padding:3px 6px;border-radius:5px}
 .room-actions{display:flex;gap:5px;flex-shrink:0}.room-actions .btn{font-size:10px;padding:5px 7px}.room-actions .danger{border-color:#ef4444;color:#fecaca}
-.chat-pop{left:1vw;right:1vw;transform:none;width:98vw;max-width:760px;top:56vh;bottom:1vh;height:auto;max-height:43vh;z-index:45;border:1px solid rgba(255,255,255,.2);border-radius:18px;background:#071426;box-shadow:0 -10px 34px rgba(0,0,0,.42)}
-.chat-pop.maximized{top:2vh;height:auto;max-height:96vh;bottom:2vh;z-index:9999}.chat-pop.minimized{top:auto;height:54px;max-height:54px;bottom:1vh}.chat-pop.minimized .cp-head{min-height:52px}.chat-pop.minimized .cp-body,.chat-pop.minimized .cp-foot,.chat-pop.minimized .emoji-row{display:none!important}.chat-pop .cp-head button{white-space:nowrap}.room-empty{padding:12px;border:1px dashed rgba(255,255,255,.18);border-radius:12px;color:#b7c6d8;font-size:12px;text-align:center}
+.chat-pop{left:1vw;right:1vw;transform:none;width:98vw;max-width:760px;top:var(--mcs-chat-top,56vh);bottom:1vh;height:auto;max-height:none;z-index:45;border:1px solid rgba(255,255,255,.2);border-radius:18px;background:#071426;box-shadow:0 -10px 34px rgba(0,0,0,.42);resize:vertical;overflow:hidden}
+.chat-pop.compact{top:var(--mcs-chat-top,56vh);bottom:auto;height:30vh;max-height:55vh}
+.chat-pop.large{top:var(--mcs-chat-top,56vh);bottom:1vh;height:auto;max-height:70vh}
+.chat-pop.maximized{top:2vh!important;height:auto;max-height:96vh;bottom:2vh;z-index:9999}.chat-pop.minimized{top:auto!important;height:54px;max-height:54px;bottom:1vh}.chat-pop.minimized .cp-head{min-height:52px}.chat-pop.minimized .cp-body,.chat-pop.minimized .cp-foot,.chat-pop.minimized .emoji-row{display:none!important}.chat-pop .cp-head button{white-space:nowrap}.room-empty{padding:12px;border:1px dashed rgba(255,255,255,.18);border-radius:12px;color:#b7c6d8;font-size:12px;text-align:center}
 .chat-pop .cp-head{background:linear-gradient(110deg,#071a36,#123f59 65%,#07533f);padding:12px 14px}.chat-pop .cp-head .t{font-size:15px;letter-spacing:.02em}.cp-room-tag{font-size:9px;font-weight:900;color:#c6f6df;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);border-radius:7px;padding:5px 7px;white-space:nowrap}
 .chat-pop .cp-body{background:linear-gradient(180deg,#071426,#0b1d30);padding:12px}.chat-pop .cp-msg{font-size:13px;max-width:88%;padding:10px 12px;border:1px solid rgba(255,255,255,.08);box-shadow:0 3px 10px rgba(0,0,0,.12)}.chat-pop .cp-msg.me{background:linear-gradient(135deg,#075e54,#087e69);border-radius:13px 13px 3px 13px}.chat-pop .cp-msg.them{background:#18314a;border-radius:13px 13px 13px 3px}.chat-pop .cp-foot{background:#10253b;padding:10px}.chat-pop .cp-foot input{background:#203950;border:1px solid #36516a}.chat-pop .cp-foot .btn{background:#0d8a69;color:white;border:0}
-@media(max-width:520px){.chat-pop{left:1vw;right:1vw;width:98vw;top:56vh;bottom:1vh;height:auto;max-height:43vh}.chat-pop.maximized{top:2vh;bottom:2vh;max-height:96vh}.chat-pop.minimized{top:auto;bottom:1vh;height:54px;max-height:54px}.room-user{align-items:flex-start}.room-actions{flex-direction:column}}
+@media(max-width:520px){.chat-pop{left:1vw;right:1vw;width:98vw;top:var(--mcs-chat-top,56vh);bottom:1vh;height:auto;max-height:none}.chat-pop.compact{top:var(--mcs-chat-top,56vh);bottom:auto;height:30vh}.chat-pop.large{top:var(--mcs-chat-top,56vh);bottom:1vh;max-height:70vh}.chat-pop.maximized{top:2vh!important;bottom:2vh;max-height:96vh}.chat-pop.minimized{top:auto!important;bottom:1vh;height:54px;max-height:54px}.room-user{align-items:flex-start}.room-actions{flex-direction:column}}
 
 </style>
 </head>
@@ -1309,6 +1311,27 @@ function App(){
   var _floatMsg=useState(null);var floatMsg=_floatMsg[0],setFloatMsg=_floatMsg[1];
   var _chatPop=useState(false);var chatPop=_chatPop[0],setChatPop=_chatPop[1];
   var _chatSize=useState('normal');var chatSize=_chatSize[0],setChatSize=_chatSize[1];
+  var _chatTop=useState('56vh');var chatTop=_chatTop[0],setChatTop=_chatTop[1];
+  useEffect(function(){
+    if(!chatPop)return;
+    var raf=0;
+    function syncChatTop(){
+      if(raf)cancelAnimationFrame(raf);
+      raf=requestAnimationFrame(function(){
+        var playerCard=document.querySelector('.players-bar');
+        var broadcast=document.querySelector('.broadcast');
+        var top=playerCard?playerCard.getBoundingClientRect().top:(broadcast?broadcast.getBoundingClientRect().bottom:window.innerHeight*.56);
+        top=Math.max(72,Math.min(top,window.innerHeight-90));
+        document.documentElement.style.setProperty('--mcs-chat-top',Math.round(top)+'px');
+        setChatTop(Math.round(top)+'px');
+      });
+    }
+    syncChatTop();
+    window.addEventListener('resize',syncChatTop);
+    window.addEventListener('scroll',syncChatTop,true);
+    return function(){if(raf)cancelAnimationFrame(raf);window.removeEventListener('resize',syncChatTop);window.removeEventListener('scroll',syncChatTop,true);};
+  },[chatPop,playersOpen,selected,tab]);
+
   var _memberId=useState(function(){var x=lsGet('mcs_member_id','');if(!x){x='u'+randomRoomToken();lsSet('mcs_member_id',x);}return x;});var memberId=_memberId[0];
   var _roomOwnerToken=useState(function(){var r=qs().get('room')||lsGet('last_room')||'lobby';if(isViewMode())return '';var k='mcs_room_owner_'+r;var x=lsGet(k,'');if(!x){x=randomRoomToken();lsSet(k,x);}return x;});var roomOwnerToken=_roomOwnerToken[0],setRoomOwnerToken=_roomOwnerToken[1];
   var _isRoomHost=useState(false);var isRoomHost=_isRoomHost[0],setIsRoomHost=_isRoomHost[1];
@@ -1607,33 +1630,64 @@ function App(){
     }catch(e){return null;}
   }
 
+  function showShareFallback(text,label){
+    var value=String(text||'');
+    function showModal(){setModalVal(value);setModal('share');}
+    function legacyCopy(){
+      try{
+        var ta=document.createElement('textarea');ta.value=value;ta.setAttribute('readonly','');
+        ta.style.position='fixed';ta.style.opacity='0';ta.style.left='-9999px';
+        document.body.appendChild(ta);ta.select();ta.setSelectionRange(0,ta.value.length);
+        var ok=document.execCommand('copy');document.body.removeChild(ta);
+        if(ok){setToast(label||'Invitation copied');setTimeout(function(){setToast(null);},2600);return true;}
+      }catch(e){}
+      return false;
+    }
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(value).then(function(){
+        setToast(label||'Invitation copied');setTimeout(function(){setToast(null);},2600);
+      }).catch(function(){if(!legacyCopy())showModal();});
+    }else if(!legacyCopy())showModal();
+  }
+  function launchShare(payload,fallbackText,label){
+    // Call Web Share synchronously from the original button gesture; no async work before this point.
+    if(navigator.share){
+      try{
+        var sharePromise=navigator.share(payload);
+        if(sharePromise&&typeof sharePromise.then==='function'){
+          sharePromise.then(function(){},function(err){
+            if(err&&err.name==='AbortError')return;
+            showShareFallback(fallbackText,label);
+          });
+        }
+        return;
+      }catch(err){}
+    }
+    showShareFallback(fallbackText,label);
+  }
   function inviteChat(){
     if(viewOnly){setRoomStatus('Only the host can invite to this match.');return;}
-    var u=new URL(location.href);u.searchParams.set('room',roomId);if(selected&&selected.id)u.searchParams.set('match',selected.id);u.searchParams.set('view','1');u.searchParams.set('tab','scorecard');
+    var u=new URL(location.href);
+    u.searchParams.set('room',roomId||('m'+(selected&&selected.id||'')));
+    if(selected&&selected.id)u.searchParams.set('match',selected.id);
+    u.searchParams.set('view','1');u.searchParams.set('tab','scorecard');
     var link=u.toString(),matchTitle=(league||'Cricket match')+' · '+homeName+' vs '+awayName;
     var scoreText=homeName+' '+sc.a+' | '+awayName+' '+sc.b;
     var inviteText=(chatName||'A MyCricStats host')+' invites you to '+matchTitle+'. Current score: '+scoreText+'. Join for live score, ball-by-ball commentary and match chat. Let us celebrate together! '+link;
     var file=buildInviteCard();
-    if(navigator.share){
-      try{
-        if(file&&navigator.canShare&&navigator.canShare({files:[file]})){navigator.share({title:'Join '+matchTitle,text:inviteText,files:[file]}).catch(function(e){if(e&&e.name!=='AbortError')setRoomStatus('Share cancelled or unavailable. Copy the match link instead.');});}
-        else navigator.share({title:'Join '+matchTitle,text:inviteText,url:link}).catch(function(){});
-        return;
-      }catch(e){}
-    }
-    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(inviteText).then(function(){setToast('Invitation text and match link copied');setTimeout(function(){setToast(null);},2500);}).catch(function(){setModalVal(inviteText);setModal('share');});}
-    else{setModalVal(inviteText);setModal('share');}
+    var payload={title:'Join '+matchTitle,text:inviteText};
+    try{if(file&&navigator.canShare&&navigator.canShare({files:[file]}))payload.files=[file];else payload.url=link;}catch(e){payload.url=link;}
+    launchShare(payload,inviteText,'Match invitation copied');
   }
-
 
   var shareView=function(){
     if(!selected){setToast('Select a match');setTimeout(function(){setToast(null);},2000);return;}
-    var u=new URL(location.href);u.searchParams.set('view','1');u.searchParams.set('match',selected.id);u.searchParams.set('tab','scorecard');
+    var u=new URL(location.href);
+    u.searchParams.set('room',roomId||('m'+selected.id));
+    u.searchParams.set('view','1');u.searchParams.set('match',selected.id);u.searchParams.set('tab','scorecard');
     var link=u.toString(),title=(league||'Cricket')+' · '+homeName+' vs '+awayName;
-    var text='Watch '+title+' live on MyCricStats — '+homeName+' '+sc.a+' | '+awayName+' '+sc.b+'. Live score and ball-by-ball commentary: '+link;
-    if(navigator.share){try{navigator.share({title:title,text:text,url:link}).catch(function(){});return;}catch(e){}}
-    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(link).then(function(){setToast('View-only link copied');setTimeout(function(){setToast(null);},2200);}).catch(function(){setModalVal(link);setModal('share');});}
-    else{setModalVal(link);setModal('share');}
+    var text=(chatName||'MyCricStats host')+' invites you to watch '+title+' live — '+homeName+' '+sc.a+' | '+awayName+' '+sc.b+'. Join for live score, ball-by-ball commentary and match chat: '+link;
+    launchShare({title:title,text:text,url:link},text,'View-only invitation copied');
   };
 
   function triggerAd(eventName){
@@ -1689,7 +1743,7 @@ function App(){
             (selected&&st!=='live'?h('span',{className:'done-pill'},st==='finished'?'FINISHED':'UPCOMING'):null)
           ),
           h('div',{style:{display:'flex',gap:8}},
-            h('button',{className:'icon-btn',title:'Share / Invite',onClick:function(){inviteChat();}},'↗'),
+            h('button',{className:'icon-btn',title:'Share match page',onClick:shareView},'↗'),
             
             h('button',{className:'icon-btn',title:'Settings',onClick:function(){setSettingsOpen(!settingsOpen);}},'⚙')
           )
@@ -1879,7 +1933,12 @@ function App(){
         h('div',{className:'actions'},
           h('button',{className:'btn',onClick:function(){setModal(null);}},'Cancel'),
           h('button',{className:'btn primary',onClick:function(){
-            if(modal==='share'){if(navigator.clipboard)navigator.clipboard.writeText(modalVal);setModal(null);return;}
+            if(modal==='share'){
+              var copied=false;
+              try{var ta=document.createElement('textarea');ta.value=modalVal;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();copied=document.execCommand('copy');document.body.removeChild(ta);}catch(e){}
+              if(!copied&&navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(modalVal).catch(function(){});}
+              setModal(null);setToast(copied?'Copied to clipboard':'Select and copy the invitation text');setTimeout(function(){setToast(null);},2500);return;
+            }
             if(modal==='chatname'){var n=String(modalVal||'Fan').trim().slice(0,24)||'Fan';setChatName(n);lsSet('chat_name',n);setModal(null);return;}
             
             var v=String(modalVal||'').trim();if(!v)return;lsSet('sportmonks_token',v);setToken(v);setModal(null);setToast('Saved');setTimeout(function(){setToast(null);},2000);
@@ -1930,13 +1989,14 @@ function App(){
     evBanner?h('div',{className:'ev-banner show '+evBanner.kind},evBanner.label):null,
     null,
     floatMsg?h('div',{className:'float-praise'},floatMsg):null,
-    chatPop?h('div',{className:'chat-pop '+chatSize},
+    chatPop?h('div',{className:'chat-pop '+chatSize,style:(chatSize==='maximized'||chatSize==='minimized')?{}:{top:chatTop}}, 
       h('div',{className:'cp-head'},
         h('div',{className:'t',onClick:function(){setModalVal(chatName);setModal('chatname');},style:{cursor:'pointer'}},'Chat · '+(chatName||'Fan')),
         h('span',{className:'cp-room-tag'},'🏏 LIVE ROOM'),
         h('button',{className:'btn',title:'Invite to this match',onClick:inviteChat},'↗'),
         h('button',{className:'btn',title:'Room members',onClick:function(){setChatSub(chatSub==='viewers'?'room':'viewers');chatLoad();}},'👥 '+chatViewers.filter(function(v){return v.online;}).length),
         h('button',{className:'btn',title:'Minimize',onClick:function(){setChatSize('minimized');}},'−'),
+        h('button',{className:'btn',title:'Resize chat',onClick:function(){setChatSize(chatSize==='compact'?'normal':(chatSize==='normal'?'large':'compact'));}},'↕'),
         h('button',{className:'btn',title:'Maximize / restore',onClick:function(){setChatSize(chatSize==='maximized'?'normal':'maximized');}},'□'),
         h('button',{className:'btn',onClick:function(){setChatPop(false);setChatSize('normal');}},'✕')
       ),
