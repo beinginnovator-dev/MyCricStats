@@ -1327,6 +1327,7 @@ function App(){
   var _sponsorName=useState(function(){return lsGet('sponsor_name','');});var sponsorName=_sponsorName[0],setSponsorName=_sponsorName[1];
   var _sponsorLogo=useState(function(){return lsGet('sponsor_logo','');});var sponsorLogo=_sponsorLogo[0],setSponsorLogo=_sponsorLogo[1];
   var _unread=useState(0);var unread=_unread[0],setUnread=_unread[1];
+  var chatLastSeenRef=useRef('');var chatAtBottomRef=useRef(true);var chatBodyRef=useRef(null);
   
   var _openRooms=useState([]);var openRooms=_openRooms[0],setOpenRooms=_openRooms[1];
   var _chatSub=useState('room');var chatSub=_chatSub[0],setChatSub=_chatSub[1];
@@ -1482,11 +1483,11 @@ function App(){
     }catch(e){}
   },[]);
   useEffect(function(){
-    if(tab!=='chat'&&!chatPop)return;
+    if(!roomId||roomId==='lobby')return;
     chatLoad();
-    var id=setInterval(chatLoad,2500);
+    var id=setInterval(function(){if(document.visibilityState==='visible')chatLoad();},2500);
     return function(){clearInterval(id);};
-  },[tab,roomId,chatPop]);
+  },[roomId]);
   /* no floating praise */
   // flip upcoming posters on scoreboard
   useEffect(function(){
@@ -1608,6 +1609,12 @@ function App(){
     if(m&&m._domestic){lsSet('last_match',String(m.id));setDetail(m);return;}
     loadDetail(m);
   };
+  useEffect(function(){
+    if(!chatPop || chatSub==='viewers')return;
+    var el=chatBodyRef.current;
+    if(el && chatAtBottomRef.current){el.scrollTop=el.scrollHeight;setUnread(0);}
+  },[chatMsgs,chatPop,chatSize,chatSub]);
+  function openChatWindow(){setChatPop(true);setChatSize('normal');setUnread(0);chatAtBottomRef.current=true;chatLoad();}
   function chatRequest(action,extra){
     var payload=Object.assign({action:action,room:roomId,memberId:memberId,name:chatName||'Fan',ownerToken:roomOwnerToken||''},extra||{});
     var controller=typeof AbortController!=='undefined'?new AbortController():null;
@@ -1618,7 +1625,16 @@ function App(){
       .finally(function(){if(timer)clearTimeout(timer);});
   }
   function applyChatState(j){
-    setChatMsgs(Array.isArray(j.messages)?j.messages:[]);setChatViewers(Array.isArray(j.viewers)?j.viewers:[]);
+    var incoming=Array.isArray(j.messages)?j.messages:[];
+    var newest=incoming.length?String(incoming[incoming.length-1].id||incoming[incoming.length-1].t||''):'';
+    if(chatLastSeenRef.current && newest && newest!==chatLastSeenRef.current){
+      var prior=-1;for(var ci=0;ci<incoming.length;ci++){if(String(incoming[ci].id||incoming[ci].t||'')===chatLastSeenRef.current){prior=ci;break;}}
+      var fresh=prior>=0?incoming.slice(prior+1):incoming.filter(function(m){return String(m.id||m.t||'')>chatLastSeenRef.current;});
+      var remote=fresh.filter(function(m){return m.memberId!==memberId;});
+      if(remote.length && (!chatPop || !chatAtBottomRef.current))setUnread(function(n){return n+remote.length;});
+    }
+    if(newest)chatLastSeenRef.current=newest;
+    setChatMsgs(incoming);setChatViewers(Array.isArray(j.viewers)?j.viewers:[]);
     setChatActivity(Array.isArray(j.activity)?j.activity:[]);setIsRoomHost(!!j.isHost);setRoomStatus(j.message||'Connected');
   }
   function chatLoad(){return chatRequest('heartbeat').then(function(j){applyChatState(j);return j;}).catch(function(e){setRoomStatus((e&&e.message)||'Room connection failed');return null;});}
@@ -2011,20 +2027,23 @@ function App(){
     floatMsg?h('div',{className:'float-praise'},floatMsg):null,
     chatPop?h('div',{className:'chat-pop '+chatSize,style:(chatSize==='maximized'||chatSize==='minimized')?{}:{top:chatTop}}, 
       h('div',{className:'cp-head'},
-        h('div',{className:'t',onClick:function(){setModalVal(chatName);setModal('chatname');},style:{cursor:'pointer'}},'Chat · '+(chatName||'Fan')),
+        h('div',{className:'t'},'💬 '+(roomId||'Match room')+' · '+(homeName||'Home')+' vs '+(awayName||'Away')),
         h('span',{className:'cp-room-tag'},'LIVE ROOM'),
         h('div',{className:'cp-head-actions'},
           h('button',{className:'btn cp-head-btn',title:'Invite to this match','aria-label':'Invite',onClick:inviteChat},'↗'),
           h('button',{className:'btn cp-head-btn',title:'Minimize chat','aria-label':'Minimize chat',onClick:function(){setChatSize('minimized');}},'−'),
+          h('button',{className:'btn cp-head-btn',title:chatSize==='maximized'?'Restore chat':'Maximize chat','aria-label':chatSize==='maximized'?'Restore chat':'Maximize chat',onClick:function(){setChatSize(chatSize==='maximized'?'normal':'maximized');}},chatSize==='maximized'?'❐':'□'),
           h('button',{className:'btn cp-head-btn',type:'button',title:'Close chat','aria-label':'Close chat',onClick:function(){setChatPop(false);setChatSize('normal');}},'✕')
         )
       ),
-      chatSize==='minimized'?null:h('div',{className:'cp-body'},
+      chatSize==='minimized'?null:h('div',{className:'cp-body',ref:chatBodyRef,onScroll:function(e){var el=e.currentTarget;chatAtBottomRef.current=(el.scrollHeight-el.scrollTop-el.clientHeight)<70;if(chatAtBottomRef.current)setUnread(0);}},
         chatSub==='viewers'?h('div',{className:'room-roster'},chatViewers.map(function(v,i){return h('div',{key:v.memberId||i,className:'room-user'},h('div',{className:'room-user-main'},h('span',{className:'presence-dot '+(v.online?'online':'')},'●'),h('b',null,v.name||'Fan'),v.role==='host'?h('span',{className:'host-tag'},'HOST'):null),isRoomHost&&v.memberId!==memberId?h('div',{className:'room-actions'},h('button',{className:'btn danger',onClick:function(){moderateRoom(v.memberId,'remove');}},'Remove'),h('button',{className:'btn',onClick:function(){moderateRoom(v.memberId,v.blocked?'unblock':'block');}},v.blocked?'Unblock':'Block')):null);}),!chatViewers.length?h('div',{className:'room-empty'},'No room members yet.'):null):
         (chatMsgs.length?chatMsgs:[]).map(function(m,i){
           var me=(m.memberId===memberId)||(m.name===chatName&&!m.memberId);
           return h('div',{key:m.id||i,className:'cp-msg '+(me?'me':'them'),style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:6}},
-            h('div',null,h('b',null,(m.name||'Fan')+': '),m.text,m.edited?h('span',{style:{fontSize:10,opacity:.6}},' (edited)'):null),
+            h('div',null,h('b',null,(m.name||'Fan')+': '),m.text,m.edited?h('span',{style:{fontSize:10,opacity:.6}},' (edited)'):null,
+              h('div',{className:'chat-msg-reactions'},['👍','❤️','😂','😮','👏'].map(function(em){var count=(m.reactions||[]).filter(function(r){return r.emoji===em;}).length;return h('button',{key:em,title:'React '+em,onClick:function(){chatRequest('react',{messageId:m.id,emoji:em}).then(applyChatState).catch(function(e){setRoomStatus(e.message);});}},em+(count?' '+count:''));}))
+            ),
             me&&m.id?h('span',{style:{fontSize:10,opacity:.7,cursor:'pointer'}},
               h('span',{onClick:function(){var nt=prompt('Edit message',m.text);if(nt&&nt!==m.text)chatEdit(m.id,nt);}},'✏️ '),
               h('span',{onClick:function(){if(confirm('Delete?'))chatDelete(m.id);}},'🗑')
@@ -2038,7 +2057,7 @@ function App(){
         ):null
       ),
       h('div',{className:'emoji-row',style:{padding:'4px 8px',background:'#1f2c34'}},
-        ['👏','🔥','⭐','🏏','🎯','❤️','😂'].map(function(em){
+        ['👍','❤️','😂','😍','😮','👏','🔥','⭐','🏏','🎯'].map(function(em){
           return h('button',{key:em,type:'button',onClick:function(){chatSend(em,'emoji');}},em);
         })
       ),
@@ -2048,7 +2067,7 @@ function App(){
         h('button',{className:'btn primary',onClick:function(){if(chatInput.trim()){var msg=chatInput.trim();chatSend(msg).then(function(){setChatInput('');}).catch(function(){});}}},'Send')
       )
     ):null,
-    (!chatPop&&tab==='chat')?h('button',{className:'chat-fab',title:'Open chat',onClick:function(){setChatPop(true);chatLoad();}},'💬'):null,
+    (!chatPop)?h('button',{className:'chat-fab',title:'Open match chat',onClick:openChatWindow},h('span',null,'🗨️'),unread>0?h('span',{className:'chat-unread'},unread>99?'99+':String(unread)):null):null,
 
     toast?h('div',{className:'toast'},toast):null,
 
@@ -2515,3 +2534,22 @@ try{
 </script>
 </body>
 </html>
+
+<style id="mcs-chat-whatsapp-upgrade">
+.chat-fab{display:flex;align-items:center;justify-content:center;position:fixed;right:14px;bottom:18px;z-index:10020;width:56px;height:56px;border-radius:18px;background:linear-gradient(145deg,#087e69,#075e54);color:#fff;font-size:25px;border:1px solid rgba(255,255,255,.28);box-shadow:0 7px 20px rgba(0,0,0,.4)}
+.chat-fab .chat-unread{position:absolute;right:-4px;top:-5px;min-width:21px;height:21px;padding:0 5px;border-radius:999px;background:#ff3158;color:#fff;border:2px solid #071426;font:900 11px/17px Montserrat,system-ui;text-align:center}
+.chat-pop .cp-head{flex-wrap:nowrap!important;gap:7px!important;padding:7px 9px!important;min-height:50px}
+.chat-pop .cp-head .t{flex:1 1 auto!important;min-width:0!important;white-space:normal!important;overflow:hidden;text-overflow:ellipsis;font-size:12px!important;line-height:1.25}
+.chat-pop .cp-room-tag{display:none!important}
+.chat-pop .cp-head-actions{gap:5px!important;flex:0 0 auto!important}
+.chat-pop .cp-head button.cp-head-btn{width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;flex:0 0 34px!important;font-size:16px!important}
+.chat-pop .cp-body{display:flex;flex-direction:column;overflow-y:auto;overscroll-behavior:contain}
+.chat-pop .cp-msg{position:relative;display:block!important;padding-bottom:24px!important}
+.chat-msg-reactions{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.chat-msg-reactions button{border:1px solid rgba(255,255,255,.18);border-radius:999px;background:rgba(255,255,255,.08);color:#fff;padding:2px 7px;font-size:12px;cursor:pointer}
+.chat-msg-reactions button:active{transform:scale(.94)}
+.chat-unread-divider{align-self:center;position:sticky;top:4px;z-index:2;padding:5px 12px;border-radius:999px;background:#ff3158;color:#fff;font-size:11px;font-weight:900}
+.chat-pop.maximized{left:0!important;right:0!important;top:0!important;bottom:0!important;width:100vw!important;max-width:none!important;height:100dvh!important;max-height:none!important;border-radius:0!important;z-index:10030!important}
+.chat-pop.maximized .cp-head{padding-top:max(8px,env(safe-area-inset-top))!important}
+@media(max-width:380px){.chat-pop .cp-head .t{font-size:10px!important}.chat-pop .cp-head button.cp-head-btn{width:31px!important;height:31px!important;min-width:31px!important;min-height:31px!important;flex-basis:31px!important}}
+</style>
