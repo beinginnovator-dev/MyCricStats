@@ -1308,6 +1308,8 @@ function App(){
   var chatName=_chatName[0],setChatName=_chatName[1];
   var _chatInput=useState('');var chatInput=_chatInput[0],setChatInput=_chatInput[1];
   var _chatMsgs=useState([]);var chatMsgs=_chatMsgs[0],setChatMsgs=_chatMsgs[1];
+  // Room roster is populated by the chat heartbeat response.
+  var _chatViewers=useState([]);var chatViewers=_chatViewers[0],setChatViewers=_chatViewers[1];
   var _chatActivity=useState([]);var chatActivity=_chatActivity[0],setChatActivity=_chatActivity[1];
   var _floatMsg=useState(null);var floatMsg=_floatMsg[0],setFloatMsg=_floatMsg[1];
   var _chatPop=useState(false);var chatPop=_chatPop[0],setChatPop=_chatPop[1];
