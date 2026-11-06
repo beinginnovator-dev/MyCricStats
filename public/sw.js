@@ -1,4 +1,4 @@
-const CACHE = 'mcs-v8-matchcentre-room-chat';
+const CACHE = 'mcs-v9-matchcentre-chat-layout';
 const ASSETS = ['/', '/index.html', '/manifest.webmanifest', '/audio/crowd_chant.mp3', '/audio/crowd_cheer.mp3', '/audio/crowd_whistle.mp3'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
