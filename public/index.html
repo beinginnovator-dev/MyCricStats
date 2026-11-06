@@ -346,7 +346,7 @@ if('serviceWorker' in navigator){
     }).catch(function(){});
     // clear old caches once
     try{
-      caches.keys().then(function(ks){ks.forEach(function(k){if(k.indexOf('mcs-')===0&&k!=='mcs-v10')caches.delete(k);});});
+      caches.keys().then(function(ks){ks.forEach(function(k){if(k.indexOf('mcs-')===0&&k!=='mcs-v17')caches.delete(k);});});
     }catch(e){}
   });
 }
@@ -357,10 +357,15 @@ if(!window.React||!window.ReactDOM){
 var h=React.createElement,useState=React.useState,useEffect=React.useEffect,useCallback=React.useCallback,useRef=React.useRef;
 var THEMES=['dark','light','pitch','night'];
 var CACHE_MS=45000;
-var LIVE_CACHE_MS=7000;
-var DETAIL_CACHE_MS=6500;
+var LIVE_CACHE_MS=9000;
+var DETAIL_CACHE_MS=9000;
 var FIXTURE_CACHE_MS=120000;
 var memCache={};
+// Throttle secondary recovery requests so missing optional relations do not trigger
+// repeated multi-request bursts on every live-score refresh.
+var detailRecoveryAt={};
+var ballsRecoveryAt={};
+var detailInFlight={};
 var DEFAULT_BG='https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=1200&q=60';
 // Sportmonks fixture endpoint allows up to 10 nested includes. Use only documented fixture relations. Keep this request
 // within that limit; oversized include lists can return HTTP 400 and break both tabs.
@@ -1007,53 +1012,61 @@ function stadNoiseBurst(ctx, now, dur, vol){
 }
 var stadiumAudioUnlocked=false;
 var stadiumAudioPlayers={};
-var stadiumAudioFiles={
-  four:'/audio/crowd_cheer.mp3',
-  six:'/audio/crowd_cheer.mp3',
-  boundary:'/audio/crowd_cheer.mp3',
-  wicket:'/audio/crowd_whistle.mp3',
-  over:'/audio/crowd_chant.mp3'
-};
-function getStadiumAudio(kind){
-  var file=stadiumAudioFiles[kind]; if(!file)return null;
-  if(!stadiumAudioPlayers[file]){
-    var a=new Audio(file);
-    a.preload='auto';
-    a.volume=(kind==='wicket'?0.72:0.82);
-    stadiumAudioPlayers[file]=a;
-  }
-  return stadiumAudioPlayers[file];
-}
+// No external MP3 assets are required. Generate short stadium-style cues with Web Audio,
+// avoiding missing /audio files and mobile autoplay restrictions after the first gesture.
 function unlockStadiumAudio(){
   try{
-    var seen={};
-    Object.keys(stadiumAudioFiles).forEach(function(kind){
-      var file=stadiumAudioFiles[kind];
-      if(seen[file])return;
-      seen[file]=true;
-      var a=getStadiumAudio(kind);
-      a.muted=true;
-      var p=a.play();
-      if(p&&p.then)p.then(function(){
-        a.pause();a.currentTime=0;a.muted=false;stadiumAudioUnlocked=true;
-      }).catch(function(){a.muted=false;});
-      else{a.pause();a.currentTime=0;a.muted=false;stadiumAudioUnlocked=true;}
-    });
+    var Ctx=window.AudioContext||window.webkitAudioContext;
+    if(!Ctx)return;
+    if(!stadCtx)stadCtx=new Ctx();
+    if(stadCtx.state==='suspended')stadCtx.resume().then(function(){stadiumAudioUnlocked=true;}).catch(function(){});
+    else stadiumAudioUnlocked=true;
+  }catch(e){}
+}
+function stadTone(ctx, freq, start, duration, volume, type, endFreq){
+  try{
+    var osc=ctx.createOscillator(), gain=ctx.createGain();
+    osc.type=type||'sine';osc.frequency.setValueAtTime(freq,start);
+    if(endFreq)osc.frequency.exponentialRampToValueAtTime(Math.max(30,endFreq),start+duration);
+    gain.gain.setValueAtTime(0.0001,start);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0002,volume),start+0.025);
+    gain.gain.exponentialRampToValueAtTime(0.0001,start+duration);
+    osc.connect(gain);gain.connect(ctx.destination);osc.start(start);osc.stop(start+duration+0.03);
+  }catch(e){}
+}
+function stadCrowd(ctx, start, duration, volume){
+  try{
+    var len=Math.floor(ctx.sampleRate*duration),buf=ctx.createBuffer(1,len,ctx.sampleRate),data=buf.getChannelData(0);
+    for(var i=0;i<len;i++){
+      var t=i/len, envelope=Math.sin(Math.PI*t);
+      data[i]=(Math.random()*2-1)*envelope*(0.35+0.65*Math.random());
+    }
+    var src=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
+    src.buffer=buf;filter.type='bandpass';filter.frequency.value=850;filter.Q.value=0.65;
+    gain.gain.setValueAtTime(0.0001,start);gain.gain.linearRampToValueAtTime(volume,start+0.18);gain.gain.exponentialRampToValueAtTime(0.0001,start+duration);
+    src.connect(filter);filter.connect(gain);gain.connect(ctx.destination);src.start(start);src.stop(start+duration);
   }catch(e){}
 }
 function playStadiumClip(kind){
   try{
-    var a=getStadiumAudio(kind);
-    a.pause();a.currentTime=0;
-    a.volume=kind==='wicket'?0.72:0.82;
-    var p=a.play();
-    if(p&&p.catch)p.catch(function(err){console.warn('Stadium audio blocked until user interaction',err);});
-  }catch(e){console.warn('Stadium audio',e);}
+    unlockStadiumAudio();
+    if(!stadCtx||stadCtx.state==='suspended')return;
+    var t=stadCtx.currentTime+0.02;
+    if(kind==='wicket'){
+      // Sharp umpire-style whistle with a descending tail and short crowd burst.
+      stadTone(stadCtx,1500,t,0.75,0.16,'sine',780);
+      stadTone(stadCtx,1880,t+0.08,0.48,0.07,'sine',1100);
+      stadCrowd(stadCtx,t+0.12,1.05,0.10);
+    }else if(kind==='four'||kind==='six'||kind==='boundary'){
+      stadCrowd(stadCtx,t,1.65,kind==='six'?0.22:0.17);
+      [520,660,790,920].forEach(function(f,i){stadTone(stadCtx,f,t+0.08+i*0.045,0.42,0.035,'triangle',f*1.12);});
+    }else if(kind==='over'){
+      stadCrowd(stadCtx,t,0.85,0.10);
+      stadTone(stadCtx,440,t+0.08,0.24,0.035,'sine',560);
+    }
+  }catch(e){console.warn('Stadium audio playback failed',e);}
 }
-function stadBeep(kind){
-  // Keep the existing event API, but play the supplied stadium recordings.
-  playStadiumClip(kind);
-}
+function stadBeep(kind){playStadiumClip(kind);}
 
 function showBounce(setBounce, payload){
   // payload: number runs OR {runs, kind, label}
@@ -1293,9 +1306,12 @@ function App(){
     lastAudioOver.current=overNo;
     if(!stadOn)return;
     var runs=ballRuns(ball),isW=ballIsWicket(ball);
-    // One sound per delivery: wicket/boundary takes priority over over-start.
+    var scoreMeta=ball.score||{}, scoreLabel=String(scoreMeta.name||scoreMeta.action||ball.score_name||ball.type||'').toLowerCase();
+    var isFour=runs===4||/\b(four|boundary)\b/.test(scoreLabel);
+    var isSix=runs===6||/\b(six|maximum)\b/.test(scoreLabel);
+    // One sound per newly received delivery; wicket takes priority over a boundary.
     if(isW)stadBeep('wicket');
-    else if(runs===4||runs===6)stadBeep('boundary');
+    else if(isFour||isSix)stadBeep(isSix?'six':'four');
     else if(overNo!=null&&previousOver!=null&&overNo!==previousOver)stadBeep('over');
   },[detail,selected,stadOn]);
   useEffect(function(){
@@ -1464,7 +1480,7 @@ function App(){
     if(!token && !isViewMode())return;
     var id=setInterval(function(){
       if(document.visibilityState==='visible')loadList(false,true);
-    },15000);
+    },30000);
     var onVisible=function(){if(document.visibilityState==='visible')loadList(false,true);};
     document.addEventListener('visibilitychange',onVisible);
     return function(){clearInterval(id);document.removeEventListener('visibilitychange',onVisible);};
@@ -1474,7 +1490,7 @@ function App(){
     if(!selected||!selected.id||statusOf(selected)!=='live')return;
     var id=setInterval(function(){
       if(document.visibilityState==='visible')loadDetail(selected,token,true);
-    },8000);
+    },10000);
     return function(){clearInterval(id);};
   },[selected&&selected.id,selected&&statusOf(selected),token]);
   useEffect(function(){
@@ -1559,13 +1575,21 @@ function App(){
     function recoverMissingRows(){
       var jobs=[];
       // Fetch scorecard records together only if the main response omitted them.
-      if(!relationRows(best.batting).length||!relationRows(best.bowling).length){
+      var now=Date.now(),mid=String(m.id);
+      // Scorecard relations are usually static between deliveries. Retry at most
+      // once per minute while absent, rather than on every live refresh.
+      if((!relationRows(best.batting).length||!relationRows(best.bowling).length) &&
+         now-(detailRecoveryAt[mid]||0)>60000){
+        detailRecoveryAt[mid]=now;
         jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,INCLUDE_LIST_SCORECARD),{force:true})
           .then(function(r){mergeData(r.data||{});})
           .catch(function(e){console.warn('Sportmonks scorecard recovery failed',e);}));
       }
-      // Ball-by-ball is a separate, small include request only when absent.
-      if(statusOf(m)==='live'||!relationRows(best.balls).length){
+      // Ball-by-ball is dynamic, but refresh it independently and no more often
+      // than every 12 seconds. This avoids a second/third API call every 8–10s.
+      if((statusOf(m)==='live'||!relationRows(best.balls).length) &&
+         now-(ballsRecoveryAt[mid]||0)>12000){
+        ballsRecoveryAt[mid]=now;
         jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'balls,balls.batsman,balls.bowler,balls.score,balls.batsmanout,balls.catchstump,balls.runoutby'),{force:true})
           .then(function(r){mergeData(r.data||{});})
           .catch(function(e){console.warn('Sportmonks commentary recovery failed',e);}));
