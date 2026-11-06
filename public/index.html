@@ -1233,7 +1233,7 @@ function App(){
   var bgUrl=_bg[0],setBgUrl=_bg[1];
   var _op=useState(function(){return parseFloat(lsGet('op_cricket','0.55'))||0.55;});
   var bgOp=_op[0],setBgOp=_op[1];
-  var _ads=useState(function(){return lsJSON('cric_ads_v1',{enabled:true,items:[
+  var _ads=useState(function(){return lsJSON('cric_ads_v1',{enabled:false,items:[
     {event:'wicket',image:'',video:'',youtube:'',audio:'',text:'Sponsor · WICKET!',duration:4},
     {event:'four',image:'',video:'',youtube:'',audio:'',text:'Sponsor · FOUR!',duration:3},
     {event:'six',image:'',video:'',youtube:'',audio:'',text:'Sponsor · SIX!',duration:4},
@@ -1582,11 +1582,7 @@ function App(){
       setBatTeam(activeSide);setScTeam(activeSide);
       setBowlTeamTab(activeSide==='home'?'away':'home');
       setDetail(data);setSelected(data);
-      if(!hasScorecardRows(data)&&statusOf(data)!=='upcoming'&&!silent){
-        var hasBat=relationRows(data.batting).length>0;
-        var hasBowl=relationRows(data.bowling).length>0;
-        setError('Scorecard is incomplete: '+(hasBat?'bowling':'batting')+' rows were not returned. The app retried the documented scorecard includes. Check the fixture data, token permissions and API response.');
-      }
+      // Missing batting/bowling rows are shown as neutral placeholders; keep retrying silently.
       return data;
     }).catch(function(err){
       var msg=(err&&err.message)||'Could not load match scorecard';
@@ -1774,11 +1770,10 @@ function App(){
         h('div',{className:'bar',style:{justifyContent:'space-between'}},
           h('div',{style:{display:'flex',alignItems:'center',minWidth:70}},
             h('span',{className:'brand-chip'},h('img',{src:'/icons/icon-192.png',alt:'MCS'}),'MCS'),
-            viewOnly?h('span',{className:'view-badge'},'VIEW ONLY'):null
+            null
           ),
           h('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',flex:1}},
-            selected&&st==='live'?h('span',{className:'live-pill',style:{position:'relative',top:2}},h('i'),'LIVE · '+chatViewers.filter(function(v){return v.online;}).length):
-            (selected&&st!=='live'?h('span',{className:'done-pill'},st==='finished'?'FINISHED':'UPCOMING'):null)
+            selected?h('span',{className:'live-pill fans-online-pill',style:{position:'relative',top:2}},h('i'),'FANS ONLINE · '+chatViewers.filter(function(v){return v.online;}).length):null
           ),
           h('div',{style:{display:'flex',gap:8}},
             h('button',{className:'icon-btn',title:'Share match page',onClick:shareView},'↗'),
@@ -1990,11 +1985,11 @@ function App(){
         h('h2',null,'Sponsor ads (event triggers)'),
         h('div',{className:'hint'},'Image, video, YouTube or audio per event.'),
         h('label',{style:{display:'flex',gap:8,fontWeight:700,marginBottom:12}},
-          h('input',{type:'checkbox',checked:!!ads.enabled,onChange:function(e){var n=Object.assign({},ads,{enabled:e.target.checked});setAds(n);lsJSONSet('cric_ads_v1',n);}}),' Enabled'
+          h('input',{type:'checkbox',checked:!!ads.enabled,onChange:function(e){var n=Object.assign({},ads,{enabled:e.target.checked});setAds(n);lsJSONSet('cric_ads_v1',n);if(!e.target.checked)setAdShow(null);}}),' Enabled'
         ),
         (ads.items||[]).map(function(item,idx){
-          return h('div',{key:idx,className:'card'},
-            h('h3',null,String(item.event||'event').replace('_',' ').toUpperCase()),
+          return h('details',{key:idx,className:'card sponsor-event'},
+            h('summary',null,String(item.event||'event').replace('_',' ').toUpperCase()),
             h('div',{className:'field'},h('label',null,'Image URL'),h('input',{value:item.image||'',onChange:function(e){var items=ads.items.slice();items[idx]=Object.assign({},item,{image:e.target.value});var n=Object.assign({},ads,{items:items});setAds(n);lsJSONSet('cric_ads_v1',n);}})),
             h('div',{className:'field'},h('label',null,'Video URL'),h('input',{value:item.video||'',onChange:function(e){var items=ads.items.slice();items[idx]=Object.assign({},item,{video:e.target.value});var n=Object.assign({},ads,{items:items});setAds(n);lsJSONSet('cric_ads_v1',n);}})),
             h('div',{className:'field'},h('label',null,'YouTube link'),h('input',{value:item.youtube||'',onChange:function(e){var items=ads.items.slice();items[idx]=Object.assign({},item,{youtube:e.target.value});var n=Object.assign({},ads,{items:items});setAds(n);lsJSONSet('cric_ads_v1',n);}})),
@@ -2047,10 +2042,7 @@ function App(){
             h('div',null,h('b',null,(m.name||'Fan')+': '),m.text,m.edited?h('span',{style:{fontSize:10,opacity:.6}},' (edited)'):null,
               null
             ),
-            me&&m.id?h('span',{style:{fontSize:10,opacity:.7,cursor:'pointer'}},
-              h('span',{onClick:function(){var nt=prompt('Edit message',m.text);if(nt&&nt!==m.text)chatEdit(m.id,nt);}},'✏️ '),
-              h('span',{onClick:function(){if(confirm('Delete?'))chatDelete(m.id);}},'🗑')
-            ):null
+            null
           );
         }),
         chatSub!=='viewers'&&!chatMsgs.length?h('div',{className:'room-empty'},roomStatus==='Connected'?'No messages yet. Say hello!':roomStatus):null,
@@ -2555,4 +2547,17 @@ try{
 .chat-pop.maximized{left:0!important;right:0!important;top:0!important;bottom:0!important;width:100vw!important;max-width:none!important;height:100dvh!important;max-height:none!important;border-radius:0!important;z-index:10030!important}
 .chat-pop.maximized .cp-head{padding-top:max(8px,env(safe-area-inset-top))!important}
 @media(max-width:380px){.chat-pop .cp-head .t{font-size:10px!important}.chat-pop .cp-head button.cp-head-btn{width:31px!important;height:31px!important;min-width:31px!important;min-height:31px!important;flex-basis:31px!important}}
+</style>
+
+
+<style id="mcs-viewer-sponsor-update">
+.view-badge{display:none!important}
+.fans-online-pill{background:rgba(14,116,144,.24)!important;border-color:rgba(125,211,252,.5)!important;color:#bae6fd!important;white-space:nowrap}
+.sponsor-event{padding:0!important;overflow:hidden}
+.sponsor-event>summary{list-style:none;cursor:pointer;padding:12px 14px;font-size:12px;font-weight:900;color:var(--gold);letter-spacing:.05em}
+.sponsor-event>summary::-webkit-details-marker{display:none}
+.sponsor-event>summary:after{content:'＋';float:right;color:var(--muted)}
+.sponsor-event[open]>summary:after{content:'−'}
+.sponsor-event[open]>.field,.sponsor-event[open]>.btn{margin-left:12px;margin-right:12px}
+.sponsor-event[open]>.btn{margin-bottom:12px}
 </style>
