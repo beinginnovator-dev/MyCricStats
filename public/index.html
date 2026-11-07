@@ -128,7 +128,7 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .chat-pop .cp-foot{padding:8px;background:#1f2c34;display:flex;gap:6px;align-items:center}
 .chat-pop .cp-foot input{flex:1;border:0;border-radius:20px;padding:10px 14px;background:#2a3942;color:#fff;font-family:inherit}
 .chat-fab{position:fixed;right:14px;bottom:18px;z-index:34;width:54px;height:54px;border-radius:50%;border:0;background:#25d366;color:#fff;font-size:22px;font-weight:900;box-shadow:0 6px 16px rgba(0,0,0,.35);cursor:pointer}
-.float-praise{position:fixed;left:50%;bottom:20%;transform:translateX(-50%);z-index:9500;background:rgba(255,15,80,.92);color:#fff;padding:10px 16px;border-radius:999px;font-weight:800;font-size:13px;animation:evpop 3s ease-out forwards;pointer-events:none;max-width:90vw;text-align:center}
+.float-praise{position:fixed;left:50%;bottom:20%;transform:translateX(-50%);z-index:9500;background:rgba(255,15,80,.96);color:#fff;padding:11px 18px;border-radius:999px;font-weight:1000;font-size:15px;text-shadow:0 1px 2px rgba(0,0,0,.35);animation:evpop 3s ease-out forwards;pointer-events:none;max-width:90vw;text-align:center}
 
 .news-player{padding:10px 8px;background:transparent;border-radius:12px}
 .news-player .np-row{display:flex;gap:10px;align-items:flex-start}
@@ -1044,7 +1044,7 @@ function stadTone(ctx, freq, start, duration, volume, type, endFreq){
     osc.type=type||'sine';osc.frequency.setValueAtTime(freq,start);
     if(endFreq)osc.frequency.exponentialRampToValueAtTime(Math.max(30,endFreq),start+duration);
     gain.gain.setValueAtTime(0.0001,start);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.0002,volume),start+0.025);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0002,volume*1.8),start+0.025);
     gain.gain.exponentialRampToValueAtTime(0.0001,start+duration);
     osc.connect(gain);gain.connect(ctx.destination);osc.start(start);osc.stop(start+duration+0.03);
   }catch(e){}
@@ -1072,17 +1072,18 @@ function playStadiumClip(kind){
       if(kind==='wicket'){
         stadTone(stadCtx,1500,t,0.75,0.18,'sine',780);
         stadTone(stadCtx,1880,t+0.08,0.48,0.08,'sine',1100);
-        stadCrowd(stadCtx,t+0.12,1.05,0.12);
+        stadCrowd(stadCtx,t+0.12,1.25,0.28);
       }else if(kind==='four'||kind==='six'||kind==='boundary'){
-        stadCrowd(stadCtx,t,1.65,kind==='six'?0.24:0.19);
+        stadCrowd(stadCtx,t,1.9,kind==='six'?0.42:0.34);
         [520,660,790,920].forEach(function(f,i){stadTone(stadCtx,f,t+0.08+i*0.045,0.42,0.04,'triangle',f*1.12);});
       }else if(kind==='over'){
-        stadCrowd(stadCtx,t,0.85,0.12);
+        stadCrowd(stadCtx,t,0.95,0.22);
         stadTone(stadCtx,440,t+0.08,0.24,0.04,'sine',560);
       }
     };
-    if(stadCtx.state==='suspended'&&stadCtx.resume){stadCtx.resume().then(play).catch(function(e){console.warn('Audio resume blocked',e);});}
-    else play();
+    if(stadCtx.state==='closed'){var Ctx=window.AudioContext||window.webkitAudioContext;stadCtx=new Ctx();}
+    if(stadCtx.state!=='running'&&stadCtx.resume){stadCtx.resume().then(function(){stadiumAudioUnlocked=true;play();}).catch(function(e){console.warn('Audio resume blocked',e);});}
+    else {stadiumAudioUnlocked=true;play();}
   }catch(e){console.warn('Stadium audio playback failed',e);}
 }
 function stadBeep(kind){playStadiumClip(kind);}
@@ -1286,6 +1287,7 @@ function App(){
   var stadOn=_stadOn[0],setStadOn=_stadOn[1];
   var _commSettingsOpen=useState(false);var commSettingsOpen=_commSettingsOpen[0],setCommSettingsOpen=_commSettingsOpen[1];
   var lastBallKey=useRef('');
+  var commentaryLatestRef=useRef(null);
   var lastAudioBallKey=useRef('');
   var lastAudioOver=useRef(null);
   var lastAudioMatchId=useRef('');
@@ -1757,7 +1759,7 @@ function App(){
   }
   function shareMatchInvite(){
     if(!selected){setToast('Select a match first');setTimeout(function(){setToast(null);},2200);return;}
-    var u=new URL(location.href);u.searchParams.set('room',roomId||('m'+selected.id));u.searchParams.set('match',selected.id);u.searchParams.set('view','1');u.searchParams.set('tab','scorecard');
+    var u=new URL('/',location.origin);u.searchParams.set('room',roomId||('m'+selected.id));u.searchParams.set('match',selected.id);u.searchParams.set('view','1');u.searchParams.set('tab','commentary');u.searchParams.set('open','1');
     var link=u.toString(),matchTitle=(league||'Cricket match')+' · '+homeName+' vs '+awayName;
     var scoreText=homeName+' '+sc.a+' | '+awayName+' '+sc.b;
     var inviteText=(chatName||'A MyCricStats host')+' invites you to '+matchTitle+'.\nCurrent score: '+scoreText+'.\nJoin for live score, ball-by-ball commentary and match chat. Let us celebrate together!\n'+link;
@@ -2361,6 +2363,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
                 var key=String(inningsKey(top)||'')+'-'+String(top.id||top.ball)+'-'+ballRuns(top)+'-'+ballIsWicket(top);
                 if(key!==lastBallKey.current){
                   lastBallKey.current=key;
+                  setTimeout(function(){if(tab==='commentary'&&commentaryLatestRef.current){try{commentaryLatestRef.current.scrollIntoView({behavior:'smooth',block:'start'});}catch(e){}}},80);
                   var line=descriptiveLine(top,ttsLang);
                   if(ttsOn)speakText(line,ttsLang);
                   var runs=ballRuns(top), isW=ballIsWicket(top);
@@ -2389,7 +2392,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
                 }
               }catch(e){}
             }
-            return h('div',{key:oi,className:'over-card'},
+            return h('div',{key:oi,className:'over-card',ref:oi===0?commentaryLatestRef:null},
               h('div',{className:'over-head'},
                 h('span',null,(ov.inningsKey?('Innings '+ov.inningsKey+' · '):'')+'Over '+(ov.displayOver!=null?ov.displayOver:ov.overNo)),
                 h('span',{className:'sum'},ov.runs+' run'+(ov.runs===1?'':'s')+(ov.wickets?' · '+ov.wickets+' wkt'+(ov.wickets>1?'s':''):'')+' · '+ov.legal+'/6 balls')
