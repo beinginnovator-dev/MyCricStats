@@ -168,8 +168,8 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .tname{font-size:12px;font-weight:800;text-transform:uppercase;color:#f8fafc;display:flex;align-items:center;justify-content:center;gap:5px;width:100%;max-width:100%;margin-bottom:2px}
 .tname span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .side-left .tname,.side-right .tname{justify-content:center}
-.score-num{font-size:26px;font-weight:900;line-height:1.1;margin:2px 0 0;color:#fff;font-variant-numeric:tabular-nums;text-align:center;width:100%}
-.overs{font-size:15px;color:#cbd5e1;font-weight:700;margin-top:2px;text-align:center;width:100%}
+.score-num{font-size:28.6px;font-weight:900;line-height:1.1;margin:2px 0 0;color:#fff;font-variant-numeric:tabular-nums;text-align:center;width:100%}
+.overs{font-size:16.5px;color:#cbd5e1;font-weight:700;margin-top:2px;text-align:center;width:100%}
 .match-center .vs-label{font-size:11px;font-weight:900;letter-spacing:.12em;color:#94a3b8;text-align:center}
 .meta-row{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:11px;color:#cbd5e1;font-weight:600}
 .live-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
@@ -316,6 +316,21 @@ body.theme-light .broadcast .tname,body.theme-light .broadcast .score-num,body.t
 .chat-pop.minimized .cp-head{min-height:46px}
 @media(max-width:380px){.chat-pop .cp-head{gap:5px;padding:6px 8px}.chat-pop .cp-head .t{font-size:12px}.chat-pop .cp-head .cp-room-tag{font-size:7px;padding:3px 4px}.chat-pop .cp-head-actions{gap:4px}.chat-pop .cp-head button.cp-head-btn{flex-basis:32px!important;width:32px;min-width:32px!important;height:32px;min-height:32px}}
 
+
+/* MCS 10% broadcast scoreboard enlargement */
+.broadcast .tname{font-size:calc(1em * 1.10)}
+.broadcast .vs-label{font-size:calc(1em * 1.10)}
+.broadcast .meta-row{font-size:12.1px}
+/* Delivery ball rises from the match date/time area towards the top of the broadcast */
+.ball-stage{bottom:0;height:100%;align-items:center}
+.bounce-ball .ball-core{width:62px;height:62px}
+.bounce-ball .run-stamp{min-width:44px;padding:6px 10px;font-size:18px;border-radius:10px}
+.bounce-ball .run-stamp.sw{font-size:14px;min-width:60px}
+.bounce-ball.approach{animation:ballPop 3.8s cubic-bezier(.22,.68,.24,1) forwards}
+.bounce-ball.approach.r6,.bounce-ball.approach.r4,.bounce-ball.approach.rw{animation-duration:3.8s}
+@keyframes ballPop{0%{transform:translateY(155px) scale(.58);opacity:0}10%{opacity:1}38%{transform:translateY(35px) scale(.9);opacity:1}72%{transform:translateY(-115px) scale(1.08);opacity:1}100%{transform:translateY(-235px) scale(1.14);opacity:0}}
+.comm-settings-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;margin:0 0 9px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2);color:var(--text);font:700 12px Montserrat,system-ui;cursor:pointer}
+
 </style>
 </head>
 <body class="theme-dark">
@@ -346,7 +361,7 @@ if('serviceWorker' in navigator){
     }).catch(function(){});
     // clear old caches once
     try{
-      caches.keys().then(function(ks){ks.forEach(function(k){if(k.indexOf('mcs-')===0&&k!=='mcs-v17')caches.delete(k);});});
+      caches.keys().then(function(ks){ks.forEach(function(k){if(k.indexOf('mcs-')===0&&k!=='mcs-v18')caches.delete(k);});});
     }catch(e){}
   });
 }
@@ -357,8 +372,8 @@ if(!window.React||!window.ReactDOM){
 var h=React.createElement,useState=React.useState,useEffect=React.useEffect,useCallback=React.useCallback,useRef=React.useRef;
 var THEMES=['dark','light','pitch','night'];
 var CACHE_MS=45000;
-var LIVE_CACHE_MS=9000;
-var DETAIL_CACHE_MS=9000;
+var LIVE_CACHE_MS=5000;
+var DETAIL_CACHE_MS=6000;
 var FIXTURE_CACHE_MS=120000;
 var memCache={};
 // Throttle secondary recovery requests so missing optional relations do not trigger
@@ -1050,20 +1065,24 @@ function stadCrowd(ctx, start, duration, volume){
 function playStadiumClip(kind){
   try{
     unlockStadiumAudio();
-    if(!stadCtx||stadCtx.state==='suspended')return;
-    var t=stadCtx.currentTime+0.02;
-    if(kind==='wicket'){
-      // Sharp umpire-style whistle with a descending tail and short crowd burst.
-      stadTone(stadCtx,1500,t,0.75,0.16,'sine',780);
-      stadTone(stadCtx,1880,t+0.08,0.48,0.07,'sine',1100);
-      stadCrowd(stadCtx,t+0.12,1.05,0.10);
-    }else if(kind==='four'||kind==='six'||kind==='boundary'){
-      stadCrowd(stadCtx,t,1.65,kind==='six'?0.22:0.17);
-      [520,660,790,920].forEach(function(f,i){stadTone(stadCtx,f,t+0.08+i*0.045,0.42,0.035,'triangle',f*1.12);});
-    }else if(kind==='over'){
-      stadCrowd(stadCtx,t,0.85,0.10);
-      stadTone(stadCtx,440,t+0.08,0.24,0.035,'sine',560);
-    }
+    if(!stadCtx)return;
+    var play=function(){
+      if(!stadCtx)return;
+      var t=stadCtx.currentTime+0.035;
+      if(kind==='wicket'){
+        stadTone(stadCtx,1500,t,0.75,0.18,'sine',780);
+        stadTone(stadCtx,1880,t+0.08,0.48,0.08,'sine',1100);
+        stadCrowd(stadCtx,t+0.12,1.05,0.12);
+      }else if(kind==='four'||kind==='six'||kind==='boundary'){
+        stadCrowd(stadCtx,t,1.65,kind==='six'?0.24:0.19);
+        [520,660,790,920].forEach(function(f,i){stadTone(stadCtx,f,t+0.08+i*0.045,0.42,0.04,'triangle',f*1.12);});
+      }else if(kind==='over'){
+        stadCrowd(stadCtx,t,0.85,0.12);
+        stadTone(stadCtx,440,t+0.08,0.24,0.04,'sine',560);
+      }
+    };
+    if(stadCtx.state==='suspended'&&stadCtx.resume){stadCtx.resume().then(play).catch(function(e){console.warn('Audio resume blocked',e);});}
+    else play();
   }catch(e){console.warn('Stadium audio playback failed',e);}
 }
 function stadBeep(kind){playStadiumClip(kind);}
@@ -1234,7 +1253,7 @@ function App(){
   var _matchFilter=useState('all');var matchFilter=_matchFilter[0],setMatchFilter=_matchFilter[1];
   var _selected=useState(null);var selected=_selected[0],setSelected=_selected[1];
   var _detail=useState(null);var detail=_detail[0],setDetail=_detail[1];
-  var _tab=useState(function(){var q=qs().get('tab');return q||lsGet('mcs_tab',isViewMode()?'scorecard':'matches');});var tab=_tab[0],setTab=_tab[1];
+  var _tab=useState(function(){var q=qs().get('tab');return q||lsGet('mcs_tab','commentary');});var tab=_tab[0],setTab=_tab[1];
   var _filter=useState('all');var filter=_filter[0],setFilter=_filter[1];
   var _loading=useState(false);var loading=_loading[0],setLoading=_loading[1];
   var _error=useState(null);var error=_error[0],setError=_error[1];
@@ -1265,6 +1284,7 @@ function App(){
   var ttsLang=_ttsLang[0],setTtsLang=_ttsLang[1];
   var _stadOn=useState(function(){var v=lsGet('stad_on','1');return v!=='0';});
   var stadOn=_stadOn[0],setStadOn=_stadOn[1];
+  var _commSettingsOpen=useState(false);var commSettingsOpen=_commSettingsOpen[0],setCommSettingsOpen=_commSettingsOpen[1];
   var lastBallKey=useRef('');
   var lastAudioBallKey=useRef('');
   var lastAudioOver=useRef(null);
@@ -1480,7 +1500,7 @@ function App(){
     if(!token && !isViewMode())return;
     var id=setInterval(function(){
       if(document.visibilityState==='visible')loadList(false,true);
-    },30000);
+    },20000);
     var onVisible=function(){if(document.visibilityState==='visible')loadList(false,true);};
     document.addEventListener('visibilitychange',onVisible);
     return function(){clearInterval(id);document.removeEventListener('visibilitychange',onVisible);};
@@ -1490,7 +1510,7 @@ function App(){
     if(!selected||!selected.id||statusOf(selected)!=='live')return;
     var id=setInterval(function(){
       if(document.visibilityState==='visible')loadDetail(selected,token,true);
-    },10000);
+    },7000);
     return function(){clearInterval(id);};
   },[selected&&selected.id,selected&&statusOf(selected),token]);
   useEffect(function(){
@@ -1939,6 +1959,7 @@ function App(){
         h('button',{onClick:function(){var v=!ttsOn;setTtsOn(v);lsSet('tts_on',v?'1':'0');}},ttsOn?'TTS / Commentary: On':'TTS / Commentary: Off'),
         h('button',{onClick:function(){var L=ttsLang==='en'?'hi':'en';setTtsLang(L);lsSet('tts_lang',L);}},'TTS language: '+(ttsLang==='hi'?'हिन्दी':'English')),
         h('button',{onClick:function(){var v=!stadOn;setStadOn(v);lsSet('stad_on',v?'1':'0');if(v){try{unlockAudio();}catch(e){}}}},stadOn?'Stadium sounds: On':'Stadium sounds: Off'),
+        h('button',{onClick:function(){try{unlockAudio();setTimeout(function(){stadBeep('four');},180);}catch(e){} }},'Test stadium sound'),
         h('div',{className:'dd-title'},'Animation'),
         h('button',{onClick:function(){
           var cur=Number(lsGet('anim_ms','5000'))||5000;
@@ -2321,13 +2342,15 @@ tab==='schedule'?h('div',{className:'card'},
 tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(React.Fragment,null,
         h('div',{className:'card'},
           h('h3',null,'Ball-by-ball · by over'),
-          h('div',{className:'comm-toolbar'},
+          h('button',{className:'comm-settings-toggle',type:'button',onClick:function(){setCommSettingsOpen(function(v){return !v;});}},
+            h('span',null,'⚙ Commentary settings'),h('span',null,commSettingsOpen?'▴':'▾')),
+          commSettingsOpen?h('div',{className:'comm-toolbar'},
             h('button',{className:'btn'+(ttsOn?' primary':''),title:'TTS',onClick:function(){var v=!ttsOn;setTtsOn(v);lsSet('tts_on',v?'1':'0');try{unlockAudio();}catch(e){}}},ttsOn?'🔊':'🔇'),
             h('button',{className:'btn'+(ttsLang==='hi'?' primary':''),onClick:function(){setTtsLang('hi');lsSet('tts_lang','hi');}},'हि'),
             h('button',{className:'btn'+(ttsLang==='en'?' primary':''),onClick:function(){setTtsLang('en');lsSet('tts_lang','en');}},'EN'),
             h('button',{className:'btn'+(stadOn?' primary':''),title:'Stadium',onClick:function(){var v=!stadOn;setStadOn(v);lsSet('stad_on',v?'1':'0');try{unlockAudio();}catch(e){}}},stadOn?'🏟️':'🚫'),
             h('button',{className:'btn',title:'Refresh',onClick:function(){try{unlockAudio();}catch(e){}loadDetail(selected);}},'↻')
-          ),
+          ):null,
           h('div',{className:'muted',style:{marginBottom:10}},'Each over shows up to 6 legal balls (+ extras). End of over shows runs/wickets in that over.'),
           !oversDesc.length?h('div',{className:'muted'},loading?'Loading balls…':'No ball-by-ball data returned. Refresh once; if still empty, check fixture ball-data coverage and API plan access.'):null,
           oversDesc.map(function(ov,oi){
