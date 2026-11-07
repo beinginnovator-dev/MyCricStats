@@ -1,5 +1,5 @@
 /* MyCricStats network-first service worker. Never cache API responses. */
-const CACHE_NAME = 'mcs-v19';
+const CACHE_NAME = 'mcs-v20';
 self.addEventListener('install', event => {
   event.waitUntil(self.skipWaiting());
 });

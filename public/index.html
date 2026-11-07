@@ -253,7 +253,7 @@ body.theme-light .error-bar{background:#fef2f2;color:#991b1b}
 .ball-chip{min-width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;background:#475569}
 .ball-chip.c0{background:#64748b}.ball-chip.c1{background:#2563eb}.ball-chip.c2{background:#0ea5e9}.ball-chip.c3{background:#0284c7}
 .ball-chip.c4{background:#16a34a}.ball-chip.c6{background:#7c3aed}.ball-chip.cw{background:#e11d48}.ball-chip.cx{background:#9333ea}
-.ball-detail{padding:8px 12px;border-top:1px solid var(--line);font-size:13px;line-height:1.45}
+.ball-detail{padding:8px 12px;border-top:1px solid var(--line);font-size:15px;line-height:1.5;scroll-margin-top:76px}
 .ball-detail .ov{font-weight:800;color:var(--blue);margin-right:6px}
 .ball-detail .hi{font-weight:900;color:#fbbf24}
 .ball-detail .hi-w{font-weight:900;color:#fb7185}
@@ -1295,7 +1295,8 @@ function App(){
     var match=detail||selected;
     if(!match||!match.id)return;
     var matchId=String(match.id);
-    if(!Array.isArray(match.balls)||!match.balls.length){
+    var balls=Array.isArray(match.balls)?match.balls:[];
+    if(!balls.length){
       if(lastAudioMatchId.current!==matchId){
         lastAudioMatchId.current=matchId;
         lastAudioBallKey.current='';
@@ -1303,44 +1304,55 @@ function App(){
       }
       return;
     }
-    var ball=match.balls[match.balls.length-1];
+    // Ball history is normalized into chronological order before it reaches the UI.
+    var ball=balls[balls.length-1];
     if(!ball)return;
-    var key=matchId+'|'+String(ball.id||ball.ball||ball.updated_at||'')+'|'+String(ballRuns(ball))+'|'+String(ballIsWicket(ball));
+    var key=matchId+'|'+String(ball.id||ballDedupeKey(ball))+'|'+String(ballRuns(ball))+'|'+String(ballIsWicket(ball));
     var notation=parseBallNotation(ball);
     var overNo=notation.over;
     if(overNo==null&&ball.over!=null)overNo=Number(ball.over);
     if(overNo!=null&&!isFinite(overNo))overNo=null;
+    var innings=String(inningsKey(ball)||match.innings||'1');
     if(lastAudioMatchId.current!==matchId){
       lastAudioMatchId.current=matchId;
       lastAudioBallKey.current=key;
-      lastAudioOver.current=overNo; // establish baseline; never replay an old event on match selection
-      return;
+      lastAudioOver.current={innings:innings,over:overNo};
+      return; // Do not play old-ball sounds when a viewer first opens a match.
     }
     if(!lastAudioBallKey.current){
-      lastAudioBallKey.current=key;lastAudioOver.current=overNo;
-      // If this match was selected before play began, sound at the first delivery of over one.
-      if(stadOn&&overNo!=null&&(overNo===0||overNo===1)&&notation.ballInOver===1)stadBeep('over');
+      lastAudioBallKey.current=key;
+      lastAudioOver.current={innings:innings,over:overNo};
       return;
     }
     if(key===lastAudioBallKey.current)return;
-    var previousOver=lastAudioOver.current;
+    var previous=lastAudioOver.current||{};
     lastAudioBallKey.current=key;
-    lastAudioOver.current=overNo;
+    lastAudioOver.current={innings:innings,over:overNo};
     if(!stadOn)return;
     var runs=ballRuns(ball),isW=ballIsWicket(ball);
-    var scoreMeta=ball.score||{}, scoreLabel=String(scoreMeta.name||scoreMeta.action||ball.score_name||ball.type||'').toLowerCase();
+    var scoreMeta=ball.score||{};
+    var scoreLabel=String(scoreMeta.name||scoreMeta.action||ball.score_name||ball.type||'').toLowerCase();
     var isFour=runs===4||/\b(four|boundary)\b/.test(scoreLabel);
     var isSix=runs===6||/\b(six|maximum)\b/.test(scoreLabel);
-    // One sound per newly received delivery; wicket takes priority over a boundary.
-    if(isW)stadBeep('wicket');
-    else if(isFour||isSix)stadBeep(isSix?'six':'four');
-    else if(overNo!=null&&previousOver!=null&&overNo!==previousOver)stadBeep('over');
+    var newOver=(previous.over!=null&&overNo!=null&&
+      (String(previous.innings)!==innings||Number(overNo)!==Number(previous.over)));
+    var firstBall=(notation.ballInOver!=null&&Number(notation.ballInOver)===1);
+    // Wicket has priority; otherwise boundary sound; otherwise cue on first ball of a new over.
+    try{
+      if(isW)stadBeep('wicket');
+      else if(isFour||isSix)stadBeep(isSix?'six':'four');
+      else if(newOver||firstBall)stadBeep('over');
+    }catch(audioError){console.warn('Stadium event sound failed',audioError);}
   },[detail,selected,stadOn]);
   useEffect(function(){
-    function onFirstGesture(){unlockStadiumAudio();}
-    document.addEventListener('pointerdown',onFirstGesture,{once:true,passive:true});
-    document.addEventListener('touchstart',onFirstGesture,{once:true,passive:true});
-    document.addEventListener('keydown',onFirstGesture,{once:true});
+    // Mobile browsers require AudioContext to be resumed directly from a user gesture.
+    // Keep the context unlocked for the whole viewing session, not just the first tap.
+    function onFirstGesture(){
+      try{ unlockAudio(); }catch(e){ try{ unlockStadiumAudio(); }catch(e2){} }
+    }
+    document.addEventListener('pointerdown',onFirstGesture,{passive:true});
+    document.addEventListener('touchstart',onFirstGesture,{passive:true});
+    document.addEventListener('keydown',onFirstGesture);
     return function(){
       document.removeEventListener('pointerdown',onFirstGesture);
       document.removeEventListener('touchstart',onFirstGesture);
@@ -2363,7 +2375,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
                 var key=String(inningsKey(top)||'')+'-'+String(top.id||top.ball)+'-'+ballRuns(top)+'-'+ballIsWicket(top);
                 if(key!==lastBallKey.current){
                   lastBallKey.current=key;
-                  setTimeout(function(){if(tab==='commentary'&&commentaryLatestRef.current){try{commentaryLatestRef.current.scrollIntoView({behavior:'smooth',block:'start'});}catch(e){}}},80);
+                  setTimeout(function(){if(tab==='commentary'&&commentaryLatestRef.current){try{commentaryLatestRef.current.scrollIntoView({behavior:'smooth',block:'nearest'});}catch(e){}}},80);
                   var line=descriptiveLine(top,ttsLang);
                   if(ttsOn)speakText(line,ttsLang);
                   var runs=ballRuns(top), isW=ballIsWicket(top);
@@ -2392,7 +2404,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
                 }
               }catch(e){}
             }
-            return h('div',{key:oi,className:'over-card',ref:oi===0?commentaryLatestRef:null},
+            return h('div',{key:oi,className:'over-card'},
               h('div',{className:'over-head'},
                 h('span',null,(ov.inningsKey?('Innings '+ov.inningsKey+' · '):'')+'Over '+(ov.displayOver!=null?ov.displayOver:ov.overNo)),
                 h('span',{className:'sum'},ov.runs+' run'+(ov.runs===1?'':'s')+(ov.wickets?' · '+ov.wickets+' wkt'+(ov.wickets>1?'s':''):'')+' · '+ov.legal+'/6 balls')
@@ -2405,7 +2417,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
               ov.balls.slice().reverse().map(function(b,bi){
                 var line=descriptiveLine(b,ttsLang,ov.displayOver!=null?ov.displayOver:ov.overNo);
                 var cls=ballIsWicket(b)?'hi-w':(ballRuns(b)===4?'hi-4':(ballRuns(b)===6?'hi-6':(ballRuns(b)>0?'hi-run':'')));
-                return h('div',{key:'d'+bi,className:'ball-detail',style:{cursor:'pointer',display:'flex',alignItems:'flex-start',gap:8},onClick:function(){if(ttsOn)speakText(line,ttsLang);}},
+                return h('div',{key:'d'+bi,className:'ball-detail',ref:(oi===0&&bi===0)?commentaryLatestRef:null,style:{cursor:'pointer',display:'flex',alignItems:'flex-start',gap:8},onClick:function(){if(ttsOn)speakText(line,ttsLang);}},
                   h('span',{className:'ball-chip '+chipClass(b),style:{flexShrink:0,marginTop:2}},chipLabel(b)),
                   h('span',{dangerouslySetInnerHTML:{__html:colorEvents(line)}})
                 );
