@@ -384,7 +384,7 @@ var detailInFlight={};
 var DEFAULT_BG='https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=1200&q=60';
 // Sportmonks fixture endpoint allows up to 10 nested includes. Use only documented fixture relations. Keep this request
 // within that limit; oversized include lists can return HTTP 400 and break both tabs.
-var INCLUDE_LIST='localteam,visitorteam,runs,runs.team,batting,batting.batsman,bowling,bowling.bowler,lineup,venue';
+var INCLUDE_LIST='localteam,visitorteam,runs,runs.team,batting,batting.batsman,bowling,bowling.bowler,balls,balls.score';
 var INCLUDE_LIST_SCORECARD='runs,runs.team,batting,batting.batsman,batting.team,bowling,bowling.bowler,bowling.team,lineup';
 var INCLUDE_LIST_SCORECARD_LIGHT='runs,batting,bowling,lineup';
 var INCLUDE_LIST_LIGHT='localteam,visitorteam,runs';
@@ -1572,7 +1572,7 @@ function App(){
     if(!selected||!selected.id||statusOf(selected)!=='live')return;
     var id=setInterval(function(){
       if(document.visibilityState==='visible')loadDetail(selected,token,true);
-    },10000);
+    },5000);
     return function(){clearInterval(id);};
   },[selected&&selected.id,selected&&statusOf(selected),token]);
   useEffect(function(){
@@ -1672,7 +1672,7 @@ function App(){
       }
       // Ball-by-ball is dynamic, but refresh it independently and no more often
       // than every 12 seconds. This avoids a second/third API call every 8–10s.
-      if((statusOf(m)==='live'||!relationRows(best.balls).length) &&
+      if(!relationRows(best.balls).length &&
          now-(ballsRecoveryAt[mid]||0)>10000){
         ballsRecoveryAt[mid]=now;
         jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'balls,balls.batsman,balls.bowler,balls.score,balls.batsmanout,balls.catchstump,balls.runoutby'),{force:true})
