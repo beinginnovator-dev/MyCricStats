@@ -1077,8 +1077,10 @@ function playStadiumClip(kind){
         stadCrowd(stadCtx,t,1.9,kind==='six'?0.42:0.34);
         [520,660,790,920].forEach(function(f,i){stadTone(stadCtx,f,t+0.08+i*0.045,0.42,0.04,'triangle',f*1.12);});
       }else if(kind==='over'){
-        stadCrowd(stadCtx,t,0.95,0.22);
-        stadTone(stadCtx,440,t+0.08,0.24,0.04,'sine',560);
+        stadCrowd(stadCtx,t,0.95,0.30);
+        stadTone(stadCtx,440,t+0.08,0.24,0.06,'sine',560);
+      }else if(kind==='ball'){
+        stadTone(stadCtx,760,t,0.12,0.045,'triangle',520);
       }
     };
     if(stadCtx.state==='closed'){var Ctx=window.AudioContext||window.webkitAudioContext;stadCtx=new Ctx();}
@@ -1341,11 +1343,24 @@ function App(){
       if(isW)stadBeep('wicket');
       else if(isFour||isSix)stadBeep(isSix?'six':'four');
       else if(newOver||firstBall)stadBeep('over');
+      else stadBeep('ball');
     }catch(audioError){console.warn('Stadium event sound failed',audioError);}
   },[detail,selected,stadOn]);
   var lastCommentaryMatchId=useRef('');
   var lastCommentaryBallKey=useRef('');
   var lastCommentaryOrder=useRef(-1);
+  var lastFinishedSpokenMatchId=useRef('');
+  useEffect(function(){
+    var match=detail||selected;
+    if(!match||!match.id||statusOf(match)!=='finished')return;
+    var id=String(match.id);
+    if(lastFinishedSpokenMatchId.current===id)return;
+    lastFinishedSpokenMatchId.current=id;
+    if(ttsOn){
+      var resultText=teamName(match,'local')+' '+scoreLine(match).a+'. '+teamName(match,'visitor')+' '+scoreLine(match).b+'. '+(match.note||match.result||'Match finished.');
+      speakText('Match finished. '+resultText,ttsLang);
+    }
+  },[detail,selected,ttsOn,ttsLang]);
   useEffect(function(){
     var match=detail||selected;
     if(!match||!match.id)return;
@@ -2416,6 +2431,11 @@ tab==='schedule'?h('div',{className:'card'},
       )):null,
 
 tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(React.Fragment,null,
+        st==='finished'?h('div',{className:'card',style:{marginBottom:10,border:'1px solid rgba(34,197,94,.45)',background:'rgba(34,197,94,.08)'}},
+          h('div',{style:{fontWeight:900,fontSize:15,color:'#22c55e',marginBottom:5}},'🏁 MATCH FINISHED'),
+          h('div',{style:{fontWeight:800}},homeName+' '+sc.a+'  ·  '+awayName+' '+sc.b),
+          h('div',{style:{marginTop:4,fontWeight:700}},status||d.note||d.result||'Match completed')
+        ):null,
         h('div',{className:'card'},
           h('h3',null,'Ball-by-ball · by over'),
           h('button',{className:'comm-settings-toggle',type:'button',onClick:function(){setCommSettingsOpen(function(v){return !v;});}},
