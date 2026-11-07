@@ -1362,7 +1362,7 @@ function App(){
     var order=inningsNo*1000000000+(notation.over!=null&&notation.ballInOver!=null?(overNo*1000+ballNo):ordered.length);
     var key=matchId+'|'+String(inningsKey(ball)||'')+'|'+String(ball.id||ballDedupeKey(ball))+'|'+String(ballRuns(ball))+'|'+String(ballIsWicket(ball));
     if(tab==='commentary'&&commentaryLatestRef.current){
-      requestAnimationFrame(function(){try{commentaryLatestRef.current&&commentaryLatestRef.current.scrollIntoView({behavior:'smooth',block:'nearest'});}catch(e){}});
+      requestAnimationFrame(function(){try{commentaryLatestRef.current&&commentaryLatestRef.current.scrollIntoView({behavior:'smooth',block:'start'});}catch(e){}});
     }
     if(lastCommentaryMatchId.current!==matchId){
       lastCommentaryMatchId.current=matchId;
@@ -1421,7 +1421,8 @@ function App(){
   var _schedFilter=useState('latest');var schedFilter=_schedFilter[0],setSchedFilter=_schedFilter[1];
   var _flipIdx=useState(0);var flipIdx=_flipIdx[0],setFlipIdx=_flipIdx[1];
   var _statsOpen=useState(true);var statsOpen=_statsOpen[0],setStatsOpen=_statsOpen[1];
-  var _playersOpen=useState(true);var playersOpen=_playersOpen[0],setPlayersOpen=_playersOpen[1];
+  var _playersOpen=useState(function(){return lsGet('players_open','0')==='1';});var playersOpen=_playersOpen[0],setPlayersOpen=_playersOpen[1];
+  function setPlayersPanelOpen(open){setPlayersOpen(!!open);lsSet('players_open',open?'1':'0');}
   var _sponsorName=useState(function(){return lsGet('sponsor_name','');});var sponsorName=_sponsorName[0],setSponsorName=_sponsorName[1];
   var _sponsorLogo=useState(function(){return lsGet('sponsor_logo','');});var sponsorLogo=_sponsorLogo[0],setSponsorLogo=_sponsorLogo[1];
   var _unread=useState(0);var unread=_unread[0],setUnread=_unread[1];
@@ -2184,9 +2185,9 @@ function App(){
 
     
             h('div',{className:'players-bar'},
-              h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}},
-                h('span',{style:{fontSize:11,fontWeight:800,color:'#fde68a'}},'Scorecard'),
-                h('button',{className:'btn',style:{fontSize:10,padding:'2px 8px'},onClick:function(){setPlayersOpen(!playersOpen);}},playersOpen?'−':'＋')
+              h('div',{role:'button',tabIndex:0,'aria-expanded':playersOpen,style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4,minHeight:30,cursor:'pointer',touchAction:'manipulation'},onClick:function(){if(!playersOpen)setPlayersPanelOpen(true);},onKeyDown:function(e){if((e.key==='Enter'||e.key===' ')&&!playersOpen){e.preventDefault();setPlayersPanelOpen(true);}}},
+                h('span',{style:{fontSize:11,fontWeight:800,color:'#fde68a',flex:1}},'Current Players · Scorecard'),
+                h('button',{className:'btn',type:'button','aria-label':playersOpen?'Minimise current player scorecard':'Open current player scorecard',style:{fontSize:10,padding:'2px 8px'},onClick:function(e){e.stopPropagation();setPlayersPanelOpen(!playersOpen);}},playersOpen?'−':'＋')
               ),
               playersOpen?h(React.Fragment,null,
               h('table',{className:'players-table',style:{width:'100%',borderCollapse:'collapse',fontSize:14}},
@@ -2430,7 +2431,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
           !oversDesc.length?h('div',{className:'muted'},loading?'Loading balls…':'No ball-by-ball data returned. Refresh once; if still empty, check fixture ball-data coverage and API plan access.'):null,
           oversDesc.map(function(ov,oi){
             return h('div',{key:oi,className:'over-card'},
-              h('div',{className:'over-head'},
+              h('div',{className:'over-head',ref:oi===0?commentaryLatestRef:null},
                 h('span',null,(ov.inningsKey?('Innings '+ov.inningsKey+' · '):'')+'Over '+(ov.displayOver!=null?ov.displayOver:ov.overNo)),
                 h('span',{className:'sum'},ov.runs+' run'+(ov.runs===1?'':'s')+(ov.wickets?' · '+ov.wickets+' wkt'+(ov.wickets>1?'s':''):'')+' · '+ov.legal+'/6 balls')
               ),
@@ -2442,7 +2443,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
               ov.balls.slice().reverse().map(function(b,bi){
                 var line=descriptiveLine(b,ttsLang,ov.displayOver!=null?ov.displayOver:ov.overNo);
                 var cls=ballIsWicket(b)?'hi-w':(ballRuns(b)===4?'hi-4':(ballRuns(b)===6?'hi-6':(ballRuns(b)>0?'hi-run':'')));
-                return h('div',{key:'d'+bi,className:'ball-detail',ref:(oi===0&&bi===0)?commentaryLatestRef:null,style:{cursor:'pointer',display:'flex',alignItems:'flex-start',gap:8},onClick:function(){if(ttsOn)speakText(line,ttsLang);}},
+                return h('div',{key:'d'+bi,className:'ball-detail',ref:null,style:{cursor:'pointer',display:'flex',alignItems:'flex-start',gap:8},onClick:function(){if(ttsOn)speakText(line,ttsLang);}},
                   h('span',{className:'ball-chip '+chipClass(b),style:{flexShrink:0,marginTop:2}},chipLabel(b)),
                   h('span',{dangerouslySetInnerHTML:{__html:colorEvents(line)}})
                 );
