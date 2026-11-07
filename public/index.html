@@ -372,8 +372,8 @@ if(!window.React||!window.ReactDOM){
 var h=React.createElement,useState=React.useState,useEffect=React.useEffect,useCallback=React.useCallback,useRef=React.useRef;
 var THEMES=['dark','light','pitch','night'];
 var CACHE_MS=45000;
-var LIVE_CACHE_MS=5000;
-var DETAIL_CACHE_MS=6000;
+var LIVE_CACHE_MS=3000;
+var DETAIL_CACHE_MS=4000;
 var FIXTURE_CACHE_MS=120000;
 var memCache={};
 // Throttle secondary recovery requests so missing optional relations do not trigger
@@ -1286,7 +1286,6 @@ function App(){
   var _stadOn=useState(function(){var v=lsGet('stad_on','1');return v!=='0';});
   var stadOn=_stadOn[0],setStadOn=_stadOn[1];
   var _commSettingsOpen=useState(false);var commSettingsOpen=_commSettingsOpen[0],setCommSettingsOpen=_commSettingsOpen[1];
-  var lastBallKey=useRef('');
   var commentaryLatestRef=useRef(null);
   var lastAudioBallKey=useRef('');
   var lastAudioOver=useRef(null);
@@ -1344,6 +1343,55 @@ function App(){
       else if(newOver||firstBall)stadBeep('over');
     }catch(audioError){console.warn('Stadium event sound failed',audioError);}
   },[detail,selected,stadOn]);
+  var lastCommentaryMatchId=useRef('');
+  var lastCommentaryBallKey=useRef('');
+  var lastCommentaryOrder=useRef(-1);
+  useEffect(function(){
+    var match=detail||selected;
+    if(!match||!match.id)return;
+    var matchId=String(match.id);
+    var ordered=normalizeBalls(Array.isArray(match.balls)?match.balls:[]);
+    if(!ordered.length)return;
+    var ball=ordered[ordered.length-1];
+    if(!ball)return;
+    var notation=parseBallNotation(ball);
+    var inningsText=String(inningsKey(ball)||match.innings||'1');
+    var inningsNo=Number((inningsText.match(/[1-4]/)||[])[0]||1);
+    var overNo=notation.over==null?0:Number(notation.over);
+    var ballNo=notation.ballInOver==null?0:Number(notation.ballInOver);
+    var order=inningsNo*1000000000+(notation.over!=null&&notation.ballInOver!=null?(overNo*1000+ballNo):ordered.length);
+    var key=matchId+'|'+String(inningsKey(ball)||'')+'|'+String(ball.id||ballDedupeKey(ball))+'|'+String(ballRuns(ball))+'|'+String(ballIsWicket(ball));
+    if(tab==='commentary'&&commentaryLatestRef.current){
+      requestAnimationFrame(function(){try{commentaryLatestRef.current&&commentaryLatestRef.current.scrollIntoView({behavior:'smooth',block:'nearest'});}catch(e){}});
+    }
+    if(lastCommentaryMatchId.current!==matchId){
+      lastCommentaryMatchId.current=matchId;
+      lastCommentaryBallKey.current=key;
+      lastCommentaryOrder.current=order;
+      return; // Opening a match must not replay historical deliveries.
+    }
+    if(key===lastCommentaryBallKey.current||order<=lastCommentaryOrder.current)return;
+    lastCommentaryBallKey.current=key;
+    lastCommentaryOrder.current=Math.max(lastCommentaryOrder.current,order);
+    var line=descriptiveLine(ball,ttsLang);
+    if(ttsOn)speakText(line,ttsLang);
+    var runs=ballRuns(ball),isW=ballIsWicket(ball);
+    if(isW){
+      showEventBanner(setEvBanner,'wicket','WICKET');
+      var dismissal=String((ball.score&&(ball.score.out||ball.score.dismissal||ball.score.name))||'').toLowerCase();
+      var wLabel=/caught|catch/.test(dismissal)?'Wicket - Caught':/bowled/.test(dismissal)?'Wicket - Bowled':/lbw/.test(dismissal)?'Wicket - LBW':/run.?out/.test(dismissal)?'Wicket - Run out':/stump/.test(dismissal)?'Wicket - Stumped':'Wicket';
+      showBounce(setBounce,{kind:'wicket',label:wLabel,runs:0,ballNo:String(ball.ball||'')});
+    }else if(runs===6){showEventBanner(setEvBanner,'six','SIX!');showBounce(setBounce,{kind:'run',runs:6,ballNo:String(ball.ball||'')});}
+    else if(runs===4){showEventBanner(setEvBanner,'four','FOUR!');showBounce(setBounce,{kind:'run',runs:4,ballNo:String(ball.ball||'')});}
+    else if(ballIsExtra(ball)){
+      var scoreName=String((ball.score&&ball.score.name)||'').toLowerCase();
+      var extraKind=/wide/.test(scoreName)?'wide':/no.?ball/.test(scoreName)?'noball':/leg.?bye/.test(scoreName)?'legbye':/bye/.test(scoreName)?'bye':'wide';
+      showEventBanner(setEvBanner,'extra','EXTRA');showBounce(setBounce,{kind:extraKind,runs:runs,ballNo:String(ball.ball||'')});
+    }else if(runs>0){showEventBanner(setEvBanner,'runs',runs+' RUN'+(runs>1?'S':''));showBounce(setBounce,{kind:'run',runs:runs,ballNo:String(ball.ball||'')});}
+    else showBounce(setBounce,{kind:'dot',runs:0,ballNo:String(ball.ball||'')});
+    try{if(isW)triggerAd('wicket');else if(runs===6)triggerAd('six');else if(runs===4)triggerAd('four');}catch(e){}
+  },[detail,selected,tab,ttsOn,ttsLang]);
+
   useEffect(function(){
     // Mobile browsers require AudioContext to be resumed directly from a user gesture.
     // Keep the context unlocked for the whole viewing session, not just the first tap.
@@ -1524,7 +1572,7 @@ function App(){
     if(!selected||!selected.id||statusOf(selected)!=='live')return;
     var id=setInterval(function(){
       if(document.visibilityState==='visible')loadDetail(selected,token,true);
-    },7000);
+    },10000);
     return function(){clearInterval(id);};
   },[selected&&selected.id,selected&&statusOf(selected),token]);
   useEffect(function(){
@@ -1588,6 +1636,9 @@ function App(){
     tok=tok||token;
     var isGuest=false;try{isGuest=qs().get('view')==='1';}catch(e){}
     if((!tok&&!isGuest)||!m||!m.id)return;
+    var requestMatchId=String(m.id);
+    if(detailInFlight[requestMatchId])return;
+    detailInFlight[requestMatchId]=true;
     if(!silent){setLoading(true);setError(null);}
     var best=normaliseMatchDetail(m,m);
     try{var saved=JSON.parse(localStorage.getItem('mcs_balls_'+String(m.id))||'[]');if(Array.isArray(saved)&&saved.length)best.balls=mergeBallHistory(m.id,saved.concat(best.balls||[]),activeInningsKey(best));}catch(e){}
@@ -1622,7 +1673,7 @@ function App(){
       // Ball-by-ball is dynamic, but refresh it independently and no more often
       // than every 12 seconds. This avoids a second/third API call every 8–10s.
       if((statusOf(m)==='live'||!relationRows(best.balls).length) &&
-         now-(ballsRecoveryAt[mid]||0)>12000){
+         now-(ballsRecoveryAt[mid]||0)>10000){
         ballsRecoveryAt[mid]=now;
         jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'balls,balls.batsman,balls.bowler,balls.score,balls.batsmanout,balls.catchstump,balls.runoutby'),{force:true})
           .then(function(r){mergeData(r.data||{});})
@@ -1646,7 +1697,10 @@ function App(){
       var msg=(err&&err.message)||'Could not load match scorecard';
       if(!silent)setError(String(msg));
       setDetail(normaliseMatchDetail(best,m));
-    }).finally(function(){if(!silent)setLoading(false);});
+    }).finally(function(){
+      detailInFlight[requestMatchId]=false;
+      if(!silent)setLoading(false);
+    });
   }
 
   function activateMatchRoom(m){
@@ -1807,8 +1861,11 @@ function App(){
   var st=d?statusOf(d):'';
   var liveP=d?currentPlayers(d):{striker:'—',nonstriker:'—',bowler:'—',strikerS:{line1:'',line2:'',line3:''},nonstrikerS:{line1:'',line2:'',line3:''},bowlerS:{line1:'',line2:''}};
   var overs=groupIntoOvers(d&&d.balls||[]);
-  // newest over first for commentary
+  // newest over first for commentary; ball history itself is chronological.
   var oversDesc=overs.slice().reverse();
+  var latestBallList=normalizeBalls(d&&d.balls||[]);
+  var latestCommentaryBall=latestBallList.length?latestBallList[latestBallList.length-1]:null;
+  var latestCommentaryText=latestCommentaryBall?descriptiveLine(latestCommentaryBall,'en'):'';
 
   var filtered=matches.filter(function(m){
     if(filter==='all')return true;
@@ -2314,6 +2371,10 @@ tab==='schedule'?h('div',{className:'card'},
           h('h3',null,'Scorecard'),
           h('button',{className:'btn',style:{fontSize:11,padding:'5px 9px'},onClick:function(){if(selected)loadDetail(selected,token,false);}},loading?'Loading…':'↻ Refresh')
         ),
+        latestCommentaryBall?h('div',{className:'mcs-latest-ball',style:{margin:'4px 0 12px',padding:'10px 12px',borderRadius:10,background:'rgba(14,165,233,.12)',border:'1px solid rgba(56,189,248,.35)',fontSize:14,lineHeight:1.4,fontWeight:700}},
+          h('div',{style:{fontSize:10,fontWeight:900,letterSpacing:'.08em',color:'#38bdf8',marginBottom:3}},'LATEST BALL · '+String(latestCommentaryBall.ball||'')),
+          latestCommentaryText
+        ):null,
         h('div',{className:'filter-row'},
           h('button',{className:scTeam==='home'?'on':'',onClick:function(){setScTeam('home');}},homeName||'Home'),
           h('button',{className:scTeam==='away'?'on':'',onClick:function(){setScTeam('away');}},awayName||'Away')
@@ -2368,42 +2429,6 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
           h('div',{className:'muted',style:{marginBottom:10}},'Each over shows up to 6 legal balls (+ extras). End of over shows runs/wickets in that over.'),
           !oversDesc.length?h('div',{className:'muted'},loading?'Loading balls…':'No ball-by-ball data returned. Refresh once; if still empty, check fixture ball-data coverage and API plan access.'):null,
           oversDesc.map(function(ov,oi){
-            // fire TTS on newest ball once
-            if(oi===0&&ov.balls.length){
-              try{
-                var top=ov.balls[ov.balls.length-1];
-                var key=String(inningsKey(top)||'')+'-'+String(top.id||top.ball)+'-'+ballRuns(top)+'-'+ballIsWicket(top);
-                if(key!==lastBallKey.current){
-                  lastBallKey.current=key;
-                  setTimeout(function(){if(tab==='commentary'&&commentaryLatestRef.current){try{commentaryLatestRef.current.scrollIntoView({behavior:'smooth',block:'nearest'});}catch(e){}}},80);
-                  var line=descriptiveLine(top,ttsLang);
-                  if(ttsOn)speakText(line,ttsLang);
-                  var runs=ballRuns(top), isW=ballIsWicket(top);
-                  
-                  if(isW){
-                  showEventBanner(setEvBanner,'wicket','WICKET');
-                  var wLabel='Wicket';try{var sn=String((top.score&&(top.score.out||top.score.dismissal||top.score.name))||'').toLowerCase();if(/caught|catch/.test(sn))wLabel='Wicket - Caught';else if(/bowled/.test(sn))wLabel='Wicket - Bowled';else if(/lbw/.test(sn))wLabel='Wicket - LBW';else if(/run.?out/.test(sn))wLabel='Wicket - Run out';else if(/stump/.test(sn))wLabel='Wicket - Stumped';}catch(e){}showBounce(setBounce,{kind:'wicket',label:wLabel,runs:0,ballNo:String(top.ball||'')});
-                } else if(runs===6){
-                  showEventBanner(setEvBanner,'six','SIX!');showBounce(setBounce,{kind:'run',runs:6,ballNo:String(top.ball||'')});
-                } else if(runs===4){
-                  showEventBanner(setEvBanner,'four','FOUR!');showBounce(setBounce,{kind:'run',runs:4,ballNo:String(top.ball||'')});
-                } else if(ballIsExtra(top)){
-                  var sn=String((top.score&&top.score.name)||'').toLowerCase();
-                  var ek=/wide/.test(sn)?'wide':/no.?ball/.test(sn)?'noball':/leg.?bye/.test(sn)?'legbye':/bye/.test(sn)?'bye':'wide';
-                  showEventBanner(setEvBanner,'extra','EXTRA');
-                  showBounce(setBounce,{kind:ek,runs:runs,ballNo:String(top.ball||'')});
-                } else if(runs>0){
-                  showEventBanner(setEvBanner,'runs',runs+' RUN'+(runs>1?'S':''));
-                  showBounce(setBounce,{kind:'run',runs:runs,ballNo:String(top.ball||'')});
-                } else {
-                  showBounce(setBounce,{kind:'dot',runs:0,ballNo:String(top.ball||'')});
-                }
-                  try{if(isW)triggerAd('wicket');else if(runs===6)triggerAd('six');else if(runs===4)triggerAd('four');
-                    if(ov.legal>=6)triggerAd('end_over');
-                  }catch(e){}
-                }
-              }catch(e){}
-            }
             return h('div',{key:oi,className:'over-card'},
               h('div',{className:'over-head'},
                 h('span',null,(ov.inningsKey?('Innings '+ov.inningsKey+' · '):'')+'Over '+(ov.displayOver!=null?ov.displayOver:ov.overNo)),
