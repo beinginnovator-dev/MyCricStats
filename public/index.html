@@ -357,6 +357,23 @@ body.theme-light .broadcast .tname,body.theme-light .broadcast .score-num,body.t
 .comm-settings-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;margin:0 0 9px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2);color:var(--text);font:700 12px Montserrat,system-ui;cursor:pointer}
 
 </style>
+
+<style id="mcs-readable-scorecard-chat-adjustments">
+/* Requested readability and compact delivery-ball treatment. */
+.ball-detail{font-size:13px!important;line-height:1.5!important}
+.players-bar table th,.players-bar table td{font-size:calc(1em + 1px)!important}
+.players-row .pbox .k{font-size:11px!important}
+.players-row .pbox .v{font-size:15px!important}
+.bounce-ball{width:56px!important}
+.bounce-ball .ball-core{width:52px!important;height:52px!important}
+.bounce-ball .ball-core:after{inset:9px 16px!important}
+.bounce-ball .run-stamp,.bounce-ball .run-stamp.sw{font-weight:1000!important}
+.chat-pop,.chat-pop.compact,.chat-pop.large,.chat-pop.maximized{
+  top:var(--mcs-chat-top,58vh)!important;
+  bottom:calc(8px + env(safe-area-inset-bottom))!important;
+}
+</style>
+
 </head>
 <body class="theme-dark">
 <div id="root"></div>
@@ -1508,9 +1525,11 @@ function App(){
       if(raf)cancelAnimationFrame(raf);
       raf=requestAnimationFrame(function(){
         var playerCard=document.querySelector('.players-bar');
+        var scoreBody=document.querySelector('.scoreboard-body');
         var broadcast=document.querySelector('.broadcast');
-        // Keep the whole broadcast scoreboard and Current Players · Scorecard visible.
-        var top=playerCard?playerCard.getBoundingClientRect().bottom+8:(broadcast?broadcast.getBoundingClientRect().bottom+8:window.innerHeight*.56);
+        // Start chat below the complete scorecard (including match/date and player rows).
+        var anchor=playerCard||scoreBody||broadcast;
+        var top=anchor?anchor.getBoundingClientRect().bottom+8:window.innerHeight*.56;
         top=Math.max(96,top);
         document.documentElement.style.setProperty('--mcs-chat-top',Math.round(top)+'px');
         setChatTop(Math.round(top)+'px');
