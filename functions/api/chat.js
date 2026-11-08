@@ -38,7 +38,7 @@ async function roomData(db, room, memberId, isHost) {
   const now = Date.now();
   const list = (viewers.results || []).map(v => ({
     ...v, online: now - Number(v.last || 0) < 45000,
-    blocked: !!v.blocked, removed: !!v.removed
+    blocked: !!v.blocked, removed: !!v.removed, muted: !!v.muted
   }));
   return {
     messages: (messages.results || []).reverse().map(m => ({ ...m, edited: !!m.edited })),
@@ -62,7 +62,7 @@ export async function onRequest({ request, env }) {
       const messages = await db.prepare('SELECT id, member_id AS memberId, name, text, type, created_at AS t, edited FROM mcs_messages WHERE room_id = ? ORDER BY created_at DESC LIMIT ?').bind(room, MAX_MESSAGES).all();
       const viewers = await db.prepare('SELECT member_id AS memberId, name, role, last_seen AS last, blocked, removed FROM mcs_members WHERE room_id = ? AND removed = 0 ORDER BY joined_at ASC').bind(room).all();
       const now = Date.now();
-      return json({ messages: (messages.results || []).reverse(), viewers: (viewers.results || []).map(v => ({...v, online: now - Number(v.last || 0) < 45000, blocked: !!v.blocked})) });
+      return json({ messages: (messages.results || []).reverse(), viewers: (viewers.results || []).map(v => ({...v, online: now - Number(v.last || 0) < 45000, blocked: !!v.blocked, muted: !!v.muted})) });
     } catch (e) { return json({ message: String(e.message || e) }, 500); }
   }
   if (request.method !== 'POST') return json({ message: 'Method not allowed' }, 405);
@@ -85,11 +85,12 @@ export async function onRequest({ request, env }) {
     if (!roomRow) return json({ message: 'This match room has not been created by its host yet.' }, 404);
     const isHost = !!(ownerToken && await sha256(ownerToken) === roomRow.owner_hash);
 
-    const existing = await db.prepare('SELECT blocked, removed, last_seen FROM mcs_members WHERE room_id = ? AND member_id = ?').bind(room, memberId).first();
+    const existing = await db.prepare('SELECT blocked, removed, muted, last_seen FROM mcs_members WHERE room_id = ? AND member_id = ?').bind(room, memberId).first();
     if (existing && (existing.blocked || existing.removed) && !isHost) {
       return json({ message: existing.blocked ? 'You are blocked from this room.' : 'You were removed from this room.' }, 403);
     }
     const now = Date.now();
+    if (existing && existing.muted && action === 'send' && !isHost) return json({ message: 'You are muted in this room. You can still read messages.' }, 403);
     if (action === 'leave') {
       if (existing) {
         await db.prepare('UPDATE mcs_members SET last_seen = ? WHERE room_id = ? AND member_id = ?').bind(now - 60000, room, memberId).run();
@@ -139,9 +140,17 @@ export async function onRequest({ request, env }) {
         await db.prepare('UPDATE mcs_members SET blocked = 1, last_seen = ? WHERE room_id = ? AND member_id = ?').bind(now, room, target).run();
       } else if (moderation === 'unblock') {
         await db.prepare('UPDATE mcs_members SET blocked = 0, removed = 0, last_seen = ? WHERE room_id = ? AND member_id = ?').bind(now, room, target).run();
+      } else if (moderation === 'mute') {
+        await db.prepare('UPDATE mcs_members SET muted = 1, last_seen = ? WHERE room_id = ? AND member_id = ?').bind(now, room, target).run();
+      } else if (moderation === 'unmute') {
+        await db.prepare('UPDATE mcs_members SET muted = 0, last_seen = ? WHERE room_id = ? AND member_id = ?').bind(now, room, target).run();
+      } else if (moderation === 'delete_message') {
+        const messageId = clean(body.messageId, 100);
+        if (!messageId) return json({ message: 'Message id is required.' }, 400);
+        await db.prepare('DELETE FROM mcs_messages WHERE id = ? AND room_id = ?').bind(messageId, room).run();
       } else return json({ message: 'Unknown moderation action.' }, 400);
       const targetRow = await db.prepare('SELECT name FROM mcs_members WHERE room_id = ? AND member_id = ?').bind(room, target).first();
-      await logActivity(db, room, target, targetRow?.name || 'Member', moderation, `Host ${moderation} member`, now);
+      await logActivity(db, room, target, targetRow?.name || 'Member', moderation, moderation === 'delete_message' ? 'Host deleted a member message' : `Host ${moderation} member`, now);
     }
 
     // Bound room history and keep one live membership row per device/user.
