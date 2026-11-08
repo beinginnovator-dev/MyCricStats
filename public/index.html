@@ -551,7 +551,7 @@ var detailInFlight={};
 var DEFAULT_BG='https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=1200&q=60';
 // Sportmonks fixture endpoint allows up to 10 nested includes. Use only documented fixture relations. Keep this request
 // within that limit; oversized include lists can return HTTP 400 and break both tabs.
-var INCLUDE_LIST='localteam,visitorteam,runs,runs.team,batting,batting.batsman,bowling,bowling.bowler,balls,balls.score,lineup,lineup.player,lineup.team';
+var INCLUDE_LIST='localteam,visitorteam,runs,runs.team,batting,batting.batsman,bowling,bowling.bowler,balls,balls.score,lineup';
 var INCLUDE_LIST_SCORECARD='runs,runs.team,batting,batting.batsman,batting.team,bowling,bowling.bowler,bowling.team,lineup';
 var INCLUDE_LIST_SCORECARD_LIGHT='runs,batting,bowling,lineup';
 var INCLUDE_LIST_LIGHT='localteam,visitorteam,runs';
@@ -1885,7 +1885,7 @@ function App(){
       if(!relationRows(best.lineup).length &&
          now-(lineupRecoveryAt[mid]||0)>60000){
         lineupRecoveryAt[mid]=now;
-        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'localteam,visitorteam,lineup,lineup.player,lineup.team'),{force:true})
+        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'localteam,visitorteam,lineup'),{force:true})
           .then(function(r){mergeData(r.data||{});})
           .catch(function(e){console.warn('Sportmonks lineup recovery failed',e);}));
       }
