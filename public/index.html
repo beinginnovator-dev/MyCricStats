@@ -498,6 +498,30 @@ body.theme-dark,body.theme-night{background:radial-gradient(ellipse at 50% -15%,
 .squad-player-meta{font-size:13px!important}
 </style>
 
+
+<style id="mcs-requested-font-pitch-final">
+/* Player display hierarchy: live/current player card slightly smaller; full batting/bowling scorecards larger. */
+.players-bar .live-player-name{font-size:17px!important}
+.players-bar .live-player-stats b{font-size:17px!important}
+.players-bar table td{font-size:calc(1em + 2px)!important}
+.players-bar table th{font-size:12px!important}
+.players-row .pbox .v{font-size:16px!important}
+.score-player-name{font-size:17px!important}
+.card table td{font-size:17px!important}
+.card table th{font-size:12px!important}
+/* All navigation tabs +2pt from the current 14pt setting. */
+.tabs button{font-size:16px!important}
+/* Minimal white pitch sketch: transparent field, white outline/creases/stumps. */
+.cricket-pitch{height:42px!important;margin:6px 4px 4px!important;padding:3px 7px!important;background:transparent!important;border:1px solid rgba(255,255,255,.72)!important;border-radius:7px!important;box-shadow:none!important}
+.pitch-strip{height:28px!important;background:transparent!important;border:1px solid rgba(255,255,255,.9)!important;border-left:0!important;border-right:0!important}
+.pitch-wicket{height:28px!important;background:transparent!important}
+.pitch-wicket i{background:#fff!important;box-shadow:none!important}
+.pitch-wicket:before{background:#fff!important}
+.pitch-crease{background:#fff!important;opacity:.95!important}
+/* Off-white ball with dark seam so it remains visible against the white sketch. */
+.pitch-ball{width:11px!important;height:11px!important;background:radial-gradient(circle at 30% 25%,#fff 0%,#f1f3f5 62%,#cbd2d9 100%)!important;border:1px solid #64748b!important;box-shadow:0 0 0 1px rgba(255,255,255,.55),0 1px 3px #000!important}
+.pitch-ball i{border-left-color:#334155!important;border-width:1.5px!important}
+</style>
 </head>
 <body class="theme-dark">
 <div id="root"></div>
@@ -2735,7 +2759,27 @@ tab==='squad'?(!selected?h('div',{className:'empty'},'Select a match'):h('div',{
           h('button',{className:squadTeam==='away'?'on':'',onClick:function(){setSquadTeam('away');}},awayName||'Away')
         ),
         (function(){
-          var list=d&&d.lineup||[];
+          var officialLineup=relationRows(d&&d.lineup);
+          var list=officialLineup.slice();
+          // Some Sportmonks fixtures expose the lineup relation without nested player/team
+          // details, or omit it entirely. Supplement the display with players actually
+          // present in the batting/bowling scorecard so the Squad tab is not blank.
+          if(!list.length){
+            (d&&d.batting||[]).forEach(function(row){
+              var pl=unwrapRelation(row.batsman)||unwrapRelation(row.player)||row;
+              list.push({player:pl,player_id:row.batsman_id||row.player_id||(pl&&pl.id),team_id:row.team_id,team:row.team});
+            });
+            (d&&d.bowling||[]).forEach(function(row){
+              var pl=unwrapRelation(row.bowler)||unwrapRelation(row.player)||row;
+              list.push({player:pl,player_id:row.bowler_id||row.player_id||(pl&&pl.id),team_id:row.team_id,team:row.team});
+            });
+            var seen={};
+            list=list.filter(function(p){
+              var pl=unwrapRelation(p.player)||p;
+              var key=String(p.player_id||pl.id||playerName(pl)).toLowerCase();
+              if(!key||seen[key])return false;seen[key]=true;return true;
+            });
+          }
           var homeId=d&&d.localteam_id;
           var awayId=d&&d.visitorteam_id;
           var filtered=list.filter(function(p){
@@ -2752,9 +2796,10 @@ tab==='squad'?(!selected?h('div',{className:'empty'},'Select a match'):h('div',{
             return false;
           });
           
-          if(!list.length)return h('div',{className:'muted'},loading?'Loading…':'No lineup on this fixture yet.');
-          if(!filtered.length)return h('div',{className:'muted'},'No players listed for this team.');
+          if(!list.length)return h('div',{className:'muted'},loading?'Loading…':'No lineup or scorecard players are available for this fixture yet.');
+          if(!filtered.length)return h('div',{className:'muted'},'No players listed for this team. Team details were not supplied for this fixture.');
           return h('div',null,
+            !officialLineup.length?h('div',{className:'muted',style:{marginBottom:8}},'Showing players who appeared in the scorecard; the provider has not supplied the official squad list.'):null,
             filtered.slice(0,25).map(function(p,i){
               var pl=p.player||p;
               var name=playerName(p)||playerName(pl)||'Player';
