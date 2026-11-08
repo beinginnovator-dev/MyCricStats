@@ -133,7 +133,7 @@ export async function onRequest({ request, env }) {
       if (!isHost) return json({ message: 'Only the room host can manage members.' }, 403);
       const target = clean(body.targetMemberId, 100);
       const moderation = clean(body.moderation, 20);
-      if (!target || target === memberId) return json({ message: 'Choose another room member.' }, 400);
+      if (moderation !== 'delete_message' && (!target || target === memberId)) return json({ message: 'Choose another room member.' }, 400);
       if (moderation === 'remove') {
         await db.prepare('UPDATE mcs_members SET removed = 1, last_seen = ? WHERE room_id = ? AND member_id = ?').bind(now, room, target).run();
       } else if (moderation === 'block') {
@@ -147,6 +147,9 @@ export async function onRequest({ request, env }) {
       } else if (moderation === 'delete_message') {
         const messageId = clean(body.messageId, 100);
         if (!messageId) return json({ message: 'Message id is required.' }, 400);
+        const messageRow = await db.prepare('SELECT member_id FROM mcs_messages WHERE id = ? AND room_id = ?').bind(messageId, room).first();
+        if (!messageRow) return json({ message: 'Message not found.' }, 404);
+        target = messageRow.member_id;
         await db.prepare('DELETE FROM mcs_messages WHERE id = ? AND room_id = ?').bind(messageId, room).run();
       } else return json({ message: 'Unknown moderation action.' }, 400);
       const targetRow = await db.prepare('SELECT name FROM mcs_members WHERE room_id = ? AND member_id = ?').bind(room, target).first();
