@@ -68,7 +68,7 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .bounce-ball .run-stamp.s3{color:#0d9488}
 .bounce-ball .run-stamp.s4{color:#16a34a}
 .bounce-ball .run-stamp.s6{color:#7c3aed}
-.bounce-ball .run-stamp.sw{color:#dc2626;font-size:11px;min-width:52px}
+.bounce-ball .run-stamp.sw{color:#fff!important;background:#dc2626!important;font-size:17px!important;min-width:112px!important;padding:9px 14px!important;border:3px solid #fff!important;}
 .bounce-ball .run-stamp.swd{color:#db2777}
 .bounce-ball .run-stamp.snb{color:#c026d3}
 .bounce-ball .run-stamp.slb{color:#9333ea}
@@ -1068,7 +1068,22 @@ function unlockStadiumAudio(){
         stadiumAudioPlayers[key]=audio;
       }
       var a=stadiumAudioPlayers[key];
-      try{a.load();}catch(e){}
+      // Unlock each media element during the real user gesture. Merely calling
+      // load() does not grant autoplay permission on Android Chrome/WebView.
+      try{
+        a.muted=true;
+        var unlockPromise=a.play();
+        if(unlockPromise&&unlockPromise.then){
+          unlockPromise.then(function(){
+            a.pause();a.currentTime=0;a.muted=false;
+          }).catch(function(err){
+            a.muted=false;
+            console.warn('Stadium audio needs a user tap:',stadiumAudioSources[key],err);
+          });
+        }else{
+          a.pause();a.currentTime=0;a.muted=false;
+        }
+      }catch(e){a.muted=false;console.warn('Stadium audio unlock failed:',stadiumAudioSources[key],e);}
     });
     stadiumAudioUnlocked=true;
   }catch(e){console.warn('Stadium audio preload failed',e);}
