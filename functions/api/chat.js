@@ -131,7 +131,7 @@ export async function onRequest({ request, env }) {
       }
     } else if (action === 'moderate') {
       if (!isHost) return json({ message: 'Only the room host can manage members.' }, 403);
-      const target = clean(body.targetMemberId, 100);
+      let target = clean(body.targetMemberId, 100);
       const moderation = clean(body.moderation, 20);
       if (moderation !== 'delete_message' && (!target || target === memberId)) return json({ message: 'Choose another room member.' }, 400);
       if (moderation === 'remove') {
