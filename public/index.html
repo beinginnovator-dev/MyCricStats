@@ -980,20 +980,37 @@ function descriptiveLine(b, lang, forceOver){
   if(runs===3)return head+'Three runs — excellent running between the wickets.';
   return head+(runs||0)+' run'+((runs||0)===1?'':'s')+'.';
 }
+var mcsSpeechPrimed=false;
+function primeSpeech(){
+  try{
+    if(!window.speechSynthesis||mcsSpeechPrimed)return;
+    mcsSpeechPrimed=true;
+    var u=new SpeechSynthesisUtterance('Commentary ready.');
+    u.lang='en-IN';u.rate=1;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.resume();
+    window.speechSynthesis.speak(u);
+  }catch(e){mcsSpeechPrimed=false;console.warn('Speech unlock failed',e);}
+}
 function speakText(text, lang){
   try{
-    if(!window.speechSynthesis||!text)return;
-    window.speechSynthesis.cancel();
-    text=String(text).replace(/\*/g,'').replace(/\s+/g,' ').trim();
-    if(!text)return;
+    if(!window.speechSynthesis||!text)return false;
+    text=String(text).replace(/\\*/g,'').replace(/\\s+/g,' ').trim();
+    if(!text)return false;
+    var synth=window.speechSynthesis;
+    synth.resume();
+    synth.cancel();
     var u=new SpeechSynthesisUtterance(text);
     u.lang=lang==='hi'?'hi-IN':'en-IN';
     u.rate=lang==='hi'?0.95:1;
-    var voices=window.speechSynthesis.getVoices()||[];
-    var prefer=voices.find(function(v){return (lang==='hi'?/hi/i:/en/i).test(v.lang);});
+    u.volume=1;
+    var voices=synth.getVoices()||[];
+    var prefer=voices.find(function(v){return lang==='hi'?/^hi(-|$)/i.test(v.lang):/^en(-|$)/i.test(v.lang);});
     if(prefer)u.voice=prefer;
-    window.speechSynthesis.speak(u);
-  }catch(e){}
+    u.onerror=function(e){console.warn('Commentary TTS error',e&&e.error||e);};
+    synth.speak(u);
+    return true;
+  }catch(e){console.warn('Commentary TTS failed',e);return false;}
 }
 var stadCtx=null;
 var stadUnlocked=false;
@@ -1385,7 +1402,9 @@ function App(){
       lastCommentaryOrder.current=order;
       return; // Opening a match must not replay historical deliveries.
     }
-    if(key===lastCommentaryBallKey.current||order<=lastCommentaryOrder.current)return;
+    // Ball identifiers are the reliable dedupe key; provider over notation can
+    // arrive late or be re-numbered, so do not suppress a new delivery by order alone.
+    if(key===lastCommentaryBallKey.current)return;
     lastCommentaryBallKey.current=key;
     lastCommentaryOrder.current=Math.max(lastCommentaryOrder.current,order);
     var line=descriptiveLine(ball,ttsLang);
@@ -1410,8 +1429,11 @@ function App(){
   useEffect(function(){
     // Mobile browsers require AudioContext to be resumed directly from a user gesture.
     // Keep the context unlocked for the whole viewing session, not just the first tap.
+    var speechPrimed=false;
     function onFirstGesture(){
       try{ unlockAudio(); }catch(e){ try{ unlockStadiumAudio(); }catch(e2){} }
+      // Speech synthesis also needs a real user gesture on many Android browsers.
+      if(!speechPrimed){speechPrimed=true;try{primeSpeech();}catch(e3){}}
     }
     document.addEventListener('pointerdown',onFirstGesture,{passive:true});
     document.addEventListener('touchstart',onFirstGesture,{passive:true});
@@ -1913,7 +1935,7 @@ function App(){
           )
         ),
         bounce?h('div',{className:'ball-stage'},
-          h('div',{key:bounce.key,className:'bounce-ball show approach'},
+          h('div',{key:bounce.key,className:'bounce-ball show approach '+(bounce.anim||'')},
             h('div',{className:'ball-core'},
               h('div',{className:'run-stamp '+(bounce.stampCls||'')},bounce.stampText||'')
             ),
@@ -2441,7 +2463,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
           h('button',{className:'comm-settings-toggle',type:'button',onClick:function(){setCommSettingsOpen(function(v){return !v;});}},
             h('span',null,'⚙ Commentary settings'),h('span',null,commSettingsOpen?'▴':'▾')),
           commSettingsOpen?h('div',{className:'comm-toolbar'},
-            h('button',{className:'btn'+(ttsOn?' primary':''),title:'TTS',onClick:function(){var v=!ttsOn;setTtsOn(v);lsSet('tts_on',v?'1':'0');try{unlockAudio();}catch(e){}}},ttsOn?'🔊':'🔇'),
+            h('button',{className:'btn'+(ttsOn?' primary':''),title:'TTS',onClick:function(){var v=!ttsOn;setTtsOn(v);lsSet('tts_on',v?'1':'0');try{unlockAudio();if(v){primeSpeech();speakText(ttsLang==='hi'?'कमेंट्री चालू है।':'Commentary enabled.',ttsLang);}}catch(e){}}},ttsOn?'🔊':'🔇'),
             h('button',{className:'btn'+(ttsLang==='hi'?' primary':''),onClick:function(){setTtsLang('hi');lsSet('tts_lang','hi');}},'हि'),
             h('button',{className:'btn'+(ttsLang==='en'?' primary':''),onClick:function(){setTtsLang('en');lsSet('tts_lang','en');}},'EN'),
             h('button',{className:'btn'+(stadOn?' primary':''),title:'Stadium',onClick:function(){var v=!stadOn;setStadOn(v);lsSet('stad_on',v?'1':'0');try{unlockAudio();}catch(e){}}},stadOn?'🏟️':'🚫'),
