@@ -3266,3 +3266,25 @@ body.theme-light .mc-scores{background:#eaf2f2;color:#10243a!important}
   box-shadow:0 4px 11px rgba(0,0,0,.5),0 0 0 2px #991b1b!important;
 }
 </style>
+
+
+<style id="mcs-floating-ball-stop-breathe">
+/* Ball reaches the centre VS mark, pauses there, breathes, then fades away */
+.bounce-ball.approach,
+.bounce-ball.approach.r6,
+.bounce-ball.approach.r4,
+.bounce-ball.approach.rw{
+  animation:mcsBallStopBreathe 5s ease-in-out forwards!important;
+}
+@keyframes mcsBallStopBreathe{
+  0%{opacity:0;transform:translateY(80px) scale(.62)}
+  16%{opacity:1;transform:translateY(0) scale(1.04)}
+  25%{opacity:1;transform:translateY(0) scale(1)}
+  38%{opacity:1;transform:translateY(0) scale(1.07)}
+  50%{opacity:1;transform:translateY(0) scale(1)}
+  62%{opacity:1;transform:translateY(0) scale(1.07)}
+  74%{opacity:1;transform:translateY(0) scale(1)}
+  88%{opacity:.85;transform:translateY(0) scale(1.02)}
+  100%{opacity:0;transform:translateY(0) scale(.98)}
+}
+</style>
