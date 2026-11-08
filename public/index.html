@@ -374,6 +374,41 @@ body.theme-light .broadcast .tname,body.theme-light .broadcast .score-num,body.t
 }
 </style>
 
+
+<style id="mcs-player-cards-fonts-chat-overlay">
+/* Two-point increase for all navigation labels and all player scorecard figures. */
+.tabs button{font-size:13px!important}
+.players-bar .live-player-role{font-size:12px!important}
+.players-bar .live-player-name{font-size:16px!important}
+.players-bar .live-player-stats b{font-size:16px!important}
+.players-bar .live-player-stats small{font-size:11px!important}
+.players-bar>div:first-child span{font-size:13px!important}
+.players-bar>div:first-child button{font-size:12px!important}
+.live-player-cards{display:grid;grid-template-columns:1fr;gap:7px;margin-top:5px}
+.live-player-card{padding:9px 10px;border:1px solid rgba(84,215,255,.2);border-radius:12px;background:linear-gradient(135deg,rgba(18,42,66,.92),rgba(7,22,40,.92))}
+.live-player-card.striker-card{border-left:3px solid #22c58b}
+.live-player-card.nonstriker-card{border-left:3px solid #54d7ff}
+.live-player-card.bowler-card{border-left:3px solid #ffb84d}
+.live-player-role{font-weight:900;letter-spacing:.08em;color:#9fc8e7;margin-bottom:3px}
+.live-player-name{font-weight:900;color:#fff;line-height:1.25;margin-bottom:7px}
+.live-player-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;text-align:center}
+.live-player-stats span{display:flex;flex-direction:column;min-width:0}
+.live-player-stats b{font-weight:900;color:#fff;font-variant-numeric:tabular-nums}
+.live-player-stats small{font-weight:800;color:#91abc5;letter-spacing:.04em}
+body.theme-light .live-player-card{background:linear-gradient(135deg,#f2f8fa,#e8f2f5);border-color:#d4e3e8}
+body.theme-light .live-player-name,body.theme-light .live-player-stats b{color:#10243a}
+body.theme-light .live-player-role,body.theme-light .live-player-stats small{color:#526d80}
+/* Chat overlays all lower-page tabs/content, while the full broadcast scoreboard remains above it. */
+.chat-pop,.chat-pop.compact,.chat-pop.large,.chat-pop.maximized{
+  left:5px!important;right:5px!important;width:auto!important;max-width:760px!important;
+  top:var(--mcs-chat-top,56vh)!important;bottom:0!important;height:auto!important;max-height:none!important;
+  transform:none!important;z-index:2147482000!important;border-radius:17px 17px 0 0!important;
+}
+.chat-pop.maximized{top:var(--mcs-chat-top,56vh)!important;bottom:0!important;height:auto!important;max-height:none!important}
+.chat-pop.minimized{top:auto!important;bottom:0!important;height:50px!important;max-height:50px!important}
+@media(max-width:380px){.tabs button{font-size:13px!important}.live-player-stats{gap:2px}.live-player-card{padding:8px}}
+</style>
+
 </head>
 <body class="theme-dark">
 <div id="root"></div>
@@ -1524,12 +1559,9 @@ function App(){
     function syncChatTop(){
       if(raf)cancelAnimationFrame(raf);
       raf=requestAnimationFrame(function(){
-        var playerCard=document.querySelector('.players-bar');
-        var scoreBody=document.querySelector('.scoreboard-body');
         var broadcast=document.querySelector('.broadcast');
-        // Start chat below the complete scorecard (including match/date and player rows).
-        var anchor=playerCard||scoreBody||broadcast;
-        var top=anchor?anchor.getBoundingClientRect().bottom+8:window.innerHeight*.56;
+        // Preserve the complete team scoreboard and delivery animation; cover the content below it.
+        var top=broadcast?broadcast.getBoundingClientRect().bottom+6:window.innerHeight*.42;
         top=Math.max(96,top);
         document.documentElement.style.setProperty('--mcs-chat-top',Math.round(top)+'px');
         setChatTop(Math.round(top)+'px');
@@ -2277,51 +2309,40 @@ function App(){
                 h('button',{className:'btn',type:'button','aria-label':playersOpen?'Minimise current player scorecard':'Open current player scorecard',style:{fontSize:10,padding:'2px 8px'},onClick:function(e){e.stopPropagation();setPlayersPanelOpen(!playersOpen);}},playersOpen?'−':'＋')
               ),
               playersOpen?h(React.Fragment,null,
-              h('table',{className:'players-table',style:{width:'100%',borderCollapse:'collapse',fontSize:14}},
-                h('thead',null,h('tr',null,
-                  h('th',{style:{textAlign:'left',padding:'4px 6px'}},'🏏 Batter'),
-                  h('th',{style:{textAlign:'center',padding:'4px 6px'}},'R'),
-                  h('th',{style:{textAlign:'center',padding:'4px 6px'}},'B'),
-                  h('th',{style:{textAlign:'center',padding:'4px 6px'}},'4s'),
-                  h('th',{style:{textAlign:'center',padding:'4px 6px'}},'6s'),
-                  h('th',{style:{textAlign:'center',padding:'4px 6px'}},'SR')
-                )),
-                h('tbody',null,
-                  h('tr',null,
-                    h('td',{className:'score-player-name',style:{padding:'4px 6px',display:'flex',alignItems:'center',gap:6}},(liveP.strikerS&&liveP.strikerS.img)?h('img',{src:liveP.strikerS.img,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,h('b',{className:'striker-mark'},'*'),h('span',null,liveP.striker||'—')),
-                    h('td',{style:{textAlign:'center',fontWeight:800}},(liveP.strikerS&&liveP.strikerS.r!=null?liveP.strikerS.r:'—')),
-                    h('td',{style:{textAlign:'center'}},(liveP.strikerS&&liveP.strikerS.b!=null?liveP.strikerS.b:'')),
-                    h('td',{style:{textAlign:'center'}},(liveP.strikerS&&liveP.strikerS.fours!=null?liveP.strikerS.fours:'')),
-                    h('td',{style:{textAlign:'center'}},(liveP.strikerS&&liveP.strikerS.sixes!=null?liveP.strikerS.sixes:'')),
-                    h('td',{style:{textAlign:'center'}},(liveP.strikerS&&liveP.strikerS.sr)||'')
-                  ),
-                  h('tr',null,
-                    h('td',{className:'score-player-name',style:{padding:'4px 6px'}},liveP.nonstriker||'—'),
-                    h('td',{style:{textAlign:'center',fontWeight:800}},(liveP.nonstrikerS&&liveP.nonstrikerS.r!=null?liveP.nonstrikerS.r:'—')),
-                    h('td',{style:{textAlign:'center'}},(liveP.nonstrikerS&&liveP.nonstrikerS.b!=null?liveP.nonstrikerS.b:'')),
-                    h('td',{style:{textAlign:'center'}},(liveP.nonstrikerS&&liveP.nonstrikerS.fours!=null?liveP.nonstrikerS.fours:'')),
-                    h('td',{style:{textAlign:'center'}},(liveP.nonstrikerS&&liveP.nonstrikerS.sixes!=null?liveP.nonstrikerS.sixes:'')),
-                    h('td',{style:{textAlign:'center'}},(liveP.nonstrikerS&&liveP.nonstrikerS.sr)||'')
+              h('div',{className:'live-player-cards'},
+                h('div',{className:'live-player-card striker-card'},
+                  h('div',{className:'live-player-role'},'🏏 STRIKER'),
+                  h('div',{className:'live-player-name'},(liveP.striker||'—')+' *'),
+                  h('div',{className:'live-player-stats'},
+                    h('span',null,h('b',null,liveP.strikerS&&liveP.strikerS.r!=null?liveP.strikerS.r:'—'),h('small',null,'RUNS')),
+                    h('span',null,h('b',null,liveP.strikerS&&liveP.strikerS.b!=null?liveP.strikerS.b:'—'),h('small',null,'BALLS')),
+                    h('span',null,h('b',null,liveP.strikerS&&liveP.strikerS.fours!=null?liveP.strikerS.fours:'—'),h('small',null,'4s')),
+                    h('span',null,h('b',null,liveP.strikerS&&liveP.strikerS.sixes!=null?liveP.strikerS.sixes:'—'),h('small',null,'6s')),
+                    h('span',null,h('b',null,liveP.strikerS&&liveP.strikerS.sr||'—'),h('small',null,'SR'))
+                  )
+                ),
+                h('div',{className:'live-player-card nonstriker-card'},
+                  h('div',{className:'live-player-role'},'BATTER · NON-STRIKER'),
+                  h('div',{className:'live-player-name'},liveP.nonstriker||'—'),
+                  h('div',{className:'live-player-stats'},
+                    h('span',null,h('b',null,liveP.nonstrikerS&&liveP.nonstrikerS.r!=null?liveP.nonstrikerS.r:'—'),h('small',null,'RUNS')),
+                    h('span',null,h('b',null,liveP.nonstrikerS&&liveP.nonstrikerS.b!=null?liveP.nonstrikerS.b:'—'),h('small',null,'BALLS')),
+                    h('span',null,h('b',null,liveP.nonstrikerS&&liveP.nonstrikerS.fours!=null?liveP.nonstrikerS.fours:'—'),h('small',null,'4s')),
+                    h('span',null,h('b',null,liveP.nonstrikerS&&liveP.nonstrikerS.sixes!=null?liveP.nonstrikerS.sixes:'—'),h('small',null,'6s')),
+                    h('span',null,h('b',null,liveP.nonstrikerS&&liveP.nonstrikerS.sr||'—'),h('small',null,'SR'))
+                  )
+                ),
+                h('div',{className:'live-player-card bowler-card'},
+                  h('div',{className:'live-player-role'},'⚾ BOWLER'),
+                  h('div',{className:'live-player-name'},liveP.bowler||'—'),
+                  h('div',{className:'live-player-stats'},
+                    h('span',null,h('b',null,liveP.bowlerS&&liveP.bowlerS.o||'—'),h('small',null,'OVERS')),
+                    h('span',null,h('b',null,liveP.bowlerS&&liveP.bowlerS.m!=null?liveP.bowlerS.m:'—'),h('small',null,'MAIDENS')),
+                    h('span',null,h('b',null,liveP.bowlerS&&liveP.bowlerS.r!=null?liveP.bowlerS.r:'—'),h('small',null,'RUNS')),
+                    h('span',null,h('b',null,liveP.bowlerS&&liveP.bowlerS.w!=null?liveP.bowlerS.w:'—'),h('small',null,'WICKETS')),
+                    h('span',null,h('b',null,liveP.bowlerS&&liveP.bowlerS.econ||'—'),h('small',null,'ECON'))
                   )
                 )
-              ),
-              h('table',{className:'players-table',style:{width:'100%',borderCollapse:'collapse',fontSize:14,marginTop:6}},
-                h('thead',null,h('tr',null,
-                  h('th',{style:{textAlign:'left',padding:'4px 6px'}},'⚾ Bowler'),
-                  h('th',{style:{textAlign:'center',padding:'4px 6px'}},'O'),
-                  h('th',{style:{textAlign:'center',padding:'4px 6px'}},'M'),
-                  h('th',{style:{textAlign:'center',padding:'4px 6px'}},'R'),
-                  h('th',{style:{textAlign:'center',padding:'4px 6px'}},'W'),
-                  h('th',{style:{textAlign:'center',padding:'4px 6px'}},'Econ')
-                )),
-                h('tbody',null,h('tr',null,
-                  h('td',{className:'score-player-name',style:{padding:'4px 6px'}},h('b',null,liveP.bowler||'—')),
-                  h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.o)||'—'),
-                  h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.m!=null?liveP.bowlerS.m:'—')),
-                  h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.r!=null?liveP.bowlerS.r:'')),
-                  h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.w!=null?liveP.bowlerS.w:'')),
-                  h('td',{style:{textAlign:'center'}},(liveP.bowlerS&&liveP.bowlerS.econ)||'')
-                ))
               )
               ):null
             ),h('div',{className:'tabs'},
@@ -2533,15 +2554,6 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
         ):null,
         h('div',{className:'card'},
           h('h3',null,'Ball-by-ball · by over'),
-          h('button',{className:'comm-settings-toggle',type:'button',onClick:function(){setCommSettingsOpen(function(v){return !v;});}},
-            h('span',null,'⚙ Commentary settings'),h('span',null,commSettingsOpen?'▴':'▾')),
-          commSettingsOpen?h('div',{className:'comm-toolbar'},
-            h('button',{className:'btn'+(ttsOn?' primary':''),title:'TTS',onClick:function(){var v=!ttsOn;setTtsOn(v);lsSet('tts_on',v?'1':'0');try{unlockAudio();if(v){primeSpeech();speakText(ttsLang==='hi'?'कमेंट्री चालू है।':'Commentary enabled.',ttsLang);}}catch(e){}}},ttsOn?'🔊':'🔇'),
-            h('button',{className:'btn'+(ttsLang==='hi'?' primary':''),onClick:function(){setTtsLang('hi');lsSet('tts_lang','hi');}},'हि'),
-            h('button',{className:'btn'+(ttsLang==='en'?' primary':''),onClick:function(){setTtsLang('en');lsSet('tts_lang','en');}},'EN'),
-            h('button',{className:'btn'+(stadOn?' primary':''),title:'Stadium',onClick:function(){var v=!stadOn;setStadOn(v);lsSet('stad_on',v?'1':'0');try{unlockAudio();}catch(e){}}},stadOn?'🏟️':'🚫'),
-            h('button',{className:'btn',title:'Refresh',onClick:function(){try{unlockAudio();}catch(e){}loadDetail(selected);}},'↻')
-          ):null,
           h('div',{className:'muted',style:{marginBottom:10}},'Each over shows up to 6 legal balls (+ extras). End of over shows runs/wickets in that over.'),
           !oversDesc.length?h('div',{className:'muted'},loading?'Loading balls…':'No ball-by-ball data returned. Refresh once; if still empty, check fixture ball-data coverage and API plan access.'):null,
           oversDesc.map(function(ov,oi){
