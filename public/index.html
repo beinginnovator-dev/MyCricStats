@@ -995,7 +995,7 @@ function primeSpeech(){
 function speakText(text, lang){
   try{
     if(!window.speechSynthesis||!text)return false;
-    text=String(text).replace(/\\*/g,'').replace(/\\s+/g,' ').trim();
+    text=String(text).replace(/\*/g,'').replace(/\s+/g,' ').trim();
     if(!text)return false;
     var synth=window.speechSynthesis;
     synth.resume();
