@@ -597,16 +597,21 @@ body.theme-dark,body.theme-night{background:radial-gradient(ellipse at 50% -15%,
 <style id="mcs-ball-summary-only">
 /* Remove pitch race and floating delivery popups; show compact delivery stamps on the broadcast scoreboard. */
 .f1-race.cricket-pitch,.ball-stage,.ev-banner{display:none!important}
-.mcs-scoreboard-overballs{display:flex;align-items:center;justify-content:center;gap:6px;min-height:29px;margin:5px auto 1px;padding:0 4px;flex-wrap:wrap}
-.mcs-overballs-label{font-size:9px;font-weight:900;letter-spacing:.1em;color:#9fb6ca;margin-right:3px}
-.ball-chip.mcs-scoreball{width:23px!important;min-width:23px!important;height:23px!important;font-size:10px!important;line-height:1!important;border-radius:50%;padding:0!important}
+.mcs-scoreboard-overballs{display:flex;align-items:center;justify-content:center;gap:6px;min-height:29px;margin:5px auto 1px;padding:0 4px;flex-wrap:wrap;overflow:visible}
+.ball-chip.mcs-scoreball{width:23px!important;min-width:23px!important;height:23px!important;font-size:10px!important;line-height:1!important;border-radius:50%;padding:0!important;transform-origin:center;will-change:transform}
 .ball-chip.mcs-scoreball.latest-ball{
-  position:relative;z-index:1;animation:mcsLatestBallBreathe 1.8s ease-in-out infinite;
+  position:relative;z-index:1;
   outline:1.5px solid rgba(255,255,255,.92);outline-offset:2px;
   box-shadow:0 0 0 3px rgba(84,215,255,.16),0 0 10px rgba(84,215,255,.55)!important
 }
+@keyframes mcsRollIntoPlace{
+  0%{transform:translateX(-72vw) rotate(-900deg) scale(.72);opacity:.25}
+  70%{transform:translateX(8px) rotate(35deg) scale(1.08);opacity:1}
+  86%{transform:translateX(-3px) rotate(-8deg) scale(.98)}
+  100%{transform:translateX(0) rotate(0) scale(1);opacity:1}
+}
 @keyframes mcsLatestBallBreathe{0%,100%{transform:scale(1);filter:brightness(1)}50%{transform:scale(1.12);filter:brightness(1.22)}}
-@media(prefers-reduced-motion:reduce){.ball-chip.mcs-scoreball.latest-ball{animation:none!important}}
+@media(prefers-reduced-motion:reduce){.ball-chip.mcs-scoreball{animation:none!important;transform:none!important}}
 </style>
 
 </head>
@@ -2277,9 +2282,11 @@ function App(){
               d.type?h('span',null,d.type):null
             ),
             oversDesc.length&&oversDesc[0].balls&&oversDesc[0].balls.length?h('div',{className:'mcs-scoreboard-overballs'},
-              h('span',{className:'mcs-overballs-label'},'THIS OVER'),
               oversDesc[0].balls.slice().reverse().map(function(b,bi){
-                return h('span',{key:'sb-ball-'+bi,className:'ball-chip mcs-scoreball '+chipClass(b)+(bi===0?' latest-ball':'') ,title:descriptiveLine(b,'en')},chipLabel(b));
+                var rollDelay=bi*110;
+                var animation='mcsRollIntoPlace .78s cubic-bezier(.2,.78,.25,1) '+rollDelay+'ms both';
+                if(bi===0) animation+=', mcsLatestBallBreathe 1.8s ease-in-out '+(850+rollDelay)+'ms infinite';
+                return h('span',{key:'sb-ball-'+bi,className:'ball-chip mcs-scoreball '+chipClass(b)+(bi===0?' latest-ball':''),style:{animation:animation},title:descriptiveLine(b,'en')},chipLabel(b));
               })
             ):null,
             null
