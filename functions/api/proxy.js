@@ -60,9 +60,9 @@ export async function onRequest(context) {
     try {
       cache = caches.default;
       const requestPath = path.toLowerCase();
-      cacheTtl = requestPath === 'livescores' ? 10
-        : (requestPath.startsWith('fixtures/') ? 6
-        : (requestPath === 'fixtures' ? 12 : 0));
+      cacheTtl = requestPath === 'livescores' ? 2
+        : (requestPath.startsWith('fixtures/') ? 1
+        : (requestPath === 'fixtures' ? 8 : 0));
       if (cache && cacheTtl > 0) {
         const keyUrl = new URL(request.url);
         keyUrl.pathname = '/__mcs_edge_cache/sportmonks';
