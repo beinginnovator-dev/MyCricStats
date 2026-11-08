@@ -409,6 +409,54 @@ body.theme-light .live-player-role,body.theme-light .live-player-stats small{col
 @media(max-width:380px){.tabs button{font-size:13px!important}.live-player-stats{gap:2px}.live-player-card{padding:8px}}
 </style>
 
+
+<style id="mcs-international-broadcast-refresh">
+/* Premium international-cricket broadcast styling; independent branding, existing match logic untouched. */
+:root{--mcs-icc-navy:#071b32;--mcs-icc-blue:#0b3c67;--mcs-icc-cyan:#48c7e8;--mcs-icc-gold:#f3c969;--mcs-icc-green:#20b58a}
+body.theme-dark,body.theme-night{background:radial-gradient(ellipse at 50% -15%,#17466d 0%,#081b32 48%,#04101e 100%)!important}
+.app{background:transparent!important}
+.top-chrome{background:#06182b!important}
+.broadcast{background:linear-gradient(135deg,#061b32 0%,#0a3d61 48%,#06283c 100%)!important;border-bottom:2px solid rgba(72,199,232,.42)!important;box-shadow:0 12px 30px #0005!important}
+.broadcast .bg-overlay{background:linear-gradient(115deg,rgba(2,17,34,.9),rgba(5,49,76,.72) 55%,rgba(2,19,34,.92))!important}
+.brand-chip{letter-spacing:.11em!important}
+.match-header .title{color:#f3c969!important;letter-spacing:.12em!important}
+.score-grid{background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(72,199,232,.045))!important;border-color:rgba(72,199,232,.3)!important}
+.score-num{font-variant-numeric:tabular-nums;text-shadow:0 3px 18px rgba(72,199,232,.22)!important}
+.tabs{background:#071a30!important;border-bottom-color:rgba(72,199,232,.25)!important}
+.tabs button{font-size:13px!important;font-weight:900!important;letter-spacing:.025em!important}
+.tabs button.on{color:#fff!important;border-bottom-color:#48c7e8!important;background:linear-gradient(0deg,rgba(72,199,232,.15),transparent)!important}
+.players-bar .live-player-role{font-size:14px!important}
+.players-bar .live-player-name{font-size:18px!important}
+.players-bar .live-player-stats b{font-size:18px!important}
+.players-bar .live-player-stats small{font-size:13px!important}
+.players-bar table th,.players-bar table td{font-size:calc(1em + 2px)!important}
+.players-row .pbox .k{font-size:13px!important}
+.players-row .pbox .v{font-size:17px!important}
+.score-player-name{font-size:16px!important}
+.ball-detail{font-size:15px!important;line-height:1.6!important}
+.ball-chip{font-size:13px!important;min-width:35px;height:35px}
+.over-head{font-size:15px!important}
+.over-end{font-size:14px!important;line-height:1.5}
+.over-card .ball-detail{font-size:15px!important}
+.comm-toolbar .btn{font-size:13px!important}
+.card .table td{font-size:13px!important}
+.cricket-pitch{height:72px;margin:10px 4px 7px;padding:8px 10px;display:flex;align-items:center;gap:0;border-radius:12px;overflow:hidden;background:linear-gradient(90deg,#071b2e,#0c3550 50%,#071b2e);border:1px solid rgba(72,199,232,.28);box-shadow:inset 0 0 22px #0006,0 5px 15px #0003}
+.pitch-strip{position:relative;flex:1;height:48px;overflow:visible;background:repeating-linear-gradient(90deg,#c5a77b 0 7px,#d7bd91 7px 14px);border-top:2px solid #f0d7ac;border-bottom:2px solid #98764e;box-shadow:inset 0 0 9px #63482b66}
+.pitch-strip:before,.pitch-strip:after{content:"";position:absolute;top:0;bottom:0;width:2px;background:#fff;opacity:.9}
+.pitch-strip:before{left:12%}.pitch-strip:after{right:12%}
+.pitch-crease{position:absolute;top:3px;bottom:3px;width:3px;background:#fff;opacity:.95}
+.crease-left{left:14%}.crease-right{right:14%}
+.pitch-wicket{width:17px;height:48px;flex:0 0 17px;position:relative;display:flex;justify-content:space-between;align-items:flex-start;padding-top:2px}
+.pitch-wicket i{display:block;width:3px;height:34px;border-radius:2px;background:linear-gradient(90deg,#d5dbe1,#fff,#aeb9c5);box-shadow:0 1px 3px #0008}
+.pitch-wicket:before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:#f5f7fa;border-radius:3px;box-shadow:0 1px 2px #000}
+.pitch-ball{position:absolute;left:0;top:8px;width:13px;height:13px;border-radius:50%;background:radial-gradient(circle at 30% 25%,#ffb4b4,#dc2638 55%,#7f1021);border:1px solid #ffd8dc;box-shadow:0 0 9px #ff526b,0 2px 4px #0009;animation:pitchDelivery 1.9s cubic-bezier(.2,.65,.25,1) both}
+.pitch-ball i{position:absolute;left:5px;top:1px;width:2px;height:9px;border-left:1px dashed #fff;transform:rotate(25deg)}
+.cricket-pitch.to-left .pitch-ball{animation-name:pitchDeliveryLeft}
+@keyframes pitchDelivery{0%{left:0;top:7px;transform:scale(.72)}40%{left:38%;top:2px;transform:scale(.92)}55%{left:47%;top:29px;transform:scale(1.08)}70%{left:62%;top:5px;transform:scale(1)}100%{left:100%;top:12px;transform:scale(.78);opacity:.12}}
+@keyframes pitchDeliveryLeft{0%{left:100%;top:7px;transform:scale(.72)}40%{left:62%;top:2px;transform:scale(.92)}55%{left:47%;top:29px;transform:scale(1.08)}70%{left:38%;top:5px;transform:scale(1)}100%{left:0;top:12px;transform:scale(.78);opacity:.12}}
+@media(prefers-reduced-motion:reduce){.pitch-ball{animation:none!important;left:50%!important;top:16px!important}}
+</style>
+
 </head>
 <body class="theme-dark">
 <div id="root"></div>
@@ -2068,8 +2116,10 @@ function App(){
                 h('div',{className:'overs'},sc.b.indexOf('(')>=0?sc.b.slice(sc.b.indexOf('(')):'' )
               )
             ),
-            h('div',{className:'f1-race '+(currentBattingSide(d)==='home'?'to-left':'to-right'),key:String((d&&d.id)||'')+'-'+String((d&&d.balls&&d.balls.length)||0)+'-'+String((d&&d.updated_at)||'')},
-              h('div',{className:'race-track'},h('span',{className:'race-ball'},''))
+            h('div',{className:'cricket-pitch '+(currentBattingSide(d)==='home'?'to-left':'to-right'),key:String((d&&d.id)||'')+'-'+String((d&&d.balls&&d.balls.length)||0)+'-'+String((d&&d.updated_at)||'')},
+              h('div',{className:'pitch-wicket wicket-left'},h('i'),h('i'),h('i')),
+              h('div',{className:'pitch-strip'},h('span',{className:'pitch-crease crease-left'}),h('span',{className:'pitch-crease crease-right'}),h('span',{className:'pitch-ball'},h('i'))),
+              h('div',{className:'pitch-wicket wicket-right'},h('i'),h('i'),h('i'))
             ),
             h('div',{className:'meta-row'},
               d.starting_at?h('span',null,fmtWhen(d.starting_at)):null,
