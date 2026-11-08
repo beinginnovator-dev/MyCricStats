@@ -13,7 +13,7 @@
 :root{--bg:#01002C;--bg2:#0a0a3a;--card:#12123f;--line:rgba(255,255,255,.12);--text:#f8fafc;--muted:#a8a8c8;--red:#FF0F50;--gold:#fbbf24;--blue:#7dd3fc;--accent:#FF0F50;--ok:#22c55e}
 body.theme-dark{--bg:#01002C;--bg2:#0a0a3a;--card:#12123f}
 body.theme-light{--bg:#f4f4f8;--bg2:#fff;--card:#fff;--line:rgba(1,0,44,.12);--text:#01002C;--muted:#5c5c7a;--accent:#FF0F50;--blue:#0284c7;--gold:#b45309}
-body.theme-pitch{--bg:#062816;--bg2:#0c3d22;--card:#0f4a2a;--line:rgba(52,211,153,.2);--text:#ecfdf5;--muted:#6ee7b7;--accent:#10b981;--blue:#34d399}
+body.theme-pitch{--bg:#071f1b;--bg2:#0b3028;--card:#104238;--line:rgba(0,166,125,.22);--text:#f1fbf7;--muted:#a6c9bd;--accent:#00a878;--blue:#75d8bd;--gold:#f3c969}
 body.theme-night{--bg:#0b1020;--bg2:#151b2e;--card:#1c2438}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
@@ -201,6 +201,22 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .filter-row button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .match-list{display:flex;flex-direction:column;gap:8px}
 .match-card{padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.03);cursor:pointer}
+.schedule-poster{position:relative;overflow:hidden;margin:10px 0;border:1px solid var(--line);border-radius:16px;background:linear-gradient(125deg,#102c35 0%,#163f45 48%,#102a32 100%);padding:14px;color:#fff;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.16)}
+.schedule-poster:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 10% 0%,rgba(0,168,120,.28),transparent 45%),linear-gradient(110deg,transparent 48%,rgba(255,255,255,.045) 49%,transparent 70%);pointer-events:none}
+.schedule-poster>*{position:relative;z-index:1}
+.sp-top{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#b7d5ce;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.sp-versus{display:grid;grid-template-columns:1fr 34px 1fr;align-items:center;gap:8px;margin:16px 0 12px}
+.sp-team{display:flex;align-items:center;gap:8px;min-width:0;font-size:13px;font-weight:900}
+.sp-team:last-child{justify-content:flex-end;text-align:right}
+.sp-team img{width:34px;height:24px;object-fit:cover;border-radius:4px;box-shadow:0 2px 8px #0006;flex-shrink:0}
+.sp-team span{overflow:hidden;text-overflow:ellipsis}
+.sp-vs{text-align:center;color:#8fb9ae;font-size:10px;font-weight:900}
+.sp-bottom{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #ffffff24;padding-top:10px;color:#c3d9d3;font-size:10px}
+.sp-score{font-size:14px;font-weight:900;color:#fff;margin-top:8px}
+.sp-live{color:#ff8ca4;font-weight:900}
+body.theme-light .schedule-poster{background:linear-gradient(125deg,#123a38,#17624e 60%,#123c3a)}
+body.theme-pitch .schedule-poster{background:linear-gradient(125deg,#123a35,#185c49 60%,#103b34)}
+
 body.theme-light .match-card{background:#fff}
 .match-card.is-live{border-color:rgba(255,15,80,.45)}
 .match-card.is-sel{border-color:rgba(255,15,80,.6);background:rgba(255,15,80,.08)}
@@ -2383,12 +2399,14 @@ function App(){
         isRoomHost?h('div',{className:'muted',style:{marginTop:8}},'Host controls: remove a member or block/unblock access to this room.'):null
       ):null,
 
-tab==='schedule'?h('div',{className:'card'},
-        h('h3',null,'Schedule'),
-        h('div',{className:'filter-row'},
-          h('button',{className:schedFilter==='latest'?'on':'',onClick:function(){setSchedFilter('latest');}},'Latest'),
-          h('button',{className:schedFilter==='upcoming'?'on':'',onClick:function(){setSchedFilter('upcoming');}},'Upcoming'),
-          h('button',{className:schedFilter==='past'?'on':'',onClick:function(){setSchedFilter('past');}},'Past')
+tab==='schedule'?h('div',null,
+        h('div',{className:'card',style:{paddingBottom:8}},
+          h('h3',null,'MATCH CENTRE · SCHEDULE'),
+          h('div',{className:'filter-row'},
+            h('button',{className:schedFilter==='latest'?'on':'',onClick:function(){setSchedFilter('latest');}},'Latest'),
+            h('button',{className:schedFilter==='upcoming'?'on':'',onClick:function(){setSchedFilter('upcoming');}},'Upcoming'),
+            h('button',{className:schedFilter==='past'?'on':'',onClick:function(){setSchedFilter('past');}},'Results')
+          )
         ),
         (function(){
           var list=matches.slice();
@@ -2397,13 +2415,29 @@ tab==='schedule'?h('div',{className:'card'},
           else list=list.sort(function(a,b){
             var ra={live:0,upcoming:1,finished:2};var sa=statusOf(a),sb=statusOf(b);
             if(ra[sa]!==ra[sb])return ra[sa]-ra[sb];
-            return String(b.starting_at||'').localeCompare(String(a.starting_at||''));
+            return String(a.starting_at||'').localeCompare(String(b.starting_at||''));
           });
-          if(!list.length)return h('div',{className:'muted'},loading?'Loading…':'No matches');
+          if(!list.length)return h('div',{className:'empty'},loading?'Loading fixtures…':'No fixtures available for this schedule.');
           return list.map(function(m){
-            return h('div',{key:m.id,style:{padding:'10px 0',borderBottom:'1px solid var(--line)',cursor:'pointer'},onClick:function(){selectMatch(m);}},
-              h('div',{style:{fontWeight:800,fontSize:13}},teamName(m,'local')+' vs '+teamName(m,'visitor')),
-              h('div',{className:'muted'},fmtWhen(m.starting_at)+' · '+(m.status||statusOf(m))+' · '+((m.league&&m.league.name)||m.type||''))
+            var home=m.localteam||{name:teamName(m,'local')};
+            var away=m.visitorteam||{name:teamName(m,'visitor')};
+            var homeFlag=teamFlagUrl(home),awayFlag=teamFlagUrl(away),state=statusOf(m);
+            var scores=scoreLine(m),league=(m.league&&m.league.name)||m.type||'CRICKET';
+            return h('div',{key:m.id,className:'schedule-poster',onClick:function(){selectMatch(m);}},
+              h('div',{className:'sp-top'},
+                h('span',null,league),
+                h('span',{className:state==='live'?'sp-live':''},state==='live'?'● LIVE':state==='finished'?'RESULT':'UPCOMING')
+              ),
+              h('div',{className:'sp-versus'},
+                h('div',{className:'sp-team'},homeFlag?h('img',{src:homeFlag,alt:''}):null,h('span',null,teamName(m,'local'))),
+                h('div',{className:'sp-vs'},'VS'),
+                h('div',{className:'sp-team'},h('span',null,teamName(m,'visitor')),awayFlag?h('img',{src:awayFlag,alt:''}):null)
+              ),
+              state==='live'||state==='finished'?h('div',{className:'sp-score'},scores.a+'  ·  '+scores.b):null,
+              h('div',{className:'sp-bottom'},
+                h('span',null,fmtWhen(m.starting_at)||'Schedule time TBA'),
+                h('span',null,(m.venue&&m.venue.name)||'MATCH CENTRE')
+              )
             );
           });
         })()
