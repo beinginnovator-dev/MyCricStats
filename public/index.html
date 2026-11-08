@@ -46,12 +46,21 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .bounce-ball .ball-core::after{
   content:'';position:absolute;inset:10px 18px;border:1.5px solid rgba(239,68,68,.35);border-radius:50%;
 }
-.ball-text{margin-top:6px;font-size:13px;font-weight:900;color:#fff;text-shadow:0 1px 4px #000;text-align:center;max-width:120px;line-height:1.2}
+.ball-text{margin-top:7px;font-size:15px;font-weight:1000;color:#fff;text-shadow:0 2px 5px #000,0 0 3px #000;text-align:center;max-width:140px;line-height:1.2;letter-spacing:.04em}
 .bounce-ball .run-stamp{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-  min-width:34px;padding:4px 8px;border-radius:8px;
-  background:#fff;font-weight:900;font-size:14px;line-height:1.1;
-  text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.25);white-space:nowrap;z-index:2;
+  min-width:40px;padding:6px 10px;border-radius:10px;
+  background:#fff;border:2px solid rgba(15,23,42,.9);
+  font-weight:1000;font-size:19px;line-height:1.05;
+  text-align:center;text-shadow:0 1px 0 rgba(255,255,255,.35);
+  box-shadow:0 5px 16px rgba(0,0,0,.55),0 0 0 2px rgba(255,255,255,.75);
+  white-space:nowrap;z-index:8;letter-spacing:.02em;
+}
+.bounce-ball .run-stamp.sw{
+  min-width:94px;padding:8px 12px;background:#dc2626;color:#fff;
+  border:3px solid #fff;font-size:19px;font-weight:1000;
+  letter-spacing:.08em;text-shadow:0 2px 3px rgba(0,0,0,.7);
+  box-shadow:0 6px 20px rgba(0,0,0,.65),0 0 0 3px #991b1b;
 }
 .bounce-ball .run-stamp.s0{color:#64748b}
 .bounce-ball .run-stamp.s1{color:#2563eb}
@@ -1044,66 +1053,37 @@ function stadNoiseBurst(ctx, now, dur, vol){
 }
 var stadiumAudioUnlocked=false;
 var stadiumAudioPlayers={};
-// No external MP3 assets are required. Generate short stadium-style cues with Web Audio,
-// avoiding missing /audio files and mobile autoplay restrictions after the first gesture.
+var stadiumAudioSources={
+  chant:'/audio/crowd_chant.mp3',
+  cheer:'/audio/crowd_cheer.mp3',
+  whistle:'/audio/crowd_whistle.mp3'
+};
+// Prime the three supplied crowd recordings after the first real user gesture.
 function unlockStadiumAudio(){
   try{
-    var Ctx=window.AudioContext||window.webkitAudioContext;
-    if(!Ctx)return;
-    if(!stadCtx)stadCtx=new Ctx();
-    if(stadCtx.state==='suspended')stadCtx.resume().then(function(){stadiumAudioUnlocked=true;}).catch(function(){});
-    else stadiumAudioUnlocked=true;
-  }catch(e){}
-}
-function stadTone(ctx, freq, start, duration, volume, type, endFreq){
-  try{
-    var osc=ctx.createOscillator(), gain=ctx.createGain();
-    osc.type=type||'sine';osc.frequency.setValueAtTime(freq,start);
-    if(endFreq)osc.frequency.exponentialRampToValueAtTime(Math.max(30,endFreq),start+duration);
-    gain.gain.setValueAtTime(0.0001,start);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.0002,volume*1.8),start+0.025);
-    gain.gain.exponentialRampToValueAtTime(0.0001,start+duration);
-    osc.connect(gain);gain.connect(ctx.destination);osc.start(start);osc.stop(start+duration+0.03);
-  }catch(e){}
-}
-function stadCrowd(ctx, start, duration, volume){
-  try{
-    var len=Math.floor(ctx.sampleRate*duration),buf=ctx.createBuffer(1,len,ctx.sampleRate),data=buf.getChannelData(0);
-    for(var i=0;i<len;i++){
-      var t=i/len, envelope=Math.sin(Math.PI*t);
-      data[i]=(Math.random()*2-1)*envelope*(0.35+0.65*Math.random());
-    }
-    var src=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
-    src.buffer=buf;filter.type='bandpass';filter.frequency.value=850;filter.Q.value=0.65;
-    gain.gain.setValueAtTime(0.0001,start);gain.gain.linearRampToValueAtTime(volume,start+0.18);gain.gain.exponentialRampToValueAtTime(0.0001,start+duration);
-    src.connect(filter);filter.connect(gain);gain.connect(ctx.destination);src.start(start);src.stop(start+duration);
-  }catch(e){}
+    Object.keys(stadiumAudioSources).forEach(function(key){
+      if(!stadiumAudioPlayers[key]){
+        var audio=new Audio(stadiumAudioSources[key]);
+        audio.preload='auto';audio.volume=0.82;audio.playsInline=true;
+        stadiumAudioPlayers[key]=audio;
+      }
+      var a=stadiumAudioPlayers[key];
+      try{a.load();}catch(e){}
+    });
+    stadiumAudioUnlocked=true;
+  }catch(e){console.warn('Stadium audio preload failed',e);}
 }
 function playStadiumClip(kind){
   try{
-    unlockStadiumAudio();
-    if(!stadCtx)return;
-    var play=function(){
-      if(!stadCtx)return;
-      var t=stadCtx.currentTime+0.035;
-      if(kind==='wicket'){
-        stadTone(stadCtx,1500,t,0.75,0.18,'sine',780);
-        stadTone(stadCtx,1880,t+0.08,0.48,0.08,'sine',1100);
-        stadCrowd(stadCtx,t+0.12,1.25,0.28);
-      }else if(kind==='four'||kind==='six'||kind==='boundary'){
-        stadCrowd(stadCtx,t,1.9,kind==='six'?0.42:0.34);
-        [520,660,790,920].forEach(function(f,i){stadTone(stadCtx,f,t+0.08+i*0.045,0.42,0.04,'triangle',f*1.12);});
-      }else if(kind==='over'){
-        stadCrowd(stadCtx,t,0.95,0.30);
-        stadTone(stadCtx,440,t+0.08,0.24,0.06,'sine',560);
-      }else if(kind==='ball'){
-        stadTone(stadCtx,760,t,0.12,0.045,'triangle',520);
-      }
-    };
-    if(stadCtx.state==='closed'){var Ctx=window.AudioContext||window.webkitAudioContext;stadCtx=new Ctx();}
-    if(stadCtx.state!=='running'&&stadCtx.resume){stadCtx.resume().then(function(){stadiumAudioUnlocked=true;play();}).catch(function(e){console.warn('Audio resume blocked',e);});}
-    else {stadiumAudioUnlocked=true;play();}
-  }catch(e){console.warn('Stadium audio playback failed',e);}
+    var key=kind==='wicket'?'whistle':
+      (kind==='four'||kind==='six'||kind==='boundary'?'cheer':'chant');
+    if(!stadiumAudioPlayers[key])unlockStadiumAudio();
+    var audio=stadiumAudioPlayers[key];
+    if(!audio)return;
+    audio.pause();audio.currentTime=0;audio.volume=key==='whistle'?0.9:0.82;
+    var p=audio.play();
+    if(p&&p.catch)p.catch(function(e){console.warn('Stadium MP3 playback blocked or missing:',stadiumAudioSources[key],e);});
+  }catch(e){console.warn('Stadium MP3 playback failed',e);}
 }
 function stadBeep(kind){playStadiumClip(kind);}
 
