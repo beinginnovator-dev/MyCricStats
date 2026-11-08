@@ -1888,9 +1888,11 @@ function App(){
     var u=new URL('/',location.origin);u.searchParams.set('room',roomId||('m'+selected.id));u.searchParams.set('match',selected.id);u.searchParams.set('view','1');u.searchParams.set('tab','commentary');u.searchParams.set('open','1');
     var link=u.toString(),matchTitle=(league||'Cricket match')+' · '+homeName+' vs '+awayName;
     var scoreText=homeName+' '+sc.a+' | '+awayName+' '+sc.b;
-    var inviteText=(chatName||'A MyCricStats host')+' invites you to '+matchTitle+'.\nCurrent score: '+scoreText+'.\nJoin for live score, ball-by-ball commentary and match chat. Let us celebrate together!\n'+link;
-    var file=buildInviteCard(),payload={title:'MyCricStats · '+matchTitle,text:inviteText};
-    try{if(file&&(!navigator.canShare||navigator.canShare({files:[file]})))payload.files=[file];}catch(e){}
+    var inviteIntro=(chatName||'A MyCricStats host')+' invites you to '+matchTitle+'.\nCurrent score: '+scoreText+'.\nJoin for live score, ball-by-ball commentary and match chat.';
+    var inviteText=inviteIntro+'\n'+link;
+    // Share a real URL, not the generated PNG. This keeps the match link
+    // clickable in WhatsApp, Messages and other Android share targets.
+    var payload={title:'MyCricStats · '+matchTitle,text:inviteIntro,url:link};
     launchShare(payload,inviteText,'Match invitation copied');
   }
   function inviteChat(){if(viewOnly)setRoomStatus('Sharing this live match link.');shareMatchInvite();}
