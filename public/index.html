@@ -1367,12 +1367,13 @@ function App(){
     var newOver=(previous.over!=null&&overNo!=null&&
       (String(previous.innings)!==innings||Number(overNo)!==Number(previous.over)));
     var firstBall=(notation.ballInOver!=null&&Number(notation.ballInOver)===1);
-    // Wicket has priority; otherwise boundary sound; otherwise cue on first ball of a new over.
+    // Play crowd audio only for the three requested events:
+    // wicket -> whistle, boundary (4/6) -> cheer, start of over -> crowd chant.
+    // Singles, doubles, dot balls and extras must remain silent.
     try{
       if(isW)stadBeep('wicket');
       else if(isFour||isSix)stadBeep(isSix?'six':'four');
       else if(newOver||firstBall)stadBeep('over');
-      else stadBeep('ball');
     }catch(audioError){console.warn('Stadium event sound failed',audioError);}
   },[detail,selected,stadOn]);
   var lastCommentaryMatchId=useRef('');
