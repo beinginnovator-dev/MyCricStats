@@ -593,6 +593,25 @@ body.theme-dark,body.theme-night{background:radial-gradient(ellipse at 50% -15%,
 .mcs-smile-btn{width:38px;height:38px;flex:0 0 38px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:#263f55;color:#fff;font-size:20px}
 
 </style>
+
+<style id="mcs-ball-summary-only">
+/* Replace the pitch race and floating delivery popups with a live-ball highlight in the over summary. */
+.f1-race.cricket-pitch,.ball-stage,.ev-banner{display:none!important}
+.ball-chip.latest-ball{
+  position:relative;
+  z-index:1;
+  animation:mcsLatestBallBreathe 1.8s ease-in-out infinite;
+  outline:2px solid rgba(255,255,255,.92);
+  outline-offset:3px;
+  box-shadow:0 0 0 5px rgba(84,215,255,.16),0 0 15px rgba(84,215,255,.55)!important;
+}
+@keyframes mcsLatestBallBreathe{
+  0%,100%{transform:scale(1);filter:brightness(1)}
+  50%{transform:scale(1.13);filter:brightness(1.22)}
+}
+@media(prefers-reduced-motion:reduce){.ball-chip.latest-ball{animation:none!important}}
+</style>
+
 </head>
 <body class="theme-dark">
 <div id="root"></div>
@@ -2211,14 +2230,6 @@ function App(){
             h('button',{className:'icon-btn',title:'Settings',onClick:function(){setSettingsOpen(!settingsOpen);}},'⚙')
           )
         ),
-        bounce?h('div',{className:'ball-stage'},
-          h('div',{key:bounce.key,className:'bounce-ball show approach '+(bounce.anim||'')},
-            h('div',{className:'ball-core'},
-              h('div',{className:'run-stamp '+(bounce.stampCls||'')},bounce.stampText||'')
-            ),
-            h('div',{className:'ball-text'},(bounce.ballNo?bounce.ballNo+' · ':'')+(bounce.label||''))
-          )
-        ):null,
         h('div',{className:'scoreboard-body'},
           tab==='news'&&news.length?(function(){
             var n=news[newsIdx]||news[0]||{};
@@ -2263,9 +2274,6 @@ function App(){
                 h('div',{className:'score-num'},sc.b==='—'&&sc.a!=='—'?'Yet to bat':String(sc.b).split(' ')[0]),
                 h('div',{className:'overs'},sc.b.indexOf('(')>=0?sc.b.slice(sc.b.indexOf('(')):'' )
               )
-            ),
-            h('div',{className:'f1-race cricket-pitch '+(currentBattingSide(d)==='home'?'to-left':'to-right'),key:String((d&&d.id)||'')+'-'+String((d&&d.balls&&d.balls.length)||0)+'-'+String((d&&d.updated_at)||'')},
-              h('div',{className:'race-track'},h('span',{className:'race-ball'}))
             ),
             h('div',{className:'meta-row'},
               d.starting_at?h('span',null,fmtWhen(d.starting_at)):null,
@@ -2795,14 +2803,14 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
               ),
               h('div',{className:'ball-row'},
                 ov.balls.slice().reverse().map(function(b,bi){
-                  return h('span',{key:bi,className:'ball-chip '+chipClass(b),title:descriptiveLine(b,'en')},chipLabel(b));
+                  return h('span',{key:bi,className:'ball-chip '+chipClass(b)+(oi===0&&bi===0?' latest-ball':''),title:descriptiveLine(b,'en')},chipLabel(b));
                 })
               ),
               ov.balls.slice().reverse().map(function(b,bi){
                 var line=descriptiveLine(b,ttsLang,ov.displayOver!=null?ov.displayOver:ov.overNo);
                 var cls=ballIsWicket(b)?'hi-w':(ballRuns(b)===4?'hi-4':(ballRuns(b)===6?'hi-6':(ballRuns(b)>0?'hi-run':'')));
                 return h('div',{key:'d'+bi,className:'ball-detail',ref:oi===0&&bi===0?commentaryLatestRef:null,style:{cursor:'pointer',display:'flex',alignItems:'flex-start',gap:8},onClick:function(){if(ttsOn)speakText(line,ttsLang);}},
-                  h('span',{className:'ball-chip '+chipClass(b),style:{flexShrink:0,marginTop:2}},chipLabel(b)),
+                  h('span',{className:'ball-chip '+chipClass(b)+(oi===0&&bi===0?' latest-ball':''),style:{flexShrink:0,marginTop:2}},chipLabel(b)),
                   h('span',{dangerouslySetInnerHTML:{__html:colorEvents(line)}})
                 );
               }),
