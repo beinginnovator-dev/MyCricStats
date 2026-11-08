@@ -584,21 +584,14 @@ body.theme-dark,body.theme-night{background:radial-gradient(ellipse at 50% -15%,
 .bounce-ball .ball-core::after{border-color:rgba(255,255,255,.82)!important}
 </style>
 <style id="mcs-chat-and-audio-updates">
-/* MyCricStats chat moderation, emoji picker and broadcast mini-player */
+/* MyCricStats chat moderation and emoji picker */
 .mcs-chat-actions{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
 .mcs-chat-actions button{border:1px solid rgba(255,255,255,.18);border-radius:7px;background:rgba(255,255,255,.08);color:#eaf2ff;padding:3px 7px;font:700 10px Montserrat,system-ui;cursor:pointer}
 .mcs-chat-actions button.danger{color:#fecaca;border-color:rgba(248,113,113,.35)}
 .mcs-emoji-picker{display:flex;flex-wrap:wrap;gap:5px;padding:8px;background:#152b40;border-top:1px solid rgba(255,255,255,.12)}
 .mcs-emoji-picker button{border:0;background:rgba(255,255,255,.08);border-radius:9px;padding:6px 8px;font-size:20px}
 .mcs-smile-btn{width:38px;height:38px;flex:0 0 38px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:#263f55;color:#fff;font-size:20px}
-.mcs-commentary-mini{position:fixed;left:10px;right:10px;bottom:10px;z-index:33;display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid rgba(255,255,255,.16);border-radius:14px;background:linear-gradient(110deg,rgba(5,20,42,.97),rgba(12,67,75,.97));box-shadow:0 8px 24px rgba(0,0,0,.35);color:#fff}
-.mcs-commentary-mini .mcs-mini-score{font-size:12px;font-weight:900;white-space:nowrap}
-.mcs-commentary-mini .mcs-mini-copy{min-width:0;flex:1}
-.mcs-commentary-mini .mcs-mini-title{font-size:9px;font-weight:900;letter-spacing:.08em;color:#a7f3d0}
-.mcs-commentary-mini .mcs-mini-line{font-size:10px;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
-.mcs-commentary-mini button{width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.12);color:#fff;font-size:15px;font-weight:900}
-body{padding-bottom:66px}
-@media(min-width:700px){.mcs-commentary-mini{left:50%;right:auto;transform:translateX(-50%);width:min(620px,calc(100vw - 24px));bottom:14px}}
+
 </style>
 </head>
 <body class="theme-dark">
@@ -1736,7 +1729,6 @@ function App(){
   var chatName=_chatName[0],setChatName=_chatName[1];
   var _chatInput=useState('');var chatInput=_chatInput[0],setChatInput=_chatInput[1];
   var _chatEmojiOpen=useState(false);var chatEmojiOpen=_chatEmojiOpen[0],setChatEmojiOpen=_chatEmojiOpen[1];
-  var _miniTtsPlaying=useState(false);var miniTtsPlaying=_miniTtsPlaying[0],setMiniTtsPlaying=_miniTtsPlaying[1];
   var _chatMsgs=useState([]);var chatMsgs=_chatMsgs[0],setChatMsgs=_chatMsgs[1];
   // Room roster is populated by the chat heartbeat response.
   var _chatViewers=useState([]);var chatViewers=_chatViewers[0],setChatViewers=_chatViewers[1];
@@ -2071,8 +2063,6 @@ function App(){
   function chatEdit(id,newText){chatRequest('edit',{id:id,text:newText}).then(chatLoad).catch(function(e){setRoomStatus(e.message);});}
   function editOwnChatMessage(m){var next=window.prompt('Edit your message',m.text||'');if(next==null||!next.trim())return;chatEdit(m.id,next.trim());}
   function deleteRoomMessage(m){if(!confirm('Delete this message?'))return;if(isRoomHost&&m.memberId!==memberId){chatRequest('moderate',{moderation:'delete_message',messageId:m.id}).then(chatLoad).catch(function(e){setRoomStatus(e.message);});}else chatDelete(m.id);}
-  function toggleMiniCommentary(){if(miniTtsPlaying){try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){}setMiniTtsPlaying(false);return;}var match=detail||selected;var balls=normalizeBalls(match&&match.balls||[]);var latest=balls.length?descriptiveLine(balls[balls.length-1],ttsLang):'Live commentary is ready. '+(status||'Waiting for the next delivery.');try{primeSpeech();}catch(e){}if(speakText(latest,ttsLang))setMiniTtsPlaying(true);}
-  useEffect(function(){if(!('mediaSession' in navigator))return;try{navigator.mediaSession.metadata=new MediaMetadata({title:'MyCricStats Live Commentary',artist:(homeName||'Home')+' vs '+(awayName||'Away'),album:'Live score · '+sc.a+' / '+sc.b});navigator.mediaSession.setActionHandler('play',function(){if(!miniTtsPlaying)toggleMiniCommentary();});navigator.mediaSession.setActionHandler('pause',function(){try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){}setMiniTtsPlaying(false);});navigator.mediaSession.setActionHandler('stop',function(){try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){}setMiniTtsPlaying(false);});}catch(e){}return function(){try{['play','pause','stop'].forEach(function(a){navigator.mediaSession.setActionHandler(a,null);});}catch(e){}};},[selected&&selected.id,detail&&detail.balls&&detail.balls.length,miniTtsPlaying,ttsLang]);
   function chatSend(text,type){
     type=type||'chat';var action=type==='join'?'join':type==='leave'?'leave':'send';
     return chatRequest(action,{text:text,type:type}).then(function(j){applyChatState(j);return j;}).catch(function(e){setRoomStatus((e&&e.message)||'Message not sent');throw e;});
@@ -2505,8 +2495,6 @@ function App(){
       )
     ),document.body):null,
     (!chatPop)?ReactDOM.createPortal(h('button',{className:'chat-fab',title:'Open match chat',onClick:openChatWindow},h('span',null,'💬'),unread>0?h('span',{className:'chat-unread'},unread>99?'99+':String(unread)):null),document.body):null,
-    selected?h('div',{className:'mcs-commentary-mini',role:'region','aria-label':'Live commentary player'},h('div',{className:'mcs-mini-score'},(shortName(homeName)||'HOME')+' '+String(sc.a||'—')+' · '+(shortName(awayName)||'AWAY')+' '+String(sc.b||'—')),h('div',{className:'mcs-mini-copy'},h('div',{className:'mcs-mini-title'},'MYCRICSTATS · LIVE COMMENTARY'),h('div',{className:'mcs-mini-line'},latestCommentaryText||status||'Waiting for commentary')),h('button',{type:'button',title:miniTtsPlaying?'Stop commentary':'Play commentary',onClick:toggleMiniCommentary},miniTtsPlaying?'■':'▶')):null,
-
     toast?h('div',{className:'toast'},toast):null,
 
     
