@@ -1313,7 +1313,9 @@ function App(){
     var match=detail||selected;
     if(!match||!match.id)return;
     var matchId=String(match.id);
-    var balls=Array.isArray(match.balls)?match.balls:[];
+    // Normalize/sort before choosing the latest ball: provider responses are not
+    // guaranteed to arrive in chronological array order.
+    var balls=normalizeBalls(Array.isArray(match.balls)?match.balls:[]);
     if(!balls.length){
       if(lastAudioMatchId.current!==matchId){
         lastAudioMatchId.current=matchId;
@@ -1322,7 +1324,6 @@ function App(){
       }
       return;
     }
-    // Ball history is normalized into chronological order before it reaches the UI.
     var ball=balls[balls.length-1];
     if(!ball)return;
     var key=matchId+'|'+String(ball.id||ballDedupeKey(ball))+'|'+String(ballRuns(ball))+'|'+String(ballIsWicket(ball));
@@ -1383,7 +1384,16 @@ function App(){
     if(!match||!match.id)return;
     var matchId=String(match.id);
     var ordered=normalizeBalls(Array.isArray(match.balls)?match.balls:[]);
-    if(!ordered.length)return;
+    // Remember an empty live match. Otherwise its first arriving delivery is
+    // incorrectly treated as historical and never announced/animated.
+    if(!ordered.length){
+      if(lastCommentaryMatchId.current!==matchId){
+        lastCommentaryMatchId.current=matchId;
+        lastCommentaryBallKey.current='';
+        lastCommentaryOrder.current=-1;
+      }
+      return;
+    }
     var ball=ordered[ordered.length-1];
     if(!ball)return;
     var notation=parseBallNotation(ball);
