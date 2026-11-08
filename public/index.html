@@ -457,6 +457,47 @@ body.theme-dark,body.theme-night{background:radial-gradient(ellipse at 50% -15%,
 @media(prefers-reduced-motion:reduce){.pitch-ball{animation:none!important;left:50%!important;top:16px!important}}
 </style>
 
+
+<style id="mcs-pitch-font-squad-fix">
+/* Slim, broadcast-style pitch with a clearly visible white ball and one bounce. */
+.cricket-pitch{height:48px!important;margin:7px 4px 5px!important;padding:3px 7px!important;border-radius:8px!important;background:linear-gradient(90deg,#071b2e,#0b2d43 50%,#071b2e)!important;border-color:rgba(148,190,216,.2)!important;box-shadow:inset 0 0 12px #0008!important}
+.pitch-strip{height:30px!important;background:repeating-linear-gradient(90deg,#bda27a 0 5px,#d2b98f 5px 10px)!important;border-top:1px solid #e8d4b2!important;border-bottom:1px solid #98764e!important}
+.pitch-wicket{width:10px!important;flex-basis:10px!important;height:30px!important;padding-top:1px!important}
+.pitch-wicket i{width:2px!important;height:23px!important}
+.pitch-wicket:before{height:2px!important}
+.pitch-crease{top:2px!important;bottom:2px!important;width:2px!important}
+.pitch-ball{width:10px!important;height:10px!important;top:0;z-index:3;background:radial-gradient(circle at 30% 25%,#fff 0%,#fff 48%,#dce7ef 100%)!important;border:1px solid #fff!important;box-shadow:0 0 5px #fff,0 1px 4px #000!important;animation-duration:1.85s!important}
+.pitch-ball i{border-left-color:#d33!important}
+.cricket-pitch.delivery-swing-in .pitch-ball{animation-name:pitchSwingIn}
+.cricket-pitch.delivery-swing-out .pitch-ball{animation-name:pitchSwingOut}
+.cricket-pitch.delivery-full-toss .pitch-ball{animation-name:pitchFullToss}
+.cricket-pitch.delivery-yorker .pitch-ball{animation-name:pitchYorker}
+@keyframes pitchSwingIn{0%{left:0;top:5px;transform:translateY(0)}36%{left:35%;top:1px;transform:translateY(0)}52%{left:49%;top:17px;transform:translateY(0) scale(1.12)}70%{left:68%;top:3px;transform:translateY(0)}100%{left:100%;top:6px;opacity:.15}}
+@keyframes pitchSwingOut{0%{left:0;top:5px;transform:translateY(0)}36%{left:35%;top:2px;transform:translateY(0)}52%{left:49%;top:17px;transform:translateY(0) scale(1.12)}70%{left:68%;top:5px;transform:translateY(0)}100%{left:100%;top:1px;opacity:.15}}
+@keyframes pitchFullToss{0%{left:0;top:5px}38%{left:39%;top:0}53%{left:51%;top:16px;transform:scale(1.12)}72%{left:74%;top:2px}100%{left:100%;top:5px;opacity:.15}}
+@keyframes pitchYorker{0%{left:0;top:6px}43%{left:43%;top:4px}54%{left:53%;top:18px;transform:scale(1.1)}74%{left:76%;top:4px}100%{left:100%;top:6px;opacity:.15}}
+/* Requested +2 pt readability: preserve role labels for striker, non-striker and bowler. */
+.tabs button{font-size:14px!important}
+.ball-detail,.over-card .ball-detail{font-size:17px!important;line-height:1.6!important}
+.ball-chip{font-size:15px!important;min-width:37px;height:37px}
+.over-head{font-size:17px!important}
+.over-end{font-size:16px!important;line-height:1.5!important}
+.comm-toolbar .btn{font-size:15px!important}
+.players-bar .live-player-role{font-size:14px!important}
+.players-bar .live-player-name{font-size:18px!important}
+.players-bar .live-player-stats b{font-size:18px!important}
+.players-bar .live-player-stats small{font-size:13px!important}
+.players-bar table th{font-size:11px!important}
+.players-bar table td{font-size:calc(1em + 2px)!important}
+.players-row .pbox .k{font-size:13px!important}
+.players-row .pbox .v{font-size:17px!important}
+.score-player-name{font-size:18px!important}
+.card table th{font-size:11px!important}
+.card table td{font-size:15px!important}
+.squad-player-name{font-size:15px!important}
+.squad-player-meta{font-size:13px!important}
+</style>
+
 </head>
 <body class="theme-dark">
 <div id="root"></div>
@@ -504,12 +545,13 @@ var memCache={};
 // Throttle secondary recovery requests so missing optional relations do not trigger
 // repeated multi-request bursts on every live-score refresh.
 var detailRecoveryAt={};
+var lineupRecoveryAt={};
 var ballsRecoveryAt={};
 var detailInFlight={};
 var DEFAULT_BG='https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=1200&q=60';
 // Sportmonks fixture endpoint allows up to 10 nested includes. Use only documented fixture relations. Keep this request
 // within that limit; oversized include lists can return HTTP 400 and break both tabs.
-var INCLUDE_LIST='localteam,visitorteam,runs,runs.team,batting,batting.batsman,bowling,bowling.bowler,balls,balls.score';
+var INCLUDE_LIST='localteam,visitorteam,runs,runs.team,batting,batting.batsman,bowling,bowling.bowler,balls,balls.score,lineup,lineup.player,lineup.team';
 var INCLUDE_LIST_SCORECARD='runs,runs.team,batting,batting.batsman,batting.team,bowling,bowling.bowler,bowling.team,lineup';
 var INCLUDE_LIST_SCORECARD_LIGHT='runs,batting,bowling,lineup';
 var INCLUDE_LIST_LIGHT='localteam,visitorteam,runs';
@@ -1839,6 +1881,14 @@ function App(){
           .then(function(r){mergeData(r.data||{});})
           .catch(function(e){console.warn('Sportmonks commentary recovery failed',e);}));
       }
+      // Squad/lineup is a separate static relation; recover it independently when omitted.
+      if(!relationRows(best.lineup).length &&
+         now-(lineupRecoveryAt[mid]||0)>60000){
+        lineupRecoveryAt[mid]=now;
+        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'localteam,visitorteam,lineup,lineup.player,lineup.team'),{force:true})
+          .then(function(r){mergeData(r.data||{});})
+          .catch(function(e){console.warn('Sportmonks lineup recovery failed',e);}));
+      }
       return Promise.all(jobs).then(function(){return normaliseMatchDetail(best,m);});
     }
     smGet(ckUrl('fixtures/'+m.id,tok,INCLUDE_LIST),{force:true}).then(function(r){
@@ -2116,7 +2166,7 @@ function App(){
                 h('div',{className:'overs'},sc.b.indexOf('(')>=0?sc.b.slice(sc.b.indexOf('(')):'' )
               )
             ),
-            h('div',{className:'cricket-pitch '+(currentBattingSide(d)==='home'?'to-left':'to-right'),key:String((d&&d.id)||'')+'-'+String((d&&d.balls&&d.balls.length)||0)+'-'+String((d&&d.updated_at)||'')},
+            h('div',{className:'cricket-pitch '+(currentBattingSide(d)==='home'?'to-left':'to-right')+' '+(['delivery-swing-in','delivery-swing-out','delivery-full-toss','delivery-yorker'][((Number(d&&d.id)||0)+(relationRows(d&&d.balls).length*7))%4]),key:String((d&&d.id)||'')+'-'+String((d&&d.balls&&d.balls.length)||0)+'-'+String((d&&d.updated_at)||'')},
               h('div',{className:'pitch-wicket wicket-left'},h('i'),h('i'),h('i')),
               h('div',{className:'pitch-strip'},h('span',{className:'pitch-crease crease-left'}),h('span',{className:'pitch-crease crease-right'}),h('span',{className:'pitch-ball'},h('i'))),
               h('div',{className:'pitch-wicket wicket-right'},h('i'),h('i'),h('i'))
