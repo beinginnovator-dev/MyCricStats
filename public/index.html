@@ -553,6 +553,18 @@ body.theme-dark,body.theme-night{background:radial-gradient(ellipse at 50% -15%,
 .cricket-pitch.f1-race .race-track:after{right:12%!important}
 .cricket-pitch.f1-race .race-ball{z-index:2!important}
 </style>
+
+<style id="mcs-red-racing-ball-google-news-tabs">
+/* Red F1 racing ball on the light-brown pitch track. */
+.cricket-pitch.f1-race .race-ball{
+  background:radial-gradient(circle at 30% 25%,#ffb8b8 0%,#ef4444 48%,#991b1b 100%)!important;
+  border:1px solid #fecaca!important;
+  box-shadow:0 0 8px rgba(239,68,68,.8),0 0 15px rgba(220,38,38,.35)!important;
+}
+.cricket-pitch.f1-race .race-ball:after{border-left:1px dashed rgba(255,255,255,.95)!important}
+/* Restore Headlines; news feed is Google News RSS only. */
+.tabs button{font-size:18px!important}
+</style>
 </head>
 <body class="theme-dark">
 <div id="root"></div>
@@ -2144,7 +2156,7 @@ function App(){
     return statusOf(m)===filter;
   });
 
-  var tabs=[['matches','Matches'],['scorecard','Scorecard'],['commentary','Commentary'],['chat','Chat'],['squad','Squad'],['info','Info'],['schedule','Schedule']];
+  var tabs=[['news','Headlines'],['matches','Matches'],['scorecard','Scorecard'],['commentary','Commentary'],['chat','Chat'],['squad','Squad'],['info','Info'],['schedule','Schedule']];
 
   return h('div',{className:'app'},
     error?h('div',{className:'error-bar'},error):null,
