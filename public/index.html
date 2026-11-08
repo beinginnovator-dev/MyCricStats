@@ -1019,21 +1019,23 @@ function primeSpeech(){
 }
 function speakText(text, lang){
   try{
-    if(!window.speechSynthesis||!text)return false;
+    if(!window.speechSynthesis||!text||!window.SpeechSynthesisUtterance)return false;
     text=String(text).replace(/\*/g,'').replace(/\s+/g,' ').trim();
     if(!text)return false;
     var synth=window.speechSynthesis;
-    synth.resume();
-    synth.cancel();
     var u=new SpeechSynthesisUtterance(text);
     u.lang=lang==='hi'?'hi-IN':'en-IN';
     u.rate=lang==='hi'?0.95:1;
     u.volume=1;
-    var voices=synth.getVoices()||[];
+    var voices=synth.getVoices?synth.getVoices():[];
     var prefer=voices.find(function(v){return lang==='hi'?/^hi(-|$)/i.test(v.lang):/^en(-|$)/i.test(v.lang);});
     if(prefer)u.voice=prefer;
     u.onerror=function(e){console.warn('Commentary TTS error',e&&e.error||e);};
-    synth.speak(u);
+    // Android Chrome can drop an utterance issued immediately after cancel().
+    synth.cancel();
+    window.setTimeout(function(){
+      try{if(synth.paused)synth.resume();synth.speak(u);}catch(e){console.warn('Commentary TTS start failed',e);}
+    },120);
     return true;
   }catch(e){console.warn('Commentary TTS failed',e);return false;}
 }
@@ -1506,8 +1508,9 @@ function App(){
       raf=requestAnimationFrame(function(){
         var playerCard=document.querySelector('.players-bar');
         var broadcast=document.querySelector('.broadcast');
-        var top=playerCard?playerCard.getBoundingClientRect().top:(broadcast?broadcast.getBoundingClientRect().bottom:window.innerHeight*.56);
-        top=Math.max(72,Math.min(top,window.innerHeight-90));
+        // Keep the whole broadcast scoreboard and Current Players · Scorecard visible.
+        var top=playerCard?playerCard.getBoundingClientRect().bottom+8:(broadcast?broadcast.getBoundingClientRect().bottom+8:window.innerHeight*.56);
+        top=Math.max(120,Math.min(top,window.innerHeight-120));
         document.documentElement.style.setProperty('--mcs-chat-top',Math.round(top)+'px');
         setChatTop(Math.round(top)+'px');
       });
@@ -2086,10 +2089,11 @@ function App(){
           h('button',{onClick:function(){setAdminAds(true);setSettingsOpen(false);}},'Sponsor ads')
         ),
         h('div',{className:'dd-title'},'Audio'),
-        h('button',{onClick:function(){var v=!ttsOn;setTtsOn(v);lsSet('tts_on',v?'1':'0');}},ttsOn?'TTS / Commentary: On':'TTS / Commentary: Off'),
+        h('button',{onClick:function(){var v=!ttsOn;setTtsOn(v);lsSet('tts_on',v?'1':'0');if(v){try{primeSpeech();speakText(ttsLang==='hi'?'कमेंट्री चालू है।':'Commentary enabled.',ttsLang);}catch(e){}}else{try{window.speechSynthesis.cancel();}catch(e){}}}},ttsOn?'TTS / Commentary: On':'TTS / Commentary: Off'),
         h('button',{onClick:function(){var L=ttsLang==='en'?'hi':'en';setTtsLang(L);lsSet('tts_lang',L);}},'TTS language: '+(ttsLang==='hi'?'हिन्दी':'English')),
         h('button',{onClick:function(){var v=!stadOn;setStadOn(v);lsSet('stad_on',v?'1':'0');if(v){try{unlockAudio();}catch(e){}}}},stadOn?'Stadium sounds: On':'Stadium sounds: Off'),
-        h('button',{onClick:function(){try{unlockAudio();setTimeout(function(){stadBeep('four');},180);}catch(e){} }},'Test stadium sound'),
+        h('button',{onClick:function(){try{unlockAudio();stadBeep('four');}catch(e){console.warn(e);}}},'Enable audio & test stadium sound'),
+        h('button',{onClick:function(){try{primeSpeech();speakText(ttsLang==='hi'?'कमेंट्री चालू है।':'Commentary is working.',ttsLang);}catch(e){console.warn(e);}}},'Test commentary voice'),
         h('div',{className:'dd-title'},'Animation'),
         h('button',{onClick:function(){
           var cur=Number(lsGet('anim_ms','5000'))||5000;
@@ -2819,5 +2823,68 @@ body.theme-light .tabs{background:#fff!important}
 }
 @media(prefers-reduced-motion:reduce){
  .score-glow-runs,.score-glow-wkt{animation:none!important}
+}
+</style>
+
+<style id="mcs-chat-audio-light-fixes">
+/* Chat starts BELOW the current-player scorecard; never covers the broadcast scoreboard. */
+.chat-pop,
+.chat-pop.compact,
+.chat-pop.large,
+.chat-pop.maximized{
+  left:8px!important;right:8px!important;width:auto!important;max-width:760px!important;
+  top:var(--mcs-chat-top,60vh)!important;bottom:max(10px,env(safe-area-inset-bottom))!important;
+  height:auto!important;max-height:none!important;transform:none!important;
+  z-index:35!important;border-radius:16px 16px 0 0!important;
+}
+.chat-pop.minimized{top:auto!important;bottom:max(10px,env(safe-area-inset-bottom))!important;height:50px!important;max-height:50px!important}
+.chat-fab{right:12px!important;bottom:max(12px,env(safe-area-inset-bottom))!important;z-index:41!important}
+.chat-pop .cp-body{min-height:0;flex:1 1 auto;overscroll-behavior:contain}
+.ball-stage{z-index:24!important;pointer-events:none!important;overflow:visible!important}
+.bounce-ball.approach{will-change:transform,opacity;animation:ballPop 3.8s cubic-bezier(.22,.68,.24,1) forwards!important}
+.bounce-ball.approach.r4,.bounce-ball.approach.r6,.bounce-ball.approach.rw{animation-duration:3.8s!important}
+/* ICC-style light theme: retain a dark broadcast strip with crisp white score text. */
+body.theme-light .broadcast{
+  color:#f8fafc!important;
+  background:linear-gradient(135deg,#063b35 0%,#075b4b 52%,#073b4a 100%)!important;
+  border-bottom:1px solid rgba(5,150,105,.25)!important;
+}
+body.theme-light .broadcast .bg-overlay{
+  opacity:1!important;
+  background:linear-gradient(120deg,rgba(3,39,36,.94),rgba(4,83,69,.88) 55%,rgba(3,48,58,.94))!important;
+}
+body.theme-light .broadcast .brand-chip,
+body.theme-light .broadcast .match-header .title,
+body.theme-light .broadcast .match-header .sub,
+body.theme-light .broadcast .match-header .status-line,
+body.theme-light .broadcast .tname,
+body.theme-light .broadcast .score-num,
+body.theme-light .broadcast .overs,
+body.theme-light .broadcast .role,
+body.theme-light .broadcast .vs-label,
+body.theme-light .broadcast .meta-row,
+body.theme-light .broadcast .sponsor-slot,
+body.theme-light .broadcast .lp .v,
+body.theme-light .broadcast .lp-sub,
+body.theme-light .broadcast .players-bar,
+body.theme-light .broadcast .players-bar td,
+body.theme-light .broadcast .players-bar th{color:#f8fafc!important}
+body.theme-light .broadcast .match-header .title{color:#ffe08a!important}
+body.theme-light .broadcast .match-header .sub,
+body.theme-light .broadcast .match-header .status-line,
+body.theme-light .broadcast .overs,
+body.theme-light .broadcast .meta-row,
+body.theme-light .broadcast .lp-sub{color:#d9eee9!important}
+body.theme-light .broadcast .players-bar{background:rgba(0,20,28,.34)!important;border-color:rgba(255,255,255,.2)!important}
+body.theme-light .broadcast .lp{background:rgba(0,20,28,.32)!important;border-color:rgba(255,255,255,.18)!important}
+body.theme-light .tabs{background:#fff!important}
+body.theme-light .tabs button{color:#526477!important}
+body.theme-light .tabs button.on{color:#064e3b!important;border-bottom-color:#059669!important}
+body.theme-light .card{background:#fff!important;color:#10243a!important}
+body.theme-light .card h3,body.theme-light .card .muted{color:#526477!important}
+body.theme-light .card table th{color:#526477!important}
+body.theme-light .card table td{color:#10243a!important}
+@media(max-width:520px){
+ .chat-pop,.chat-pop.compact,.chat-pop.large,.chat-pop.maximized{left:5px!important;right:5px!important;top:var(--mcs-chat-top,60vh)!important;bottom:max(8px,env(safe-area-inset-bottom))!important}
 }
 </style>
