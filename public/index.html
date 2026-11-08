@@ -1364,16 +1364,13 @@ function App(){
     var scoreLabel=String(scoreMeta.name||scoreMeta.action||ball.score_name||ball.type||'').toLowerCase();
     var isFour=runs===4||/\b(four|boundary)\b/.test(scoreLabel);
     var isSix=runs===6||/\b(six|maximum)\b/.test(scoreLabel);
-    var newOver=(previous.over!=null&&overNo!=null&&
-      (String(previous.innings)!==innings||Number(overNo)!==Number(previous.over)));
-    var firstBall=(notation.ballInOver!=null&&Number(notation.ballInOver)===1);
-    // Play crowd audio only for the three requested events:
-    // wicket -> whistle, boundary (4/6) -> cheer, start of over -> crowd chant.
-    // Singles, doubles, dot balls and extras must remain silent.
+    // Restore the original behaviour: play a stadium sound on EVERY new delivery.
+    // Keep the updated event-specific clips: wicket -> whistle, 4/6 -> cheer,
+    // and all other deliveries (including 1s, 2s, 3s, dots and extras) -> crowd chant.
     try{
       if(isW)stadBeep('wicket');
       else if(isFour||isSix)stadBeep(isSix?'six':'four');
-      else if(newOver||firstBall)stadBeep('over');
+      else stadBeep('ball');
     }catch(audioError){console.warn('Stadium event sound failed',audioError);}
   },[detail,selected,stadOn]);
   var lastCommentaryMatchId=useRef('');
