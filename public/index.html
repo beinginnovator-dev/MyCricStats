@@ -565,6 +565,24 @@ body.theme-dark,body.theme-night{background:radial-gradient(ellipse at 50% -15%,
 /* Restore Headlines; news feed is Google News RSS only. */
 .tabs button{font-size:18px!important}
 </style>
+
+<style id="mcs-race-ball-and-scoreboard-polish">
+/* Dark-red race ball; softer, lighter brown pitch; move track down towards match date. */
+.cricket-pitch.f1-race{margin-top:18px!important;margin-bottom:5px!important}
+.cricket-pitch.f1-race .race-track{background:linear-gradient(180deg,#e5d0ad 0%,#f0dfc2 48%,#ddc49d 100%)!important}
+.cricket-pitch.f1-race .race-ball{
+ background:radial-gradient(circle at 30% 25%,#b91c1c 0%,#8f1018 52%,#57070d 100%)!important;
+ border:1px solid #f8fafc!important;
+ box-shadow:0 0 7px rgba(127,29,29,.65)!important;
+}
+.cricket-pitch.f1-race .race-ball:after{border-left:1.5px solid #fff!important}
+.bounce-ball .ball-core{
+ background:radial-gradient(circle at 32% 25%,#ff7777 0%,#ef4444 52%,#b91c1c 100%)!important;
+ border:2px solid #fecaca!important;
+ box-shadow:0 8px 20px rgba(0,0,0,.35),inset -4px -6px 10px rgba(80,0,0,.22)!important;
+}
+.bounce-ball .ball-core::after{border-color:rgba(255,255,255,.82)!important}
+</style>
 </head>
 <body class="theme-dark">
 <div id="root"></div>
@@ -2510,7 +2528,32 @@ function App(){
                 )
               )
               ):null
-            ),h('div',{className:'tabs'},
+            ),
+            !selected&&tab!=='news'?(function(){
+              var today=new Date().toISOString().slice(0,10);
+              var upcoming=matches.filter(function(m){return statusOf(m)==='upcoming';}).sort(function(a,b){
+                var ad=String(a.starting_at||'').slice(0,10),bd=String(b.starting_at||'').slice(0,10);
+                if((ad===today)!==(bd===today))return ad===today?-1:1;
+                return String(a.starting_at||'').localeCompare(String(b.starting_at||''));
+              }).slice(0,5);
+              return h('div',{style:{padding:'8px 10px 12px'}},
+                h('div',{style:{fontSize:12,fontWeight:900,letterSpacing:'.08em',color:'var(--muted)',margin:'2px 0 8px'}},'TODAY & UPCOMING MATCHES'),
+                !upcoming.length?h('div',{className:'muted'},loading?'Loading today’s fixtures…':'No upcoming fixtures available.'):upcoming.map(function(m){
+                  var hf=teamFlagUrl(m.localteam||{}),af=teamFlagUrl(m.visitorteam||{});
+                  var home=teamName(m,'local'),away=teamName(m,'visitor');
+                  return h('div',{key:m.id,className:'schedule-poster',onClick:function(){selectMatch(m);}},
+                    h('div',{className:'sp-top'},h('span',null,(m.league&&m.league.name)||m.type||'CRICKET'),h('span',null,String(m.starting_at||'').slice(0,10)===today?'TODAY':'UPCOMING')),
+                    h('div',{className:'sp-versus'},
+                      h('div',{className:'sp-team'},hf?h('img',{src:hf,alt:''}):null,h('span',null,home)),
+                      h('div',{className:'sp-vs'},'VS'),
+                      h('div',{className:'sp-team'},h('span',null,away),af?h('img',{src:af,alt:''}):null)
+                    ),
+                    h('div',{className:'sp-bottom'},h('span',null,fmtWhen(m.starting_at)||'Schedule time TBA'),h('span',null,'TAP TO OPEN'))
+                  );
+                })
+              );
+            })():null,
+            h('div',{className:'tabs'},
       tabs.map(function(p){
         return h('button',{key:p[0],className:tab===p[0]?'on':'',onClick:function(){
           if(p[0]!=='news'){try{window.speechSynthesis.cancel();}catch(e){}}setTab(p[0]);lsSet('mcs_tab',p[0]);
@@ -2712,6 +2755,17 @@ tab==='schedule'?h('div',null,
       )):null,
 
 tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(React.Fragment,null,
+        (function(){
+          var rawState=String((d&&d.status)||'')+' '+String((d&&d.note)||'')+' '+String((d&&d.result)||'');
+          var state=rawState.toLowerCase();
+          var rain=/rain|weather|wet outfield|bad light|light interruption|weather interruption/.test(state);
+          var abandoned=/abandon|called off|no result|cancelled|canceled/.test(state);
+          if(!rain&&!abandoned)return null;
+          return h('div',{className:'card',style:{marginBottom:10,border:'1px solid rgba(245,158,11,.5)',background:'rgba(245,158,11,.09)'}},
+            h('div',{style:{fontWeight:900,fontSize:15,color:'#fbbf24',marginBottom:5}},abandoned?'⚠ MATCH ABANDONED / NO RESULT':'🌧 WEATHER / RAIN INTERRUPTION'),
+            h('div',{style:{fontWeight:700}},rawState.trim()||'Match status update')
+          );
+        })(),
         st==='finished'?h('div',{className:'card',style:{marginBottom:10,border:'1px solid rgba(34,197,94,.45)',background:'rgba(34,197,94,.08)'}},
           h('div',{style:{fontWeight:900,fontSize:15,color:'#22c55e',marginBottom:5}},'🏁 MATCH FINISHED'),
           h('div',{style:{fontWeight:800}},homeName+' '+sc.a+'  ·  '+awayName+' '+sc.b),
