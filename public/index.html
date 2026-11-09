@@ -849,8 +849,11 @@ function relationRows(value){
 function playerIdOf(row,role){
   if(!row)return null;
   var rel=unwrapRelation(row[role]||row.player);
-  var specific=role==='batsmanout'?row.batsmanout_id:role==='catchstump'?row.catchstump_id:role==='runoutby'?row.runoutby_id:role==='bowler'?row.bowler_id:role==='batsman'?row.batsman_id:null;
-  return specific||row.player_id||row.batsman_id||row.bowler_id||(rel&&(rel.id||rel.player_id))||null;
+  var idFields={batsman:'batsman_id',bowler:'bowler_id',batsmanout:'batsmanout_id',catchstump:'catchstump_id',runoutby:'runoutby_id',fielder:'fielder_id',catcher:'catcher_id'};
+  var field=idFields[role];
+  if(field&&row[field]!=null)return row[field];
+  if(rel&&(rel.id!=null||rel.player_id!=null))return rel.id!=null?rel.id:rel.player_id;
+  return field?null:(row.player_id||row.batsman_id||row.bowler_id||null);
 }
 function teamIdOf(row,role){
   if(!row)return null;
@@ -900,10 +903,29 @@ function normaliseMatchDetail(value,fallback){
   hydrate(d.balls,'batsmanout');
   hydrate(d.balls,'catchstump');
   hydrate(d.balls,'runoutby');
+  hydrate(d.balls,'fielder');
+  hydrate(d.balls,'catcher');
   d.lineup.forEach(function(p){
     if(p&&p.player&&p.player.data)p.player=unwrapRelation(p.player);
   });
   return d;
+}
+function ballParticipants(b){
+  b=b||{};
+  var s=b.score||{};
+  var batter=playerName(b.batsman)||playerName(s.batsman)||b.batsman_name||b.batter_name||s.batsman_name||'';
+  var bowler=playerName(b.bowler)||playerName(s.bowler)||b.bowler_name||s.bowler_name||'';
+  var dismissed=playerName(b.batsmanout)||playerName(s.batsmanout)||playerName(b.dismissed_batsman)||playerName(b.batsman_out)||b.batsmanout_name||b.dismissed_batsman_name||batter;
+  var fielder=playerName(b.catchstump)||playerName(s.catchstump)||playerName(b.fielder)||playerName(s.fielder)||playerName(b.catcher)||playerName(s.catcher)||playerName(b.runoutby)||playerName(s.runoutby)||b.fielder_name||b.catcher_name||'';
+  var eventText=[s.name,s.out,s.dismissal,b.dismissal,b.wicket_type,b.dismissal_type].filter(Boolean).join(' ').toLowerCase();
+  return{batter:batter,bowler:bowler,dismissed:dismissed,fielder:fielder,isCatch:/catch|caught/.test(eventText)||!!(b.catchstump||s.catchstump),isRunOut:/run.?out/.test(eventText)||!!(b.runoutby||s.runoutby)};
+}
+function ballNeedsPlayerRecovery(d){
+  var balls=relationRows(d&&d.balls);
+  return balls.some(function(b){
+    var p=ballParticipants(b);
+    return !p.batter||!p.bowler||((p.isCatch||p.isRunOut)&&!p.fielder);
+  });
 }
 function hasScorecardRows(d){
   return !!(d&&relationRows(d.batting).length&&relationRows(d.bowling).length);
@@ -2007,8 +2029,8 @@ function App(){
       }
       // Ball-by-ball is dynamic, but refresh it independently and no more often
       // than every 12 seconds. This avoids a second/third API call every 8–10s.
-      if(!relationRows(best.balls).length &&
-         now-(ballsRecoveryAt[mid]||0)>10000){
+      if((!relationRows(best.balls).length||ballNeedsPlayerRecovery(best)) &&
+         now-(ballsRecoveryAt[mid]||0)>30000){
         ballsRecoveryAt[mid]=now;
         jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'balls,balls.batsman,balls.bowler,balls.score,balls.batsmanout,balls.catchstump,balls.runoutby'),{force:true})
           .then(function(r){mergeData(r.data||{});})
@@ -2310,12 +2332,18 @@ function App(){
                   var rollDelay=bi*110,animation='mcsRollIntoPlace .78s cubic-bezier(.2,.78,.25,1) '+rollDelay+'ms both';
                   if(bi===0)animation+=', mcsLatestBallBreathe 1.8s ease-in-out '+(850+rollDelay)+'ms infinite';
                   var wicket=ballIsWicket(b),runs=ballRuns(b),boundary=runs===4||runs===6;
-                  var batter=playerName(b.batsman)||playerName(b.score&&b.score.batsman)||'Batter';
-                  var dismissed=playerName(b.batsmanout)||playerName(b.score&&b.score.batsmanout)||batter;
-                  var eventTitle=wicket?'WICKET · '+dismissed:boundary?(runs===6?'SIX · ':'FOUR · ')+batter:'';
+                  var people=ballParticipants(b);
+                  var batter=people.batter;
+                  var dismissed=people.dismissed||batter;
+                  var eventTitle=wicket?'WICKET · '+(dismissed||'Dismissal'):boundary?(runs===6?'SIX · ':'FOUR · ')+(batter||'Boundary'):(String(chipLabel(b)).toUpperCase()+' · '+(batter||'Delivery'));
                   var notation=parseBallNotation(b);
-                  var shortDetail=(notation.over!=null?'Over '+(notation.over===0?1:notation.over)+' · ':'')+(notation.ballInOver!=null?'Ball '+notation.ballInOver+' · ':'')+(wicket?'Wicket':runs+' runs');
-                  return h('span',{key:'sb-ball-'+bi,className:'ball-chip mcs-scoreball '+chipClass(b)+(bi===0?' latest-ball':''),style:{animation:animation,cursor:(wicket||boundary)?'pointer':'default'},title:descriptiveLine(b,'en'),onClick:(wicket||boundary)?function(){setScoreboardBallInfo({title:eventTitle,detail:shortDetail});}:undefined},chipLabel(b));
+                  var eventParts=[];
+                  if(people.batter)eventParts.push('Batter: '+people.batter);
+                  if(people.bowler)eventParts.push('Bowler: '+people.bowler);
+                  if(wicket&&dismissed&&dismissed!==people.batter)eventParts.push('Out: '+dismissed);
+                  if(people.fielder&&(people.isCatch||people.isRunOut))eventParts.push('Fielder: '+people.fielder);
+                  var shortDetail=(notation.over!=null?'Over '+(notation.over===0?1:notation.over)+' · ':'')+(notation.ballInOver!=null?'Ball '+notation.ballInOver+' · ':'')+(wicket?'Wicket':runs+' runs')+(eventParts.length?' · '+eventParts.join(' · '):' · Player details unavailable');
+                  return h('span',{key:'sb-ball-'+bi,className:'ball-chip mcs-scoreball '+chipClass(b)+(bi===0?' latest-ball':''),style:{animation:animation,cursor:'pointer'},title:descriptiveLine(b,'en'),onClick:function(){setScoreboardBallInfo({title:eventTitle,detail:shortDetail});}},chipLabel(b));
                 })
               ),
               scoreboardBallInfo?h('div',{className:'mcs-ball-player-info'},h('b',null,scoreboardBallInfo.title),h('span',null,scoreboardBallInfo.detail),h('button',{type:'button',title:'Close',onClick:function(){setScoreboardBallInfo(null);}},'×')):null
