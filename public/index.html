@@ -607,8 +607,8 @@ body.theme-dark,body.theme-night{background:radial-gradient(ellipse at 50% -15%,
 .mcs-over-arrow{width:23px;height:21px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.07);color:#fff;font-size:17px;line-height:15px;font-weight:900;cursor:pointer;padding:0}
 .mcs-over-arrow:disabled{opacity:.25;cursor:default}
 .mcs-scoreboard-overballs{display:flex;align-items:center;justify-content:center;gap:6px;min-height:29px;margin:1px auto;padding:0 4px;flex-wrap:wrap;overflow:visible}
-.mcs-ball-player-info{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;margin-top:3px;padding:5px 9px;border-radius:8px;background:rgba(4,20,35,.88);border:1px solid rgba(255,255,255,.18);font-size:9px;color:#eaf2ff;text-align:center}
-.mcs-ball-player-info b{color:#fde68a;font-size:10px}
+.mcs-ball-player-info{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;margin-top:3px;padding:5px 9px;border-radius:8px;background:rgba(4,20,35,.88);border:1px solid rgba(255,255,255,.18);font-size:11px;color:#eaf2ff;text-align:center}
+.mcs-ball-player-info b{color:#fde68a;font-size:12px}
 .mcs-ball-player-info button{border:0;background:transparent;color:#fff;font-size:15px;padding:0 3px;cursor:pointer}
 .ball-chip.mcs-scoreball{width:23px!important;min-width:23px!important;height:23px!important;font-size:10px!important;line-height:1!important;border-radius:50%;padding:0!important;transform-origin:center;will-change:transform}
 .ball-chip.mcs-scoreball.latest-ball{
@@ -2312,8 +2312,10 @@ function App(){
                   var wicket=ballIsWicket(b),runs=ballRuns(b),boundary=runs===4||runs===6;
                   var batter=playerName(b.batsman)||playerName(b.score&&b.score.batsman)||'Batter';
                   var dismissed=playerName(b.batsmanout)||playerName(b.score&&b.score.batsmanout)||batter;
-                  var eventTitle=wicket?'WICKET · '+dismissed+' dismissed':boundary?(runs===6?'SIX · ':'FOUR · ')+batter:'';
-                  return h('span',{key:'sb-ball-'+bi,className:'ball-chip mcs-scoreball '+chipClass(b)+(bi===0?' latest-ball':''),style:{animation:animation,cursor:(wicket||boundary)?'pointer':'default'},title:descriptiveLine(b,'en'),onClick:(wicket||boundary)?function(){setScoreboardBallInfo({title:eventTitle,detail:descriptiveLine(b,'en')});}:undefined},chipLabel(b));
+                  var eventTitle=wicket?'WICKET · '+dismissed:boundary?(runs===6?'SIX · ':'FOUR · ')+batter:'';
+                  var notation=parseBallNotation(b);
+                  var shortDetail=(notation.over!=null?'Over '+(notation.over===0?1:notation.over)+' · ':'')+(notation.ballInOver!=null?'Ball '+notation.ballInOver+' · ':'')+(wicket?'Wicket':runs+' runs');
+                  return h('span',{key:'sb-ball-'+bi,className:'ball-chip mcs-scoreball '+chipClass(b)+(bi===0?' latest-ball':''),style:{animation:animation,cursor:(wicket||boundary)?'pointer':'default'},title:descriptiveLine(b,'en'),onClick:(wicket||boundary)?function(){setScoreboardBallInfo({title:eventTitle,detail:shortDetail});}:undefined},chipLabel(b));
                 })
               ),
               scoreboardBallInfo?h('div',{className:'mcs-ball-player-info'},h('b',null,scoreboardBallInfo.title),h('span',null,scoreboardBallInfo.detail),h('button',{type:'button',title:'Close',onClick:function(){setScoreboardBallInfo(null);}},'×')):null
