@@ -585,9 +585,13 @@ body.theme-dark,body.theme-night{background:radial-gradient(ellipse at 50% -15%,
 </style>
 <style id="mcs-chat-and-audio-updates">
 /* MyCricStats chat moderation and emoji picker */
-.mcs-chat-actions{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
-.mcs-chat-actions button{border:1px solid rgba(255,255,255,.18);border-radius:7px;background:rgba(255,255,255,.08);color:#eaf2ff;padding:3px 7px;font:700 10px Montserrat,system-ui;cursor:pointer}
+.mcs-chat-actions{display:flex;gap:9px;align-items:center;margin-top:5px;padding-left:2px}
+.mcs-chat-actions button{width:25px;height:25px;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.18);border-radius:50%;background:rgba(255,255,255,.09);color:#eaf2ff;padding:0;font:700 13px Montserrat,system-ui;cursor:pointer}
 .mcs-chat-actions button.danger{color:#fecaca;border-color:rgba(248,113,113,.35)}
+.chat-pop .cp-head .cp-live-score{font-size:9px;line-height:1.25;font-weight:700;color:#9fe7d0;letter-spacing:.01em;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-pop .cp-head .cp-title-main{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-pop .cp-head .t{white-space:normal!important}
+@media(max-width:420px){.chat-pop .cp-head .cp-live-score{font-size:8px}}
 .mcs-emoji-picker{display:flex;flex-wrap:wrap;gap:5px;padding:8px;background:#152b40;border-top:1px solid rgba(255,255,255,.12)}
 .mcs-emoji-picker button{border:0;background:rgba(255,255,255,.08);border-radius:9px;padding:6px 8px;font-size:20px}
 .mcs-smile-btn{width:38px;height:38px;flex:0 0 38px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:#263f55;color:#fff;font-size:20px}
@@ -597,7 +601,15 @@ body.theme-dark,body.theme-night{background:radial-gradient(ellipse at 50% -15%,
 <style id="mcs-ball-summary-only">
 /* Remove pitch race and floating delivery popups; show compact delivery stamps on the broadcast scoreboard. */
 .f1-race.cricket-pitch,.ball-stage,.ev-banner{display:none!important}
-.mcs-scoreboard-overballs{display:flex;align-items:center;justify-content:center;gap:6px;min-height:29px;margin:5px auto 1px;padding:0 4px;flex-wrap:wrap;overflow:visible}
+.mcs-scoreboard-over-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;margin:4px auto 1px;width:100%}
+.mcs-over-nav{display:flex;align-items:center;justify-content:center;gap:12px;min-height:22px}
+.mcs-over-number{font-size:9px;font-weight:900;letter-spacing:.12em;color:#b8cadb}
+.mcs-over-arrow{width:23px;height:21px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.07);color:#fff;font-size:17px;line-height:15px;font-weight:900;cursor:pointer;padding:0}
+.mcs-over-arrow:disabled{opacity:.25;cursor:default}
+.mcs-scoreboard-overballs{display:flex;align-items:center;justify-content:center;gap:6px;min-height:29px;margin:1px auto;padding:0 4px;flex-wrap:wrap;overflow:visible}
+.mcs-ball-player-info{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;margin-top:3px;padding:5px 9px;border-radius:8px;background:rgba(4,20,35,.88);border:1px solid rgba(255,255,255,.18);font-size:9px;color:#eaf2ff;text-align:center}
+.mcs-ball-player-info b{color:#fde68a;font-size:10px}
+.mcs-ball-player-info button{border:0;background:transparent;color:#fff;font-size:15px;padding:0 3px;cursor:pointer}
 .ball-chip.mcs-scoreball{width:23px!important;min-width:23px!important;height:23px!important;font-size:10px!important;line-height:1!important;border-radius:50%;padding:0!important;transform-origin:center;will-change:transform}
 .ball-chip.mcs-scoreball.latest-ball{
   position:relative;z-index:1;
@@ -1543,6 +1555,9 @@ function App(){
   var _domestic=useState([]);var domestic=_domestic[0],setDomestic=_domestic[1];
   var _matchFilter=useState('all');var matchFilter=_matchFilter[0],setMatchFilter=_matchFilter[1];
   var _selected=useState(null);var selected=_selected[0],setSelected=_selected[1];
+  var _scoreboardOverIndex=useState(null);var scoreboardOverIndexState=_scoreboardOverIndex[0],setScoreboardOverIndex=_scoreboardOverIndex[1];
+  var _scoreboardBallInfo=useState(null);var scoreboardBallInfo=_scoreboardBallInfo[0],setScoreboardBallInfo=_scoreboardBallInfo[1];
+  useEffect(function(){setScoreboardOverIndex(null);setScoreboardBallInfo(null);},[selected&&selected.id]);
   var _detail=useState(null);var detail=_detail[0],setDetail=_detail[1];
   var _tab=useState(function(){var q=qs().get('tab');return q||(!qs().get('match')?'matches':lsGet('mcs_tab','commentary'));});var tab=_tab[0],setTab=_tab[1];
   var _filter=useState('all');var filter=_filter[0],setFilter=_filter[1];
@@ -1750,6 +1765,7 @@ function App(){
   var chatName=_chatName[0],setChatName=_chatName[1];
   var _chatInput=useState('');var chatInput=_chatInput[0],setChatInput=_chatInput[1];
   var _chatEmojiOpen=useState(false);var chatEmojiOpen=_chatEmojiOpen[0],setChatEmojiOpen=_chatEmojiOpen[1];
+  var _chatEditMode=useState(false);var chatEditMode=_chatEditMode[0],setChatEditMode=_chatEditMode[1];
   var _chatMsgs=useState([]);var chatMsgs=_chatMsgs[0],setChatMsgs=_chatMsgs[1];
   // Room roster is populated by the chat heartbeat response.
   var _chatViewers=useState([]);var chatViewers=_chatViewers[0],setChatViewers=_chatViewers[1];
@@ -2199,6 +2215,8 @@ function App(){
   var overs=groupIntoOvers(d&&d.balls||[]);
   // newest over first for commentary; ball history itself is chronological.
   var oversDesc=overs.slice().reverse();
+  var scoreboardOverIndex=overs.length?(scoreboardOverIndexState==null?overs.length-1:Math.max(0,Math.min(overs.length-1,scoreboardOverIndexState))):-1;
+  var scoreboardOver=scoreboardOverIndex>=0?overs[scoreboardOverIndex]:null;
   var latestBallList=normalizeBalls(d&&d.balls||[]);
   var latestCommentaryBall=latestBallList.length?latestBallList[latestBallList.length-1]:null;
   var latestCommentaryText=latestCommentaryBall?descriptiveLine(latestCommentaryBall,'en'):'';
@@ -2281,13 +2299,24 @@ function App(){
               d.starting_at?h('span',null,fmtWhen(d.starting_at)):null,
               d.type?h('span',null,d.type):null
             ),
-            oversDesc.length&&oversDesc[0].balls&&oversDesc[0].balls.length?h('div',{className:'mcs-scoreboard-overballs'},
-              oversDesc[0].balls.slice().reverse().map(function(b,bi){
-                var rollDelay=bi*110;
-                var animation='mcsRollIntoPlace .78s cubic-bezier(.2,.78,.25,1) '+rollDelay+'ms both';
-                if(bi===0) animation+=', mcsLatestBallBreathe 1.8s ease-in-out '+(850+rollDelay)+'ms infinite';
-                return h('span',{key:'sb-ball-'+bi,className:'ball-chip mcs-scoreball '+chipClass(b)+(bi===0?' latest-ball':''),style:{animation:animation},title:descriptiveLine(b,'en')},chipLabel(b));
-              })
+            scoreboardOver&&scoreboardOver.balls&&scoreboardOver.balls.length?h('div',{className:'mcs-scoreboard-over-wrap'},
+              h('div',{className:'mcs-over-nav'},
+                h('button',{type:'button',className:'mcs-over-arrow',disabled:scoreboardOverIndex<=0,title:'Previous over',onClick:function(){setScoreboardOverIndex(Math.max(0,scoreboardOverIndex-1));setScoreboardBallInfo(null);}},'‹'),
+                h('span',{className:'mcs-over-number'},'OVER '+(scoreboardOver.overIndex||scoreboardOver.overNo||scoreboardOverIndex+1)),
+                h('button',{type:'button',className:'mcs-over-arrow',disabled:scoreboardOverIndex>=overs.length-1,title:'Next over',onClick:function(){setScoreboardOverIndex(Math.min(overs.length-1,scoreboardOverIndex+1));setScoreboardBallInfo(null);}},'›')
+              ),
+              h('div',{className:'mcs-scoreboard-overballs'},
+                scoreboardOver.balls.slice().reverse().map(function(b,bi){
+                  var rollDelay=bi*110,animation='mcsRollIntoPlace .78s cubic-bezier(.2,.78,.25,1) '+rollDelay+'ms both';
+                  if(bi===0)animation+=', mcsLatestBallBreathe 1.8s ease-in-out '+(850+rollDelay)+'ms infinite';
+                  var wicket=ballIsWicket(b),runs=ballRuns(b),boundary=runs===4||runs===6;
+                  var batter=playerName(b.batsman)||playerName(b.score&&b.score.batsman)||'Batter';
+                  var dismissed=playerName(b.batsmanout)||playerName(b.score&&b.score.batsmanout)||batter;
+                  var eventTitle=wicket?'WICKET · '+dismissed+' dismissed':boundary?(runs===6?'SIX · ':'FOUR · ')+batter:'';
+                  return h('span',{key:'sb-ball-'+bi,className:'ball-chip mcs-scoreball '+chipClass(b)+(bi===0?' latest-ball':''),style:{animation:animation,cursor:(wicket||boundary)?'pointer':'default'},title:descriptiveLine(b,'en'),onClick:(wicket||boundary)?function(){setScoreboardBallInfo({title:eventTitle,detail:descriptiveLine(b,'en')});}:undefined},chipLabel(b));
+                })
+              ),
+              scoreboardBallInfo?h('div',{className:'mcs-ball-player-info'},h('b',null,scoreboardBallInfo.title),h('span',null,scoreboardBallInfo.detail),h('button',{type:'button',title:'Close',onClick:function(){setScoreboardBallInfo(null);}},'×')):null
             ):null,
             null
           ):(tab==='news'&&news.length?(function(){
@@ -2474,9 +2503,13 @@ function App(){
     floatMsg?h('div',{className:'float-praise'},floatMsg):null,
     chatPop?ReactDOM.createPortal(h('div',{className:'chat-pop '+chatSize,style:(chatSize==='maximized'||chatSize==='minimized')?{}:{top:chatTop}}, 
       h('div',{className:'cp-head'},
-        h('div',{className:'t'},'💬 '+(roomId||'Match room')+' · '+(homeName||'Home')+' vs '+(awayName||'Away')),
+        h('div',{className:'t'},
+          h('div',{className:'cp-title-main'},'💬 '+(roomId||'Match room')+' · '+(homeName||'Home')+' vs '+(awayName||'Away')),
+          h('div',{className:'cp-live-score'},(homeName||'Home')+' '+(sc.a||'—')+'  ·  '+(awayName||'Away')+' '+(sc.b||'—')+(st==='live'?'  • LIVE':''))
+        ),
         h('span',{className:'cp-room-tag'},'LIVE ROOM'),
         h('div',{className:'cp-head-actions'},
+          h('button',{className:'btn cp-head-btn',type:'button',title:chatEditMode?'Hide message actions':'Edit / delete messages','aria-label':chatEditMode?'Hide message actions':'Edit / delete messages',onClick:function(){setChatEditMode(!chatEditMode);}},chatEditMode?'✓':'✎'),
           h('button',{className:'btn cp-head-btn',title:'Invite to this match','aria-label':'Invite',onClick:inviteChat},'↗'),
           h('button',{className:'btn cp-head-btn',title:'Minimize chat','aria-label':'Minimize chat',onClick:function(){setChatSize('minimized');}},'−'),
           h('button',{className:'btn cp-head-btn',title:chatSize==='maximized'?'Restore chat':'Maximize chat','aria-label':chatSize==='maximized'?'Restore chat':'Maximize chat',onClick:function(){setChatSize(chatSize==='maximized'?'normal':'maximized');}},chatSize==='maximized'?'❐':'□'),
@@ -2491,7 +2524,7 @@ function App(){
           var canEdit=me;var canDelete=me||isRoomHost;
           return h('div',{key:m.id||i,className:'cp-msg '+(me?'me':'them'),style:{display:'block'}},
             h('div',null,h('b',null,(m.name||'Fan')+': '),m.text,m.edited?h('span',{style:{fontSize:10,opacity:.6}},' (edited)'):null),
-            (canEdit||canDelete)?h('div',{className:'mcs-chat-actions'},canEdit?h('button',{type:'button',onClick:function(){editOwnChatMessage(m);}},'Edit'):null,canDelete?h('button',{type:'button',className:'danger',onClick:function(){deleteRoomMessage(m);}},'Delete'):null):null
+            chatEditMode&&(canEdit||canDelete)?h('div',{className:'mcs-chat-actions'},canEdit?h('button',{type:'button',title:'Edit message','aria-label':'Edit message',onClick:function(){editOwnChatMessage(m);}},'✎'):null,canDelete?h('button',{type:'button',className:'danger',title:'Delete message','aria-label':'Delete message',onClick:function(){deleteRoomMessage(m);}},'🗑'):null):null
           );
         }),
         chatSub!=='viewers'&&!chatMsgs.length?h('div',{className:'room-empty'},roomStatus==='Connected'?'No messages yet. Say hello!':roomStatus):null,
