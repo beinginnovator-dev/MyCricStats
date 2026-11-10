@@ -2336,14 +2336,23 @@ function App(){
                   var batter=people.batter;
                   var dismissed=people.dismissed||batter;
                   var eventTitle=wicket?'WICKET · '+(dismissed||'Dismissal'):boundary?(runs===6?'SIX · ':'FOUR · ')+(batter||'Boundary'):(String(chipLabel(b)).toUpperCase()+' · '+(batter||'Delivery'));
-                  var notation=parseBallNotation(b);
-                  var eventParts=[];
-                  if(people.batter)eventParts.push('Batter: '+people.batter);
-                  if(people.bowler)eventParts.push('Bowler: '+people.bowler);
-                  if(wicket&&dismissed&&dismissed!==people.batter)eventParts.push('Out: '+dismissed);
-                  if(people.fielder&&(people.isCatch||people.isRunOut))eventParts.push('Fielder: '+people.fielder);
-                  var shortDetail=(notation.over!=null?'Over '+(notation.over===0?1:notation.over)+' · ':'')+(notation.ballInOver!=null?'Ball '+notation.ballInOver+' · ':'')+(wicket?'Wicket':runs+' runs')+(eventParts.length?' · '+eventParts.join(' · '):' · Player details unavailable');
-                  return h('span',{key:'sb-ball-'+bi,className:'ball-chip mcs-scoreball '+chipClass(b)+(bi===0?' latest-ball':''),style:{animation:animation,cursor:'pointer'},title:descriptiveLine(b,'en'),onClick:function(){setScoreboardBallInfo({title:eventTitle,detail:shortDetail});}},chipLabel(b));
+                  var bowlerName=people.bowler||'Bowler';
+                  var batterName=people.batter||'Batsman';
+                  var eventLabel='';
+                  if(wicket){
+                    var rawDismissal=[b.dismissal,b.wicket_type,b.dismissal_type,b.score&&b.score.out,b.score&&b.score.dismissal,b.score&&b.score.name].filter(Boolean).join(' ').toLowerCase();
+                    if(people.isCatch)eventLabel='WICKET — CAUGHT'+(people.fielder?' by '+people.fielder:'');
+                    else if(/clean.?bowled|bowled/.test(rawDismissal))eventLabel='WICKET — CLEAN BOWLED';
+                    else if(/lbw/.test(rawDismissal))eventLabel='WICKET — LBW';
+                    else if(people.isRunOut||/run.?out/.test(rawDismissal))eventLabel='WICKET — RUN OUT';
+                    else if(/stump/.test(rawDismissal))eventLabel='WICKET — STUMPED';
+                    else eventLabel='WICKET';
+                  }else if(runs===4)eventLabel='FOUR';
+                  else if(runs===6)eventLabel='SIX';
+                  else if(runs===0)eventLabel='DOT BALL';
+                  else eventLabel=runs+' RUN'+(runs===1?'':'S');
+                  var shortDetail=bowlerName+' to '+batterName+' · '+eventLabel;
+                  return h('span',{key:'sb-ball-'+bi,className:'ball-chip mcs-scoreball '+chipClass(b)+(bi===0?' latest-ball':''),style:{animation:animation,cursor:'pointer'},onClick:function(){setScoreboardBallInfo({title:eventTitle,detail:shortDetail});}},chipLabel(b));
                 })
               ),
               scoreboardBallInfo?h('div',{className:'mcs-ball-player-info'},h('b',null,scoreboardBallInfo.title),h('span',null,scoreboardBallInfo.detail),h('button',{type:'button',title:'Close',onClick:function(){setScoreboardBallInfo(null);}},'×')):null
