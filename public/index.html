@@ -2722,7 +2722,7 @@ function App(){
 
       tab==='matches'?h(React.Fragment,null,
         h('div',{className:'filter-row'},
-          [['all','All'],['live','Live'],['upcoming','Upcoming'],['finished','Finished'],['domestic','Domestic']].map(function(f){
+          [['all','All'],['live','Live'],['upcoming','Upcoming'],['finished','Finished'],['abandoned','Abandoned'],['domestic','Domestic']].map(function(f){
             return h('button',{key:f[0],className:filter===f[0]?'on':'',onClick:function(){setMatchFilter(f[0]);setFilter(f[0]);if(f[0]==='domestic')loadDomestic();}},f[1]);
           })
         ),
@@ -2738,7 +2738,7 @@ function App(){
             var hf=teamFlagUrl(m.localteam||{}),af=teamFlagUrl(m.visitorteam||{});
             return h('div',{key:m.id,className:'match-card'+(selected&&selected.id===m.id?' is-sel':'')+(st2==='live'?' is-live':''),onClick:function(){selectMatch(m);}},
               h('div',{className:'mc-top'},
-                st2==='live'?h('span',{className:'mc-live'},'● LIVE'):st2==='finished'?h('span',{className:'mc-fin'},'FULL TIME'):h('span',{className:'mc-up'},'UPCOMING'),
+                st2==='live'?h('span',{className:'mc-live'},'● LIVE'):st2==='finished'?h('span',{className:'mc-fin'},'FULL TIME'):h('span',{className:'mc-up'},statusLabel(st2)),
                 h('span',{className:'mc-meta'},lg||'CRICKET')
               ),
               h('div',{className:'mc-versus'},
