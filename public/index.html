@@ -1080,8 +1080,8 @@ function parseBallNotation(b){
   if(!b)return{over:null,ballInOver:null};
   var ball=b.ball;
   if(ball&&typeof ball==='object')ball=ball.name||ball.value||ball.ball||'';
-  if(typeof ball==='string'&&ball.indexOf('.')>=0){
-    var parts=ball.split('.');
+  if((typeof ball==='string'||typeof ball==='number')&&String(ball).indexOf('.')>=0){
+    var parts=String(ball).split('.');
     return{over:parseInt(parts[0],10),ballInOver:parseInt(parts[1],10)||0};
   }
   if(b.over!=null||b.over_number!=null){
