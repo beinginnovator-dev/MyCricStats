@@ -829,7 +829,7 @@ function scoreText(row){
 }
 function scoreForSpeech(team, raw){
   var value=String(raw==null?'':raw).trim();
-  var m=value.match(/^([\\d,]+)(?:\\s*\\/\\s*(\\d+))?(?:\\s*\\(\\s*(\\d+(?:\\.\\d+)?)\\s*\\))?/);
+  var m=value.match(/^([\d,]+)(?:\s*\/\s*(\d+))?(?:\s*\(\s*(\d+(?:\.\d+)?)\s*\))?/);
   if(!m)return team+(value&&value!=='—'?' '+value:' score unavailable')+'.';
   var runs=Number(m[1].replace(/,/g,'')), wickets=m[2]!=null?Number(m[2]):null;
   var line=team+' scored '+runs+' run'+(runs===1?'':'s');
