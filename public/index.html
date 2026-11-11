@@ -2037,6 +2037,7 @@ function App(){
     var isGuest=false;try{isGuest=qs().get('view')==='1';}catch(e){}
     if((!tok&&!isGuest)||!m||!m.id)return;
     var requestMatchId=String(m.id);
+    if(activeMatchIdRef.current&&activeMatchIdRef.current!==requestMatchId)return;
     if(detailInFlight[requestMatchId])return;
     detailInFlight[requestMatchId]=true;
     if(!silent){setLoading(true);setError(null);}
