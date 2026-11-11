@@ -1928,11 +1928,6 @@ function App(){
         setError('SportMonks returned no fixtures in the last 30 / next 30 days. Check cricket API access and subscription coverage.');
       }
 
-      if(shareId){
-        var m=list.find(function(x){return String(x.id)===String(shareId);});
-        if(m){setSelected(m);activateMatchRoom(m);var savedTab=qs().get('tab')||lsGet('mcs_tab','scorecard');setTab(savedTab);loadDetail(m,token);}
-        else {var placeholder={id:shareId};setSelected(placeholder);activateMatchRoom(placeholder);loadDetail(placeholder,token);}
-      }
     }).catch(function(e){if(!silent)setError(String((e&&e.message)||e||'Sportmonks load failed'));})
      .finally(function(){if(!silent)setLoading(false);});
   },[token,shareId]);
