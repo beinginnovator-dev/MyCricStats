@@ -626,6 +626,21 @@ body.theme-dark,body.theme-night{background:radial-gradient(ellipse at 50% -15%,
 @media(prefers-reduced-motion:reduce){.ball-chip.mcs-scoreball{animation:none!important;transform:none!important}}
 </style>
 
+<style id="mcs-commentary-result-skyshot">
+.mcs-commentary-latest{position:relative;overflow:hidden}
+.mcs-commentary-latest:after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 20%,rgba(255,255,255,.13) 48%,transparent 72%);transform:translateX(-120%);animation:mcsLatestSweep 3.8s ease-in-out infinite}
+@keyframes mcsLatestSweep{0%,55%{transform:translateX(-120%)}85%,100%{transform:translateX(120%)}}
+.mcs-match-result-banner{position:relative;isolation:isolate;overflow:hidden;margin:0 0 12px;padding:16px 13px;border:1px solid rgba(250,204,21,.72);border-radius:15px;background:radial-gradient(ellipse at 50% 0%,rgba(250,204,21,.24),transparent 60%),linear-gradient(135deg,#102b49,#071426 72%);box-shadow:0 8px 28px rgba(0,0,0,.3),0 0 22px rgba(250,204,21,.12);text-align:center}
+.mcs-match-result-banner:before{content:'';position:absolute;z-index:-1;inset:-45%;background:repeating-conic-gradient(from 0deg at 50% 50%,rgba(250,204,21,.0) 0deg 8deg,rgba(250,204,21,.19) 9deg 10deg,transparent 11deg 22deg);animation:mcsSkyshotSpin 12s linear infinite}
+.mcs-match-result-banner:after{content:'✦  ✧  ✦  ✧  ✦';position:absolute;top:7px;left:0;right:0;color:#fde68a;letter-spacing:18px;font-size:17px;text-shadow:0 0 12px #facc15;animation:mcsSkyshotSpark 1.7s ease-in-out infinite alternate;pointer-events:none}
+.mcs-result-kicker{font-size:10px;font-weight:1000;letter-spacing:.16em;color:#fde68a;margin:7px 0 8px;text-shadow:0 0 12px rgba(250,204,21,.5)}
+.mcs-result-score{font-size:19px;font-weight:1000;color:#fff;line-height:1.35;text-shadow:0 2px 12px rgba(56,189,248,.3)}
+.mcs-result-line{font-size:14px;font-weight:900;color:#86efac;margin-top:7px}
+.mcs-result-players{display:flex;flex-direction:column;gap:4px;margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.16);font-size:10px;font-weight:900;letter-spacing:.04em;color:#bae6fd}
+@keyframes mcsSkyshotSpin{to{transform:rotate(360deg)}}
+@keyframes mcsSkyshotSpark{from{opacity:.45;transform:scale(.92)}to{opacity:1;transform:scale(1.08)}}
+@media(prefers-reduced-motion:reduce){.mcs-commentary-latest:after,.mcs-match-result-banner:before,.mcs-match-result-banner:after{animation:none!important}}
+</style>
 </head>
 <body class="theme-dark">
 <div id="root"></div>
@@ -1402,6 +1417,32 @@ function stadNoiseBurst(ctx, now, dur, vol){
     src.connect(g);g.connect(ctx.destination);src.start(now);src.stop(now+dur);
   }catch(e){}
 }
+function playSyntheticStadiumClip(key){
+  try{
+    var ctx=unlockAudio();if(!ctx)return;
+    var now=ctx.currentTime+0.03;
+    if(key==='whistle'){
+      var osc=ctx.createOscillator(),gain=ctx.createGain();
+      osc.type='sine';osc.frequency.setValueAtTime(1250,now);
+      osc.frequency.exponentialRampToValueAtTime(1850,now+0.32);
+      osc.frequency.exponentialRampToValueAtTime(1050,now+0.78);
+      gain.gain.setValueAtTime(0.001,now);gain.gain.linearRampToValueAtTime(0.12,now+0.06);
+      gain.gain.exponentialRampToValueAtTime(0.001,now+0.82);
+      osc.connect(gain);gain.connect(ctx.destination);osc.start(now);osc.stop(now+0.84);
+    }else{
+      stadNoiseBurst(ctx,now,0.85,key==='cheer'?0.075:0.045);
+      if(key==='cheer'){
+        [0,0.13,0.27,0.42].forEach(function(offset,i){
+          var osc=ctx.createOscillator(),gain=ctx.createGain(),at=now+offset;
+          osc.type='triangle';osc.frequency.setValueAtTime(420+i*95,at);
+          gain.gain.setValueAtTime(0.001,at);gain.gain.linearRampToValueAtTime(0.035,at+0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001,at+0.24);
+          osc.connect(gain);gain.connect(ctx.destination);osc.start(at);osc.stop(at+0.25);
+        });
+      }
+    }
+  }catch(e){console.warn('Synthetic stadium sound failed',e);}
+}
 var stadiumAudioUnlocked=false;
 var stadiumAudioPlayers={};
 var stadiumAudioSources={
@@ -1448,8 +1489,11 @@ function playStadiumClip(kind){
     if(!audio)return;
     audio.pause();audio.currentTime=0;audio.volume=key==='whistle'?0.9:0.82;
     var p=audio.play();
-    if(p&&p.catch)p.catch(function(e){console.warn('Stadium MP3 playback blocked or missing:',stadiumAudioSources[key],e);});
-  }catch(e){console.warn('Stadium MP3 playback failed',e);}
+    if(p&&p.catch)p.catch(function(e){
+      console.warn('Stadium MP3 playback blocked or missing; using WebAudio fallback:',stadiumAudioSources[key],e);
+      playSyntheticStadiumClip(key);
+    });
+  }catch(e){console.warn('Stadium MP3 playback failed; using WebAudio fallback',e);playSyntheticStadiumClip(key);}
 }
 function stadBeep(kind){playStadiumClip(kind);}
 
@@ -1725,9 +1769,24 @@ function App(){
     if(lastFinishedSpokenMatchId.current===id)return;
     lastFinishedSpokenMatchId.current=id;
     if(ttsOn){
+      var scores=scoreLine(match);
+      var home=teamName(match,'local'),away=teamName(match,'visitor');
+      var battingRows=relationRows(match.batting).slice().sort(function(a,b){
+        return Number(b.score!=null?b.score:b.runs||0)-Number(a.score!=null?a.score:a.runs||0);
+      });
+      var bowlingRows=relationRows(match.bowling).slice().sort(function(a,b){
+        return Number(b.wickets||0)-Number(a.wickets||0)||Number(a.runs||999)-Number(b.runs||999);
+      });
+      var topBat=battingRows[0],topBowl=bowlingRows[0];
+      var topBatName=topBat?(playerName(topBat.batsman)||playerName(topBat.player)||topBat.player_name||''):'';
+      var topBatRuns=topBat?(topBat.score!=null?topBat.score:topBat.runs):null;
+      var topBatBalls=topBat?(topBat.ball!=null?topBat.ball:topBat.balls):null;
+      var topBowlName=topBowl?(playerName(topBowl.bowler)||playerName(topBowl.player)||topBowl.player_name||''):'';
+      var resultLine=match.note||match.result||statusTextOf(match)||'Match completed';
       var announcement=({finished:'Match finished.',abandoned:'Match abandoned. No result.',interrupted:'Match interrupted.',postponed:'Match postponed.',cancelled:'Match cancelled.'})[matchState];
-      var resultText=teamName(match,'local')+' '+scoreLine(match).a+'. '+teamName(match,'visitor')+' '+scoreLine(match).b+'. '+(match.note||match.result||statusTextOf(match));
-      speakText(announcement+' '+resultText,ttsLang);
+      var playerLine=(topBatName?' Top scorer, '+topBatName+' scored '+topBatRuns+' runs'+(topBatBalls!=null?' from '+topBatBalls+' balls':'')+'.':'')+
+        (topBowlName?' Best bowling, '+topBowlName+' took '+(topBowl.wickets||0)+' wickets for '+(topBowl.runs!=null?topBowl.runs:0)+' runs.':'');
+      speakText(announcement+' Final score. '+home+' '+scores.a+'. '+away+' '+scores.b+'. Result: '+resultLine+'.'+playerLine,ttsLang);
     }
   },[detail,selected,ttsOn,ttsLang]);
   useEffect(function(){
@@ -2909,6 +2968,11 @@ tab==='schedule'?h('div',null,
       )):null,
 
 tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(React.Fragment,null,
+        latestCommentaryBall?h('div',{className:'mcs-commentary-latest',style:{marginBottom:10,padding:'12px 14px',borderRadius:13,background:'linear-gradient(120deg,rgba(8,47,73,.98),rgba(12,74,110,.78))',border:'1px solid rgba(56,189,248,.48)',boxShadow:'0 8px 24px rgba(0,0,0,.2)'}},
+          h('div',{style:{fontSize:10,fontWeight:1000,letterSpacing:'.12em',color:'#7dd3fc',marginBottom:5}},'LATEST BALL · '+String(latestCommentaryBall.ball||'')),
+          h('div',{style:{fontSize:15,fontWeight:900,color:'#fff',lineHeight:1.4}},latestCommentaryText),
+          h('div',{style:{fontSize:11,color:'#cbd5e1',marginTop:5}},(ballParticipants(latestCommentaryBall).bowler||'Bowler')+' to '+(ballParticipants(latestCommentaryBall).batter||'Batter'))
+        ):null,
         (function(){
           var rawState=statusTextOf(d);
           var state=statusOf(d);
@@ -2921,10 +2985,21 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
             h('div',{style:{fontWeight:700}},rawState.trim()||'Match status update')
           );
         })(),
-        st==='finished'?h('div',{className:'card',style:{marginBottom:10,border:'1px solid rgba(34,197,94,.45)',background:'rgba(34,197,94,.08)'}},
-          h('div',{style:{fontWeight:900,fontSize:15,color:'#22c55e',marginBottom:5}},'🏁 MATCH FINISHED'),
-          h('div',{style:{fontWeight:800}},homeName+' '+sc.a+'  ·  '+awayName+' '+sc.b),
-          h('div',{style:{marginTop:4,fontWeight:700}},status||d.note||d.result||'Match completed')
+        st==='finished'?h('div',{className:'mcs-match-result-banner'},
+          h('div',{className:'mcs-result-kicker'},'🏆 FULL TIME · MATCH RESULT'),
+          h('div',{className:'mcs-result-score'},homeName+'  '+sc.a+'  ·  '+awayName+'  '+sc.b),
+          h('div',{className:'mcs-result-line'},status||d.note||d.result||'Match completed'),
+          (function(){
+            var batRows=relationRows(d&&d.batting).slice().sort(function(a,b){return Number(b.score!=null?b.score:b.runs||0)-Number(a.score!=null?a.score:a.runs||0);});
+            var bowlRows=relationRows(d&&d.bowling).slice().sort(function(a,b){return Number(b.wickets||0)-Number(a.wickets||0);});
+            var top=batRows[0],best=bowlRows[0];
+            var topName=top?(playerName(top.batsman)||playerName(top.player)||top.player_name||''):'';
+            var bestName=best?(playerName(best.bowler)||playerName(best.player)||best.player_name||''):'';
+            return h('div',{className:'mcs-result-players'},
+              topName?h('span',null,'TOP SCORE · '+topName+' '+(top.score!=null?top.score:top.runs||0)+' ('+(top.ball!=null?top.ball:top.balls||0)+')'):null,
+              bestName?h('span',null,'BEST BOWLING · '+bestName+' '+(best.wickets||0)+'/'+(best.runs||0)):null
+            );
+          })()
         ):null,
         h('div',{className:'card'},
           h('h3',null,'Ball-by-ball · by over'),
