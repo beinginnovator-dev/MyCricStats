@@ -2378,8 +2378,11 @@ function App(){
               ),
               h('div',{className:'mcs-scoreboard-overballs'},
                 scoreboardOver.balls.map(function(b,bi){
-                  var rollDelay=bi*110,animation='mcsRollIntoPlace .78s cubic-bezier(.2,.78,.25,1) '+rollDelay+'ms both';
-                  if(bi===scoreboardOver.balls.length-1)animation+=', mcsLatestBallBreathe 1.8s ease-in-out '+(850+rollDelay)+'ms infinite';
+                  var isLatestScoreboardBall=bi===scoreboardOver.balls.length-1;
+                  // Keep earlier deliveries stationary; only the newest ball races in.
+                  var animation=isLatestScoreboardBall
+                    ?'mcsRollIntoPlace .78s cubic-bezier(.2,.78,.25,1) both, mcsLatestBallBreathe 1.8s ease-in-out 850ms infinite'
+                    :'none';
                   var wicket=ballIsWicket(b),runs=ballRuns(b),boundary=runs===4||runs===6;
                   var people=ballParticipants(b);
                   var batter=people.batter;
@@ -2401,7 +2404,7 @@ function App(){
                   else if(runs===0)eventLabel='DOT BALL';
                   else eventLabel=runs+' RUN'+(runs===1?'':'S');
                   var shortDetail=bowlerName+' to '+batterName+' · '+eventLabel;
-                  return h('span',{key:'sb-ball-'+bi,className:'ball-chip mcs-scoreball '+chipClass(b)+(bi===scoreboardOver.balls.length-1?' latest-ball':''),style:{animation:animation,cursor:'pointer'},onClick:function(){setScoreboardBallInfo({title:eventTitle,detail:shortDetail});}},chipLabel(b));
+                  return h('span',{key:'sb-ball-'+bi,className:'ball-chip mcs-scoreball '+chipClass(b)+(isLatestScoreboardBall?' latest-ball':''),style:{animation:animation,cursor:'pointer'},onClick:function(){setScoreboardBallInfo({title:eventTitle,detail:shortDetail});}},chipLabel(b));
                 })
               ),
               scoreboardBallInfo?h('div',{className:'mcs-ball-player-info'},h('b',null,scoreboardBallInfo.title),h('span',null,scoreboardBallInfo.detail),h('button',{type:'button',title:'Close',onClick:function(){setScoreboardBallInfo(null);}},'×')):null
