@@ -1354,6 +1354,7 @@ function descriptiveLine(b, lang, forceOver){
   return head+(runs||0)+' run'+((runs||0)===1?'':'s')+'.';
 }
 var mcsSpeechPrimed=false;
+var pendingFinishedSpeech=null;
 function primeSpeech(){
   try{
     if(!window.speechSynthesis||mcsSpeechPrimed)return;
@@ -1488,11 +1489,15 @@ function playStadiumClip(kind){
     var audio=stadiumAudioPlayers[key];
     if(!audio)return;
     audio.pause();audio.currentTime=0;audio.volume=key==='whistle'?0.9:0.82;
-    var p=audio.play();
-    if(p&&p.catch)p.catch(function(e){
-      console.warn('Stadium MP3 playback blocked or missing; using WebAudio fallback:',stadiumAudioSources[key],e);
+    var fallbackPlayed=false;
+    function fallbackOnce(reason){
+      if(fallbackPlayed)return;fallbackPlayed=true;
+      console.warn('Stadium MP3 unavailable; using WebAudio fallback:',stadiumAudioSources[key],reason||'media error');
       playSyntheticStadiumClip(key);
-    });
+    }
+    audio.onerror=function(){fallbackOnce(audio.error);};
+    var p=audio.play();
+    if(p&&p.catch)p.catch(fallbackOnce);
   }catch(e){console.warn('Stadium MP3 playback failed; using WebAudio fallback',e);playSyntheticStadiumClip(key);}
 }
 function stadBeep(kind){playStadiumClip(kind);}
@@ -1766,10 +1771,8 @@ function App(){
     var matchState=statusOf(match);
     if(['finished','abandoned','interrupted','postponed','cancelled'].indexOf(matchState)<0)return;
     var id=String(match.id)+':'+matchState;
-    if(lastFinishedSpokenMatchId.current===id)return;
-    lastFinishedSpokenMatchId.current=id;
-    if(ttsOn){
-      var scores=scoreLine(match);
+    if(lastFinishedSpokenMatchId.current===id||!ttsOn)return;
+    var scores=scoreLine(match);
       var home=teamName(match,'local'),away=teamName(match,'visitor');
       var battingRows=relationRows(match.batting).slice().sort(function(a,b){
         return Number(b.score!=null?b.score:b.runs||0)-Number(a.score!=null?a.score:a.runs||0);
@@ -1786,8 +1789,10 @@ function App(){
       var announcement=({finished:'Match finished.',abandoned:'Match abandoned. No result.',interrupted:'Match interrupted.',postponed:'Match postponed.',cancelled:'Match cancelled.'})[matchState];
       var playerLine=(topBatName?' Top scorer, '+topBatName+' scored '+topBatRuns+' runs'+(topBatBalls!=null?' from '+topBatBalls+' balls':'')+'.':'')+
         (topBowlName?' Best bowling, '+topBowlName+' took '+(topBowl.wickets||0)+' wickets for '+(topBowl.runs!=null?topBowl.runs:0)+' runs.':'');
-      speakText(announcement+' Final score. '+home+' '+scores.a+'. '+away+' '+scores.b+'. Result: '+resultLine+'.'+playerLine,ttsLang);
-    }
+      var fullAnnouncement=announcement+' Final score. '+home+' '+scores.a+'. '+away+' '+scores.b+'. Result: '+resultLine+'.'+playerLine;
+      lastFinishedSpokenMatchId.current=id;
+      if(mcsSpeechPrimed)speakText(fullAnnouncement,ttsLang);
+      else pendingFinishedSpeech={text:fullAnnouncement,lang:ttsLang,id:id};
   },[detail,selected,ttsOn,ttsLang]);
   useEffect(function(){
     var match=detail||selected;
@@ -1854,6 +1859,10 @@ function App(){
       try{ unlockAudio(); }catch(e){ try{ unlockStadiumAudio(); }catch(e2){} }
       // Speech synthesis also needs a real user gesture on many Android browsers.
       if(!speechPrimed){speechPrimed=true;try{primeSpeech();}catch(e3){}}
+      if(pendingFinishedSpeech){
+        var pending=pendingFinishedSpeech;pendingFinishedSpeech=null;
+        window.setTimeout(function(){speakText(pending.text,pending.lang);},450);
+      }
     }
     document.addEventListener('pointerdown',onFirstGesture,{passive:true});
     document.addEventListener('touchstart',onFirstGesture,{passive:true});
