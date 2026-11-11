@@ -827,6 +827,20 @@ function scoreText(row){
   var overs=row.overs!=null?row.overs:null;
   return String(score)+(wickets!=null?'/'+wickets:'')+(overs!=null?' ('+overs+')':'');
 }
+function scoreForSpeech(team, raw){
+  var value=String(raw==null?'':raw).trim();
+  var m=value.match(/^([\\d,]+)(?:\\s*\\/\\s*(\\d+))?(?:\\s*\\(\\s*(\\d+(?:\\.\\d+)?)\\s*\\))?/);
+  if(!m)return team+(value&&value!=='—'?' '+value:' score unavailable')+'.';
+  var runs=Number(m[1].replace(/,/g,'')), wickets=m[2]!=null?Number(m[2]):null;
+  var line=team+' scored '+runs+' run'+(runs===1?'':'s');
+  if(wickets!=null)line+=', losing '+wickets+' wicket'+(wickets===1?'':'s');
+  if(m[3]!=null){
+    var overText=m[3], parts=overText.split('.'), whole=Number(parts[0]||0), balls=parts[1]!=null?Number(parts[1]):0;
+    line+=' in '+whole+' over'+(whole===1?'':'s');
+    if(balls>0)line+=' and '+balls+' ball'+(balls===1?'':'s');
+  }
+  return line+'.';
+}
 function scoreLine(m){
   var homeId=m&&m.localteam_id, awayId=m&&m.visitorteam_id;
   var bat=relationRows(m&&m.batting), runs=relationRows(m&&m.runs), boards=relationRows(m&&m.scoreboards);
@@ -1789,7 +1803,7 @@ function App(){
       var announcement=({finished:'Match finished.',abandoned:'Match abandoned. No result.',interrupted:'Match interrupted.',postponed:'Match postponed.',cancelled:'Match cancelled.'})[matchState];
       var playerLine=(topBatName?' Top scorer, '+topBatName+' scored '+topBatRuns+' runs'+(topBatBalls!=null?' from '+topBatBalls+' balls':'')+'.':'')+
         (topBowlName?' Best bowling, '+topBowlName+' took '+(topBowl.wickets||0)+' wickets for '+(topBowl.runs!=null?topBowl.runs:0)+' runs.':'');
-      var fullAnnouncement=announcement+' Final score. '+home+' '+scores.a+'. '+away+' '+scores.b+'. Result: '+resultLine+'.'+playerLine;
+      var fullAnnouncement=announcement+' Final score. '+scoreForSpeech(home,scores.a)+' '+scoreForSpeech(away,scores.b)+' Result: '+resultLine+'.'+playerLine;
       lastFinishedSpokenMatchId.current=id;
       if(mcsSpeechPrimed)speakText(fullAnnouncement,ttsLang);
       else pendingFinishedSpeech={text:fullAnnouncement,lang:ttsLang,id:id};
