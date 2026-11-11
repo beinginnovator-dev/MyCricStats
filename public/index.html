@@ -772,7 +772,7 @@ async function smGet(url,options){
     }
     var data=json.data!=null?json.data:json;
     cacheSet(cacheKey,data,ttl);
-    return{data:data,fromCache:false};
+    return{data:data,meta:json.meta||null,fromCache:false};
   }catch(err){
     // Keep the last good response available during a transient upstream outage.
     var stale=cacheGetStale(cacheKey,5*60*1000);
@@ -1001,12 +1001,38 @@ function playerMatchFigures(player,d){
   else if(!parts.length&&st&&typeof st==='object'){var keys=Object.keys(st);keys.forEach(function(k){var v=st[k];if(v!=null&&['batting','bowling'].indexOf(k)<0)parts.push(k.replace(/_/g,' ')+': '+(typeof v==='object'?JSON.stringify(v):v));});}
   return parts.join('  |  ');
 }
+function statusTextOf(m){
+  var s=m&&m.status;
+  if(s&&typeof s==='object')s=s.name||s.short_name||s.code||s.status||'';
+  return String(s||'')+' '+String(m&&m.note||'')+' '+String(m&&m.result||'');
+}
 function statusOf(m){
-  if(m.live)return 'live';
-  var s=String(m.status||'').toLowerCase();
-  if(s.indexOf('finish')>=0||s==='finished'||s==='ended'||m.winner_team_id)return 'finished';
-  if(s.indexOf('1st')>=0||s.indexOf('2nd')>=0||s.indexOf('innings')>=0||s.indexOf('live')>=0)return 'live';
+  var s=statusTextOf(m).toLowerCase().replace(/\\s+/g,' ').trim();
+  if(/\\baban(?:doned)?\\.?\\b|called off|no result|match abandoned/.test(s))return 'abandoned';
+  if(/\\bpostp(?:oned)?\\.?\\b|postponed/.test(s))return 'postponed';
+  if(/\\bcancl(?:ed|led)?\\.?\\b|cancelled|canceled/.test(s))return 'cancelled';
+  if(/\\bint(?:errupted)?\\.?\\b|interruption|suspended/.test(s))return 'interrupted';
+  if(/\\bdelayed\\b|start delayed/.test(s))return 'delayed';
+  if(/finish|complete|result|ended|\\bft\\b/.test(s)||m&&m.winner_team_id)return 'finished';
+  if(m&&m.live||/1st innings|2nd innings|3rd innings|4th innings|innings break|stump day|\\blive\\b/.test(s))return 'live';
   return 'upcoming';
+}
+function statusLabel(state){
+  return ({live:'● LIVE',upcoming:'UPCOMING',finished:'RESULT',abandoned:'ABANDONED · NO RESULT',interrupted:'INTERRUPTED',postponed:'POSTPONED',cancelled:'CANCELLED',delayed:'DELAYED'})[state]||'UPCOMING';
+}
+async function smGetFixturePages(url,maxPages){
+  var all=[],page=1,limit=maxPages||10;
+  while(page<=limit){
+    var pageUrl=url+(url.indexOf('?')>=0?'&':'?')+'page='+page+'&per_page=50';
+    var response=await smGet(pageUrl);
+    var rows=Array.isArray(response.data)?response.data:(response.data?[response.data]:[]);
+    all=all.concat(rows);
+    var pagination=response.meta&&response.meta.pagination;
+    if(pagination&&pagination.total_pages!=null&&page>=Number(pagination.total_pages))break;
+    if(rows.length<50)break;
+    page++;
+  }
+  return all;
 }
 
 /* ---- Ball / over helpers (Sportmonks) ---- */
@@ -1676,13 +1702,16 @@ function App(){
   var lastFinishedSpokenMatchId=useRef('');
   useEffect(function(){
     var match=detail||selected;
-    if(!match||!match.id||statusOf(match)!=='finished')return;
-    var id=String(match.id);
+    if(!match||!match.id)return;
+    var matchState=statusOf(match);
+    if(['finished','abandoned','interrupted','postponed','cancelled'].indexOf(matchState)<0)return;
+    var id=String(match.id)+':'+matchState;
     if(lastFinishedSpokenMatchId.current===id)return;
     lastFinishedSpokenMatchId.current=id;
     if(ttsOn){
-      var resultText=teamName(match,'local')+' '+scoreLine(match).a+'. '+teamName(match,'visitor')+' '+scoreLine(match).b+'. '+(match.note||match.result||'Match finished.');
-      speakText('Match finished. '+resultText,ttsLang);
+      var announcement=({finished:'Match finished.',abandoned:'Match abandoned. No result.',interrupted:'Match interrupted.',postponed:'Match postponed.',cancelled:'Match cancelled.'})[matchState];
+      var resultText=teamName(match,'local')+' '+scoreLine(match).a+'. '+teamName(match,'visitor')+' '+scoreLine(match).b+'. '+(match.note||match.result||statusTextOf(match));
+      speakText(announcement+' '+resultText,ttsLang);
     }
   },[detail,selected,ttsOn,ttsLang]);
   useEffect(function(){
@@ -1836,40 +1865,31 @@ function App(){
     if(!token&&!isGuest){setError('Add Sportmonks token in Settings ⚙');return;}
     if(!silent){setLoading(true);setError(null);}
     if(force)cacheClear();
-    var today=ymd(new Date());
-    var past=ymd(addDays(new Date(),-7));
-    var future=ymd(addDays(new Date(),7));
-    // Cricket API: livescores + fixtures with starts_between filter (not fixtures/date)
+    var past=ymd(addDays(new Date(),-30));
+    var future=ymd(addDays(new Date(),30));
+    // Fetch a rolling 60-day fixture window and follow SportMonks pagination.
     var fixUrl=ckUrl('fixtures',token,INCLUDE_LIST_LIGHT)+'&filter[starts_between]='+encodeURIComponent(past+','+future);
     var apiErrors=[];
     var tasks=[
       smGet(ckUrl('livescores',token,INCLUDE_LIST_LIGHT)).catch(function(e){apiErrors.push('Livescores: '+(e.message||e));console.warn('livescores',e);return{data:[]};}),
-      smGet(fixUrl).catch(function(e){
+      smGetFixturePages(fixUrl,10).catch(function(e){
         apiErrors.push('Fixtures: '+(e.message||e));
         console.warn('fixtures range',e);
-        // fallback: bare fixtures (paginated recent)
-        return smGet(ckUrl('fixtures',token,INCLUDE_LIST_LIGHT)+'&sort=-starting_at').catch(function(e2){apiErrors.push('Fixture fallback: '+(e2.message||e2));console.warn(e2);return{data:[]};});
+        return smGetFixturePages(ckUrl('fixtures',token,INCLUDE_LIST_LIGHT)+'&sort=-starting_at',10).catch(function(e2){apiErrors.push('Fixture fallback: '+(e2.message||e2));console.warn(e2);return[];});
       })
     ];
     Promise.all(tasks).then(function(results){
       var map={};
-      results.forEach(function(r){
-        var arr=Array.isArray(r.data)?r.data:(r.data&&!Array.isArray(r.data)?[r.data]:[]);
-        arr.forEach(function(m){if(m&&m.id!=null)map[m.id]=m;});
+      var liveRows=results[0]&&results[0].data,fixtureRows=results[1];
+      [liveRows,fixtureRows].forEach(function(arr){
+        (Array.isArray(arr)?arr:(arr?[arr]:[])).forEach(function(m){if(m&&m.id!=null)map[m.id]=Object.assign({},map[m.id]||{},m);});
       });
       var list=Object.keys(map).map(function(k){return map[k];});
-      var cut=addDays(new Date(),-21).getTime();
-      list=list.filter(function(m){
-        if(statusOf(m)==='live'||m.live)return true;
-        var t=Date.parse(m.starting_at||'')||0;
-        if(!t)return true;
-        return t>=cut;
-      });
       list.sort(function(a,b){
         var sa=statusOf(a),sb=statusOf(b);
-        var rank={live:0,upcoming:1,finished:2};
+        var rank={live:0,upcoming:1,delayed:2,interrupted:3,postponed:4,abandoned:5,cancelled:6,finished:7};
         if(rank[sa]!==rank[sb])return rank[sa]-rank[sb];
-        return String(b.starting_at||'').localeCompare(String(a.starting_at||''));
+        return sa==='upcoming'?String(a.starting_at||'').localeCompare(String(b.starting_at||'')):String(b.starting_at||'').localeCompare(String(a.starting_at||''));
       });
       setMatches(list);
       var restoreId=shareId||lsGet('last_match','');
@@ -1877,7 +1897,7 @@ function App(){
       if(!list.length && !silent && apiErrors.length){
         setError(apiErrors.join(' · '));
       } else if(!list.length && !silent){
-        setError('Sportmonks returned no matches for this date range. Check cricket API access and subscription coverage.');
+        setError('SportMonks returned no fixtures in the last 30 / next 30 days. Check cricket API access and subscription coverage.');
       }
 
       if(shareId){
@@ -2776,9 +2796,9 @@ tab==='schedule'?h('div',null,
         (function(){
           var list=matches.slice();
           if(schedFilter==='upcoming')list=list.filter(function(m){return statusOf(m)==='upcoming';}).sort(function(a,b){return String(a.starting_at||'').localeCompare(String(b.starting_at||''));});
-          else if(schedFilter==='past')list=list.filter(function(m){return statusOf(m)==='finished';}).sort(function(a,b){return String(b.starting_at||'').localeCompare(String(a.starting_at||''));});
+          else if(schedFilter==='past')list=list.filter(function(m){return ['finished','abandoned','interrupted','postponed','cancelled'].indexOf(statusOf(m))>=0;}).sort(function(a,b){return String(b.starting_at||'').localeCompare(String(a.starting_at||''));});
           else list=list.sort(function(a,b){
-            var ra={live:0,upcoming:1,finished:2};var sa=statusOf(a),sb=statusOf(b);
+            var ra={live:0,upcoming:1,delayed:2,interrupted:3,postponed:4,abandoned:5,cancelled:6,finished:7};var sa=statusOf(a),sb=statusOf(b);
             if(ra[sa]!==ra[sb])return ra[sa]-ra[sb];
             return String(a.starting_at||'').localeCompare(String(b.starting_at||''));
           });
@@ -2791,14 +2811,14 @@ tab==='schedule'?h('div',null,
             return h('div',{key:m.id,className:'schedule-poster',onClick:function(){selectMatch(m);}},
               h('div',{className:'sp-top'},
                 h('span',null,league),
-                h('span',{className:state==='live'?'sp-live':''},state==='live'?'● LIVE':state==='finished'?'RESULT':'UPCOMING')
+                h('span',{className:state==='live'?'sp-live':''},statusLabel(state))
               ),
               h('div',{className:'sp-versus'},
                 h('div',{className:'sp-team'},homeFlag?h('img',{src:homeFlag,alt:''}):null,h('span',null,teamName(m,'local'))),
                 h('div',{className:'sp-vs'},'VS'),
                 h('div',{className:'sp-team'},h('span',null,teamName(m,'visitor')),awayFlag?h('img',{src:awayFlag,alt:''}):null)
               ),
-              state==='live'||state==='finished'?h('div',{className:'sp-score'},scores.a+'  ·  '+scores.b):null,
+              ['live','finished','abandoned','interrupted'].indexOf(state)>=0?h('div',{className:'sp-score'},scores.a+'  ·  '+scores.b):null,
               h('div',{className:'sp-bottom'},
                 h('span',null,fmtWhen(m.starting_at)||'Schedule time TBA'),
                 h('span',null,(m.venue&&m.venue.name)||'MATCH CENTRE')
@@ -2858,13 +2878,14 @@ tab==='schedule'?h('div',null,
 
 tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(React.Fragment,null,
         (function(){
-          var rawState=String((d&&d.status)||'')+' '+String((d&&d.note)||'')+' '+String((d&&d.result)||'');
-          var state=rawState.toLowerCase();
-          var rain=/rain|weather|wet outfield|bad light|light interruption|weather interruption/.test(state);
-          var abandoned=/abandon|called off|no result|cancelled|canceled/.test(state);
-          if(!rain&&!abandoned)return null;
+          var rawState=statusTextOf(d);
+          var state=statusOf(d);
+          var rain=/rain|weather|wet outfield|bad light|light interruption|weather interruption/.test(rawState.toLowerCase());
+          var terminal=['abandoned','interrupted','postponed','cancelled','delayed'].indexOf(state)>=0;
+          if(!rain&&!terminal)return null;
+          var headline=({abandoned:'⚠ MATCH ABANDONED / NO RESULT',interrupted:'⚠ MATCH INTERRUPTED',postponed:'MATCH POSTPONED',cancelled:'MATCH CANCELLED',delayed:'MATCH DELAYED'})[state]||(rain?'🌧 WEATHER / RAIN INTERRUPTION':'MATCH STATUS UPDATE');
           return h('div',{className:'card',style:{marginBottom:10,border:'1px solid rgba(245,158,11,.5)',background:'rgba(245,158,11,.09)'}},
-            h('div',{style:{fontWeight:900,fontSize:15,color:'#fbbf24',marginBottom:5}},abandoned?'⚠ MATCH ABANDONED / NO RESULT':'🌧 WEATHER / RAIN INTERRUPTION'),
+            h('div',{style:{fontWeight:900,fontSize:15,color:'#fbbf24',marginBottom:5}},headline),
             h('div',{style:{fontWeight:700}},rawState.trim()||'Match status update')
           );
         })(),
