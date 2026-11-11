@@ -679,7 +679,7 @@ var detailInFlight={};
 var DEFAULT_BG='https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=1200&q=60';
 // Sportmonks fixture endpoint allows up to 10 nested includes. Use only documented fixture relations. Keep this request
 // within that limit; oversized include lists can return HTTP 400 and break both tabs.
-var INCLUDE_LIST='localteam,visitorteam,runs,runs.team,batting,batting.batsman,bowling,bowling.bowler,balls,balls.score,lineup';
+var INCLUDE_LIST='localteam,visitorteam,runs,batting,bowling,bowling.bowler,balls,balls.score,balls.batsman,balls.bowler';
 var INCLUDE_LIST_SCORECARD='runs,runs.team,batting,batting.batsman,batting.team,bowling,bowling.bowler,bowling.team,lineup';
 var INCLUDE_LIST_SCORECARD_LIGHT='runs,batting,bowling,lineup';
 var INCLUDE_LIST_LIGHT='localteam,visitorteam,runs';
@@ -927,6 +927,19 @@ function ballNeedsPlayerRecovery(d){
     return !p.batter||!p.bowler||((p.isCatch||p.isRunOut)&&!p.fielder);
   });
 }
+function ballHistoryBehind(d){
+  var runs=relationRows(d&&d.runs),balls=normalizeBalls(d&&d.balls||[]);
+  if(!runs.length)return false;
+  var active=activeInningsKey(d),row=null;
+  for(var i=runs.length-1;i>=0;i--){if(!active||inningsKey(runs[i])===active){row=runs[i];break;}}
+  if(!row||row.overs==null)return false;
+  var match=String(row.overs).match(/^(\d+)(?:\.(\d+))?/);
+  if(!match)return false;
+  var expected=(Number(match[1])||0)*6+Math.min(5,Number(match[2])||0);
+  if(expected<=0)return false;
+  var actual=balls.filter(function(b){return (!active||!inningsKey(b)||inningsKey(b)===active)&&ballIsLegal(b);}).length;
+  return actual<expected;
+}
 function hasScorecardRows(d){
   return !!(d&&relationRows(d.batting).length&&relationRows(d.bowling).length);
 }
@@ -1083,14 +1096,16 @@ function ballOverIndex(b, idxFallback){
 }
 function ballDedupeKey(b){
   if(!b)return'';
-  if(b.id!=null)return 'id:'+b.id;
   var p=parseBallNotation(b);
-  var r=ballRuns(b);
-  var w=ballIsWicket(b)?1:0;
-  var bats=playerName(b.batsman)||'';
-  var bowl=playerName(b.bowler)||'';
-  var nm=(b.score&&b.score.name)||'';
-  return [inningsKey(b)||b.innings_id||b.inning_id||'',p.over,p.ballInOver,r,w,playerIdOf(b,'batsman')||bats,playerIdOf(b,'bowler')||bowl,nm].join('|');
+  var inn=inningsKey(b)||b.innings_id||b.inning_id||'';
+  // Stable delivery position survives partial and enriched API responses.
+  if(p.over!=null&&p.ballInOver!=null)return 'pos:'+inn+'|'+p.over+'|'+p.ballInOver;
+  if(b.id!=null)return 'id:'+b.id;
+  var r=ballRuns(b),w=ballIsWicket(b)?1:0;
+  var bats=playerIdOf(b,'batsman')||playerName(b.batsman)||'';
+  var bowl=playerIdOf(b,'bowler')||playerName(b.bowler)||'';
+  var nm=(b.score&&b.score.name)||b.score_name||'';
+  return [inn,p.over,p.ballInOver,r,w,bats,bowl,nm].join('|');
 }
 function normalizeBalls(raw){
   var arr=(raw||[]).slice();
@@ -1603,6 +1618,7 @@ function App(){
   var _domestic=useState([]);var domestic=_domestic[0],setDomestic=_domestic[1];
   var _matchFilter=useState('all');var matchFilter=_matchFilter[0],setMatchFilter=_matchFilter[1];
   var _selected=useState(null);var selected=_selected[0],setSelected=_selected[1];
+  var activeMatchIdRef=useRef('');
   var _scoreboardOverIndex=useState(null);var scoreboardOverIndexState=_scoreboardOverIndex[0],setScoreboardOverIndex=_scoreboardOverIndex[1];
   var _scoreboardBallInfo=useState(null);var scoreboardBallInfo=_scoreboardBallInfo[0],setScoreboardBallInfo=_scoreboardBallInfo[1];
   useEffect(function(){setScoreboardOverIndex(null);setScoreboardBallInfo(null);},[selected&&selected.id]);
@@ -1893,7 +1909,19 @@ function App(){
       });
       setMatches(list);
       var restoreId=shareId||lsGet('last_match','');
-      if(restoreId){var restored=list.find(function(x){return String(x.id)===String(restoreId);});if(restored){setSelected(restored);setDetail(restored);activateMatchRoom(restored);if(!shareId)setTab(qs().get('tab')||lsGet('mcs_tab','scorecard'));loadDetail(restored,token,true);}}
+      // Restore once only; a periodic list refresh must not steal user selection.
+      if(restoreId&&!activeMatchIdRef.current){
+        var restored=list.find(function(x){return String(x.id)===String(restoreId);});
+        if(restored){
+          activeMatchIdRef.current=String(restored.id);
+          setSelected(restored);setDetail(restored);activateMatchRoom(restored);
+          setTab(qs().get('tab')||(shareId?'scorecard':lsGet('mcs_tab','scorecard')));
+          loadDetail(restored,token,true);
+        }else if(shareId){
+          activeMatchIdRef.current=String(shareId);
+          var placeholder={id:shareId};setSelected(placeholder);activateMatchRoom(placeholder);loadDetail(placeholder,token,true);
+        }
+      }
       if(!list.length && !silent && apiErrors.length){
         setError(apiErrors.join(' · '));
       } else if(!list.length && !silent){
@@ -2047,10 +2075,10 @@ function App(){
           .then(function(r){mergeData(r.data||{});})
           .catch(function(e){console.warn('Sportmonks scorecard recovery failed',e);}));
       }
-      // Ball-by-ball is dynamic, but refresh it independently and no more often
-      // than every 12 seconds. This avoids a second/third API call every 8–10s.
-      if((!relationRows(best.balls).length||ballNeedsPlayerRecovery(best)) &&
-         now-(ballsRecoveryAt[mid]||0)>30000){
+      // Recover delivery history if player relations are missing or the
+      // delivery count trails the innings overs reported by SportMonks.
+      if((!relationRows(best.balls).length||ballNeedsPlayerRecovery(best)||ballHistoryBehind(best)) &&
+         now-(ballsRecoveryAt[mid]||0)>8000){
         ballsRecoveryAt[mid]=now;
         jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'balls,balls.batsman,balls.bowler,balls.score,balls.batsmanout,balls.catchstump,balls.runoutby'),{force:true})
           .then(function(r){mergeData(r.data||{});})
@@ -2073,18 +2101,21 @@ function App(){
       data=normaliseMatchDetail(data||best,m);
       data.balls=mergeBallHistory(m.id,data.balls||[],activeInningsKey(data));
       var activeSide=currentBattingSide(data);
-      setBatTeam(activeSide);setScTeam(activeSide);
-      setBowlTeamTab(activeSide==='home'?'away':'home');
-      setDetail(data);setSelected(data);
-      // Missing batting/bowling rows are shown as neutral placeholders; keep retrying silently.
+      if(activeMatchIdRef.current===requestMatchId){
+        setBatTeam(activeSide);setScTeam(activeSide);
+        setBowlTeamTab(activeSide==='home'?'away':'home');
+        setDetail(data);setSelected(data);
+      }
       return data;
     }).catch(function(err){
       var msg=(err&&err.message)||'Could not load match scorecard';
-      if(!silent)setError(String(msg));
-      setDetail(normaliseMatchDetail(best,m));
+      if(activeMatchIdRef.current===requestMatchId){
+        if(!silent)setError(String(msg));
+        setDetail(normaliseMatchDetail(best,m));
+      }
     }).finally(function(){
       detailInFlight[requestMatchId]=false;
-      if(!silent)setLoading(false);
+      if(activeMatchIdRef.current===requestMatchId&&!silent)setLoading(false);
     });
   }
 
@@ -2096,6 +2127,8 @@ function App(){
     if(!viewOnly){var key='mcs_room_owner_'+rid,owner=lsGet(key,'');if(!owner){owner=randomRoomToken();lsSet(key,owner);}setRoomOwnerToken(owner);}
   }
   var selectMatch=function(m){
+    if(!m||!m.id)return;
+    activeMatchIdRef.current=String(m.id);
     var battingSide=currentBattingSide(m||{});
     setBatTeam(battingSide);setScTeam(battingSide);setBowlTeamTab(battingSide==='home'?'away':'home');
     setSelected(m);setDetail(m);setTab('commentary');lsSet('mcs_tab','commentary');
