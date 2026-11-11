@@ -2377,9 +2377,9 @@ function App(){
                 h('button',{type:'button',className:'mcs-over-arrow',disabled:scoreboardOverIndex>=overs.length-1,title:'Next over',onClick:function(){setScoreboardOverIndex(Math.min(overs.length-1,scoreboardOverIndex+1));setScoreboardBallInfo(null);}},'›')
               ),
               h('div',{className:'mcs-scoreboard-overballs'},
-                scoreboardOver.balls.slice().reverse().map(function(b,bi){
+                scoreboardOver.balls.map(function(b,bi){
                   var rollDelay=bi*110,animation='mcsRollIntoPlace .78s cubic-bezier(.2,.78,.25,1) '+rollDelay+'ms both';
-                  if(bi===0)animation+=', mcsLatestBallBreathe 1.8s ease-in-out '+(850+rollDelay)+'ms infinite';
+                  if(bi===scoreboardOver.balls.length-1)animation+=', mcsLatestBallBreathe 1.8s ease-in-out '+(850+rollDelay)+'ms infinite';
                   var wicket=ballIsWicket(b),runs=ballRuns(b),boundary=runs===4||runs===6;
                   var people=ballParticipants(b);
                   var batter=people.batter;
@@ -2401,7 +2401,7 @@ function App(){
                   else if(runs===0)eventLabel='DOT BALL';
                   else eventLabel=runs+' RUN'+(runs===1?'':'S');
                   var shortDetail=bowlerName+' to '+batterName+' · '+eventLabel;
-                  return h('span',{key:'sb-ball-'+bi,className:'ball-chip mcs-scoreball '+chipClass(b)+(bi===0?' latest-ball':''),style:{animation:animation,cursor:'pointer'},onClick:function(){setScoreboardBallInfo({title:eventTitle,detail:shortDetail});}},chipLabel(b));
+                  return h('span',{key:'sb-ball-'+bi,className:'ball-chip mcs-scoreball '+chipClass(b)+(bi===scoreboardOver.balls.length-1?' latest-ball':''),style:{animation:animation,cursor:'pointer'},onClick:function(){setScoreboardBallInfo({title:eventTitle,detail:shortDetail});}},chipLabel(b));
                 })
               ),
               scoreboardBallInfo?h('div',{className:'mcs-ball-player-info'},h('b',null,scoreboardBallInfo.title),h('span',null,scoreboardBallInfo.detail),h('button',{type:'button',title:'Close',onClick:function(){setScoreboardBallInfo(null);}},'×')):null
@@ -2934,14 +2934,14 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
                 h('span',{className:'sum'},ov.runs+' run'+(ov.runs===1?'':'s')+(ov.wickets?' · '+ov.wickets+' wkt'+(ov.wickets>1?'s':''):'')+' · '+ov.legal+'/6 balls')
               ),
               h('div',{className:'ball-row'},
-                ov.balls.slice().reverse().map(function(b,bi){
+                ov.balls.map(function(b,bi){
                   return h('span',{key:bi,className:'ball-chip '+chipClass(b),title:descriptiveLine(b,'en')},chipLabel(b));
                 })
               ),
-              ov.balls.slice().reverse().map(function(b,bi){
+              ov.balls.map(function(b,bi){
                 var line=descriptiveLine(b,ttsLang,ov.displayOver!=null?ov.displayOver:ov.overNo);
                 var cls=ballIsWicket(b)?'hi-w':(ballRuns(b)===4?'hi-4':(ballRuns(b)===6?'hi-6':(ballRuns(b)>0?'hi-run':'')));
-                return h('div',{key:'d'+bi,className:'ball-detail',ref:oi===0&&bi===0?commentaryLatestRef:null,style:{cursor:'pointer',display:'flex',alignItems:'flex-start',gap:8},onClick:function(){if(ttsOn)speakText(line,ttsLang);}},
+                return h('div',{key:'d'+bi,className:'ball-detail',ref:oi===0&&bi===ov.balls.length-1?commentaryLatestRef:null,style:{cursor:'pointer',display:'flex',alignItems:'flex-start',gap:8},onClick:function(){if(ttsOn)speakText(line,ttsLang);}},
                   h('span',{className:'ball-chip '+chipClass(b),style:{flexShrink:0,marginTop:2}},chipLabel(b)),
                   h('span',{dangerouslySetInnerHTML:{__html:colorEvents(line)}})
                 );
