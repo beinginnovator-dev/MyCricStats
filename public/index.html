@@ -1808,7 +1808,7 @@ function App(){
     // the first delivery of a new over. No sound for ordinary balls.
     try{
       var boundary=isFour||isSix;
-      var overStarted=previous.innings===innings&&previous.over!=null&&overNo!=null&&Number(previous.over)!==Number(overNo);
+      var overStarted=previous.over!=null&&overNo!=null&&(previous.innings!==innings||Number(previous.over)!==Number(overNo));
       var soundKind=isW?'wicket':(boundary?(isSix?'six':'four'):(overStarted?'overStart':null));
       if(soundKind){
         if(stadUnlocked||stadiumAudioUnlocked)stadBeep(soundKind);
@@ -3111,12 +3111,28 @@ tab==='schedule'?h('div',null,
           }
           var strikerId=liveP.strikerId!=null?String(liveP.strikerId):'';
           var nonStrikerId=liveP.nonStrikerId!=null?String(liveP.nonStrikerId):'';
-          function dismissalFor(b){
+          function dismissalFor(b,playerKey){
             var raw=b&&(b.dismissal||b.how_out||b.result||b.wicket_type||b.dismissal_type||b.out_reason);
             if(raw&&typeof raw==='object')raw=raw.name||raw.description||raw.type;
             if(raw&&String(raw).toLowerCase()!=='not out')return String(raw);
             var isOut=!!(b&&(b.out||b.is_out||b.wicket||b.batsmanout_id||b.batsmanout));
             if(isOut)return String(raw||'Out');
+            // If the batting row omits dismissal text, recover the wicket event
+            // from ball-by-ball data and include the fielder/bowler when present.
+            var wicketBall=relationRows(d&&d.balls).find(function(ball){
+              if(!ballIsWicket(ball))return false;
+              var outId=String(playerIdOf(ball,'batsmanout')||'');
+              var batterId=String(playerIdOf(ball,'batsman')||'');
+              return (playerKey&&outId===playerKey)||(playerKey&&batterId===playerKey&&!!ball.batsmanout);
+            });
+            if(wicketBall){
+              var parts=ballParticipants(wicketBall);
+              var label=String((wicketBall.score&& (wicketBall.score.name||wicketBall.score.description))||wicketBall.wicket_type||wicketBall.dismissal_type||'Out');
+              if(parts.isCatch&&parts.fielder)label='Caught by '+parts.fielder;
+              else if(parts.isRunOut&&parts.fielder)label='Run out by '+parts.fielder;
+              if(parts.bowler&&label.toLowerCase().indexOf('run out')!==0)label+=' · b '+parts.bowler;
+              return label;
+            }
             return '';
           }
           if(!sideLineup.length)return h('div',{className:'muted'},'Playing XI / batting order is not available in this fixture response yet.');
@@ -3124,7 +3140,7 @@ tab==='schedule'?h('div',null,
             var id=pid(p);
             var row=batRows.find(function(b){return id&&batId(b)===id;})||p._fallbackBat||null;
             var name=playerName(p.player||p)||playerName(row&&row.batsman)||p.player_name||p.name||'Player';
-            var outText=dismissalFor(row);
+            var outText=dismissalFor(row,id);
             var isStriker=!!(id&&strikerId&&id===strikerId);
             var isNonStriker=!!(id&&nonStrikerId&&id===nonStrikerId);
             var isAtCrease=isStriker||isNonStriker||!!(row&&!outText&&row.score!=null);
