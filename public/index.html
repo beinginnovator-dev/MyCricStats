@@ -3924,3 +3924,102 @@ body.theme-light .mc-scores{background:#eaf2f2;color:#10243a!important}
   16%{opacity:1;transform:translateY(0) scale(1.04)}
   25%{opacity:1;transform:translateY(0) scale(1)}
   38%{opacity:1;transform:translateY(0) scale(1.07)}
+  100%{opacity:0;transform:translateY(-12px) scale(1)}
+}
+</style>
+
+<style id="mcs-readable-white-content-on-dark-themes">
+/* Keep the scoreboard dark, but render Matches and Commentary navigation/content
+   on clean white surfaces so text remains readable on every phone. */
+body.theme-dark .tabs,
+body.theme-night .tabs,
+body.theme-bw .tabs,
+body.theme-india .tabs{
+  background:#fff!important;color:#111!important;
+  border-bottom:1px solid #dedede!important;
+  backdrop-filter:none!important;
+}
+body.theme-dark .tabs button,
+body.theme-night .tabs button,
+body.theme-bw .tabs button,
+body.theme-india .tabs button{
+  background:#fff!important;color:#202020!important;
+  text-shadow:none!important;
+}
+body.theme-dark .tabs button.on,
+body.theme-night .tabs button.on,
+body.theme-bw .tabs button.on,
+body.theme-india .tabs button.on{
+  background:#fff!important;color:#111!important;
+  border-bottom:3px solid #1457a6!important;
+  text-shadow:none!important;
+}
+body.theme-dark .panel,
+body.theme-night .panel,
+body.theme-bw .panel,
+body.theme-india .panel{
+  background:#fff!important;color:#111!important;
+}
+body.theme-dark .panel .card,
+body.theme-night .panel .card,
+body.theme-dark .panel .match-card,
+body.theme-night .panel .match-card,
+body.theme-dark .panel .commentary-card,
+body.theme-night .panel .commentary-card,
+body.theme-dark .panel .over-card,
+body.theme-night .panel .over-card,
+body.theme-dark .panel .ball-detail,
+body.theme-night .panel .ball-detail,
+body.theme-bw .panel .card,
+body.theme-bw .panel .match-card,
+body.theme-bw .panel .commentary-card,
+body.theme-bw .panel .over-card,
+body.theme-bw .panel .ball-detail,
+body.theme-india .panel .card,
+body.theme-india .panel .match-card,
+body.theme-india .panel .commentary-card,
+body.theme-india .panel .over-card,
+body.theme-india .panel .ball-detail{
+  background:#fff!important;color:#171717!important;
+  border-color:#dedede!important;
+  box-shadow:0 2px 10px rgba(0,0,0,.055)!important;
+}
+body.theme-dark .panel .card *,
+body.theme-night .panel .card *,
+body.theme-dark .panel .match-card *,
+body.theme-night .panel .match-card *,
+body.theme-dark .panel .commentary-card *,
+body.theme-night .panel .commentary-card *,
+body.theme-dark .panel .over-card *,
+body.theme-night .panel .over-card *,
+body.theme-dark .panel .ball-detail *,
+body.theme-night .panel .ball-detail *,
+body.theme-bw .panel .card *,
+body.theme-bw .panel .match-card *,
+body.theme-bw .panel .commentary-card *,
+body.theme-bw .panel .over-card *,
+body.theme-bw .panel .ball-detail *,
+body.theme-india .panel .card *,
+body.theme-india .panel .match-card *,
+body.theme-india .panel .commentary-card *,
+body.theme-india .panel .over-card *,
+body.theme-india .panel .ball-detail *{
+  color:#171717!important;text-shadow:none!important;
+}
+body.theme-dark .panel .mc-scores,
+body.theme-night .panel .mc-scores,
+body.theme-bw .panel .mc-scores,
+body.theme-india .panel .mc-scores{
+  background:#eef3f7!important;color:#142536!important;
+}
+body.theme-dark .panel .mc-live,
+body.theme-night .panel .mc-live,
+body.theme-bw .panel .mc-live,
+body.theme-india .panel .mc-live{color:#a20f37!important}
+body.theme-dark .panel .empty,
+body.theme-night .panel .empty,
+body.theme-bw .panel .empty,
+body.theme-india .panel .empty{
+  background:#fff!important;color:#333!important;border-color:#ccc!important;
+}
+</style>
