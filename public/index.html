@@ -944,6 +944,8 @@ async function smGet(url,options){
     cacheSet(cacheKey,data,ttl);
     return{data:data,meta:json.meta||null,fromCache:false};
   }catch(err){
+    // A diagnostic/force-fresh request must report upstream failures honestly.
+    if(options.noStale)throw err;
     // Keep the last good response available during a transient upstream outage.
     var stale=cacheGetStale(cacheKey,5*60*1000);
     if(stale)return{data:stale,fromCache:true,stale:true,warning:String(err.message||err)};
@@ -1994,6 +1996,7 @@ function App(){
   var _error=useState(null);var error=_error[0],setError=_error[1];
   var _apiTest=useState(null);var apiTest=_apiTest[0],setApiTest=_apiTest[1];
   var _apiTesting=useState(false);var apiTesting=_apiTesting[0],setApiTesting=_apiTesting[1];
+  var _commentaryDiag=useState(null);var commentaryDiag=_commentaryDiag[0],setCommentaryDiag=_commentaryDiag[1];
   var _availableLeagues=useState([]);var availableLeagues=_availableLeagues[0],setAvailableLeagues=_availableLeagues[1];
   var _settings=useState(false);var settingsOpen=_settings[0],setSettingsOpen=_settings[1];
   var _theme=useState(function(){return lsGet('cric_theme','bw');});
@@ -2486,8 +2489,9 @@ function App(){
     return function(){clearInterval(id);try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){};};
   },[tab,news,newsTts,newsPlaying]);
 
-  function loadDetail(m,tok,silent){
+  function loadDetail(m,tok,silent,forceFresh){
     tok=tok||token;
+    forceFresh=!!forceFresh;
     var isGuest=false;try{isGuest=qs().get('view')==='1';}catch(e){}
     if((!tok&&!isGuest)||!m||!m.id)return;
     var requestMatchId=String(m.id);
@@ -2496,12 +2500,21 @@ function App(){
     detailInFlight[requestMatchId]=true;
     if(!silent){setLoading(true);setError(null);}
     var best=normaliseMatchDetail(m,m);
-    try{var saved=JSON.parse(localStorage.getItem('mcs_balls_'+String(m.id))||'[]');if(Array.isArray(saved)&&saved.length)best.balls=mergeBallHistory(m.id,saved.concat(best.balls||[]),activeInningsKey(best));}catch(e){}
+    if(forceFresh){
+      try{localStorage.removeItem('mcs_balls_'+String(m.id));}catch(e){}
+      best.balls=[];
+      setCommentaryDiag({matchId:String(m.id),status:'testing',message:'Requesting fresh fixture and ball-by-ball data from Sportmonks…',checkedAt:new Date().toISOString()});
+    }else{
+      try{var saved=JSON.parse(localStorage.getItem('mcs_balls_'+String(m.id))||'[]');if(Array.isArray(saved)&&saved.length)best.balls=mergeBallHistory(m.id,saved.concat(best.balls||[]),activeInningsKey(best));}catch(e){}
+    }
     function mergeData(incoming){
       incoming=normaliseMatchDetail(incoming||{},m);
       ['runs','scoreboards','batting','bowling','balls','lineup'].forEach(function(k){
         var next=relationRows(incoming[k]),prior=relationRows(best[k]);
-        if(k==='balls'){var all=mergeBallHistory(m.id,prior.concat(next),activeInningsKey(best));if(all.length)best[k]=all;}
+        if(k==='balls'){
+          if(forceFresh){if(next.length)best[k]=normalizeBalls(prior.concat(next));}
+          else{var all=mergeBallHistory(m.id,prior.concat(next),activeInningsKey(best));if(all.length)best[k]=all;}
+        }
         else if(next.length>=prior.length&&next.length)best[k]=next;
       });
       ['localteam','visitorteam','league','venue','tosswon','manofmatch','firstumpire','secondumpire','referee','stage','season'].forEach(function(k){
@@ -2523,7 +2536,7 @@ function App(){
       if((!relationRows(best.batting).length||!relationRows(best.bowling).length||battingNeedsNames||bowlingNeedsNames) &&
          now-(detailRecoveryAt[mid]||0)>60000){
         detailRecoveryAt[mid]=now;
-        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'runs,runs.team,batting,batting.batsman,batting.team,bowling,bowling.bowler,bowling.team'),{force:true})
+        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'runs,runs.team,batting,batting.batsman,batting.team,bowling,bowling.bowler,bowling.team'),{force:true,noStale:forceFresh})
           .then(function(r){mergeData(r.data||{});})
           .catch(function(e){console.warn('Sportmonks scorecard recovery failed',e);}));
       }
@@ -2532,7 +2545,7 @@ function App(){
       if((!relationRows(best.balls).length||ballNeedsPlayerRecovery(best)||ballHistoryBehind(best)) &&
          now-(ballsRecoveryAt[mid]||0)>8000){
         ballsRecoveryAt[mid]=now;
-        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'balls,balls.batsman,balls.bowler,balls.score,balls.batsmanout,balls.catchstump,balls.runoutby'),{force:true})
+        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'balls,balls.batsman,balls.bowler,balls.score,balls.batsmanout,balls.catchstump,balls.runoutby'),{force:true,noStale:forceFresh})
           .then(function(r){mergeData(r.data||{});})
           .catch(function(e){console.warn('Sportmonks commentary recovery failed',e);}));
       }
@@ -2541,7 +2554,7 @@ function App(){
       if((!relationRows(best.lineup).length||lineupNeedsPlayers) &&
          now-(lineupRecoveryAt[mid]||0)>60000){
         lineupRecoveryAt[mid]=now;
-        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'localteam,visitorteam,lineup'),{force:true})
+        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'localteam,visitorteam,lineup'),{force:true,noStale:forceFresh})
           .then(function(r){mergeData(r.data||{});})
           .catch(function(e){console.warn('Sportmonks lineup recovery failed',e);}));
       }
@@ -2549,12 +2562,21 @@ function App(){
       // not the players selected for this match. Scorecard uses fixture XI only.
       return Promise.all(jobs).then(function(){return normaliseMatchDetail(best,m);});
     }
-    smGet(ckUrl('fixtures/'+m.id,tok,INCLUDE_LIST),{force:true}).then(function(r){
+    smGet(ckUrl('fixtures/'+m.id,tok,INCLUDE_LIST),{force:true,noStale:forceFresh}).then(function(r){
       mergeData(r.data||m);
       return recoverMissingRows();
     }).then(function(data){
       data=normaliseMatchDetail(data||best,m);
-      data.balls=mergeBallHistory(m.id,data.balls||[],activeInningsKey(data));
+      if(forceFresh){
+        data.balls=normalizeBalls(relationRows(data.balls));
+        try{localStorage.setItem('mcs_balls_'+String(m.id),JSON.stringify(data.balls.slice(-1200)));}catch(e){}
+      }else{
+        data.balls=mergeBallHistory(m.id,data.balls||[],activeInningsKey(data));
+      }
+      if(forceFresh){
+        var freshRows=relationRows(data.balls),lastFresh=freshRows.length?freshRows[freshRows.length-1]:null;
+        setCommentaryDiag({matchId:String(m.id),status:freshRows.length?'success':'empty',fixtureId:String(data.id||m.id),team1:teamName(data,'local'),team2:teamName(data,'visitor'),deliveryCount:freshRows.length,latestBall:lastFresh?String(lastFresh.ball||'Unavailable'):'Unavailable',lastDelivery:lastFresh?descriptiveLine(lastFresh,'en'):'No ball records returned',checkedAt:new Date().toISOString(),source:'Fresh Sportmonks response (cache bypassed)'});
+      }
       var activeSide=currentBattingSide(data);
       if(activeMatchIdRef.current===requestMatchId){
         setBatTeam(activeSide);setScTeam(activeSide);
@@ -2564,6 +2586,7 @@ function App(){
       return data;
     }).catch(function(err){
       var msg=(err&&err.message)||'Could not load match scorecard';
+      if(forceFresh)setCommentaryDiag({matchId:String(m.id),status:'failed',message:String(msg),checkedAt:new Date().toISOString(),source:'Fresh request failed; stale data was not substituted'});
       if(activeMatchIdRef.current===requestMatchId){
         if(!silent)setError(String(msg));
         setDetail(normaliseMatchDetail(best,m));
@@ -3439,6 +3462,22 @@ tab==='schedule'?h('div',null,
       )):null,
 
 tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(React.Fragment,null,
+        h('div',{className:'card',style:{marginBottom:10,border:'1px solid var(--line)'}},
+          h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}},
+            h('div',null,h('b',null,'Sportmonks commentary diagnostics'),h('div',{className:'muted',style:{fontSize:11}},'Fixture '+String(selected.id)+' · '+teamName(selected,'local')+' vs '+teamName(selected,'visitor'))),
+            h('button',{className:'btn',disabled:loading||!token,onClick:function(){if(selected)loadDetail(selected,token,false,true);}},loading?'Syncing…':'↻ Force fresh sync')
+          ),
+          commentaryDiag&&String(commentaryDiag.matchId)===String(selected.id)?h('div',{style:{marginTop:9,fontSize:12,lineHeight:1.55}},
+            h('b',{style:{color:commentaryDiag.status==='success'?'#16a34a':(commentaryDiag.status==='failed'?'#ef4444':'#d97706')}},commentaryDiag.status==='success'?'API RESPONSE RECEIVED':(commentaryDiag.status==='empty'?'NO BALL RECORDS RETURNED':(commentaryDiag.status==='failed'?'API REQUEST FAILED':'TESTING…'))),
+            commentaryDiag.fixtureId?h('div',null,'Fixture ID: '+commentaryDiag.fixtureId):null,
+            commentaryDiag.deliveryCount!=null?h('div',null,'Deliveries received: '+commentaryDiag.deliveryCount):null,
+            commentaryDiag.latestBall?h('div',null,'Latest delivery: '+commentaryDiag.latestBall):null,
+            commentaryDiag.lastDelivery?h('div',null,commentaryDiag.lastDelivery):null,
+            commentaryDiag.source?h('div',null,commentaryDiag.source):null,
+            commentaryDiag.message?h('div',{style:{color:commentaryDiag.status==='failed'?'#ef4444':'var(--muted)'}},commentaryDiag.message):null,
+            commentaryDiag.checkedAt?h('div',{className:'muted'},'Checked: '+new Date(commentaryDiag.checkedAt).toLocaleString()):null
+          ):h('div',{className:'muted',style:{fontSize:11,marginTop:8}},'Not tested yet. Run a fresh sync to bypass cache and replace saved commentary for this fixture.')
+        ),
         latestCommentaryBall?h('div',{className:'mcs-commentary-latest',style:{marginBottom:10,padding:'12px 14px',borderRadius:13,background:'linear-gradient(120deg,rgba(8,47,73,.98),rgba(12,74,110,.78))',border:'1px solid rgba(56,189,248,.48)',boxShadow:'0 8px 24px rgba(0,0,0,.2)'}},
           h('div',{style:{fontSize:10,fontWeight:1000,letterSpacing:'.12em',color:'#7dd3fc',marginBottom:5}},'LATEST BALL · '+String(latestCommentaryBall.ball||'')),
           h('div',{style:{fontSize:15,fontWeight:900,color:'#fff',lineHeight:1.4}},latestCommentaryText),
