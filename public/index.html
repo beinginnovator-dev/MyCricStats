@@ -2186,6 +2186,34 @@ function App(){
           .then(function(r){mergeData(r.data||{});})
           .catch(function(e){console.warn('Sportmonks lineup recovery failed',e);}));
       }
+      // SportMonks exposes the match XI on fixtures.lineup and a team's wider
+      // roster separately on teams/{id}?include=squad. Use that roster when
+      // the fixture has not yet supplied both sides' named lineup.
+      if(best.localteam_id!=null && best.visitorteam_id!=null &&
+         relationRows(best.lineup).length<22 && now-(teamSquadRecoveryAt[mid]||0)>60000){
+        teamSquadRecoveryAt[mid]=now;
+        [String(best.localteam_id),String(best.visitorteam_id)].forEach(function(teamId){
+          jobs.push(smGet(ckUrl('teams/'+teamId,tok,'squad,squad.player'),{force:true})
+            .then(function(r){
+              var td=r.data||{};
+              var rows=relationRows(td.squad);
+              if(!rows.length && td.data)rows=relationRows(td.data.squad);
+              if(!rows.length)return;
+              var current=relationRows(best.lineup).slice();
+              rows.forEach(function(p){
+                var pl=unwrapRelation(p.player)||p;
+                var pid=p.player_id||pl.id||p.id;
+                var duplicate=current.some(function(x){
+                  var xp=unwrapRelation(x.player)||x;
+                  return pid!=null && String(x.player_id||xp.id||x.id||'')===String(pid) && String(x.team_id||'')===teamId;
+                });
+                if(!duplicate)current.push(Object.assign({},p,{player:pl,player_id:pid,team_id:teamId,team:{id:teamId,name:teamId===String(best.localteam_id)?teamName(best,'local'):teamName(best,'visitor')}}));
+              });
+              best.lineup=current;
+            })
+            .catch(function(e){console.warn('Sportmonks team squad recovery failed',e);}));
+        });
+      }
       return Promise.all(jobs).then(function(){return normaliseMatchDetail(best,m);});
     }
     smGet(ckUrl('fixtures/'+m.id,tok,INCLUDE_LIST),{force:true}).then(function(r){
