@@ -670,6 +670,28 @@ body.theme-ins .tabs button.on,body.theme-fub .tabs button.on{color:#fff!importa
 .broadcast{max-height:none!important;height:auto!important;overflow:visible!important;}
 .broadcast .bc-content,.scoreboard-body,.players-bar,.live-player-cards,.live-player-card{max-height:none!important;overflow:visible!important;}
 </style>
+
+<style id="mcs-mobile-player-stats-fit">
+/* Keep every current-player figure and label visible on mobile without changing score data. */
+@media(max-width:600px){
+  .broadcast{position:relative!important;}
+  .broadcast .bc-content{gap:1px!important;}
+  .broadcast .bar{padding-top:5px!important;padding-bottom:2px!important;min-height:36px!important;}
+  .match-header{padding:0 3px!important;}
+  .score-grid{margin-top:4px!important;}
+  .mcs-scoreboard-over-wrap{margin-top:2px!important;}
+  .mcs-scoreboard-overballs{min-height:25px!important;gap:4px!important;}
+  .mcs-ball-player-info{margin-top:1px!important;padding:4px 7px!important;}
+  .players-bar{padding:4px!important;margin:4px 0!important;}
+  .live-player-cards{gap:4px!important;margin-top:3px!important;}
+  .live-player-card{padding:6px 8px!important;border-radius:10px!important;}
+  .live-player-role{font-size:15px!important;line-height:1.15!important;margin-bottom:2px!important;}
+  .live-player-name{font-size:18px!important;line-height:1.15!important;margin-bottom:4px!important;}
+  .live-player-stats{gap:2px!important;}
+  .players-bar .live-player-stats b{font-size:15px!important;line-height:1.15!important;}
+  .players-bar .live-player-stats small{font-size:10px!important;line-height:1.15!important;}
+}
+</style>
 </head>
 <body class="theme-dark">
 <div id="root"></div>
