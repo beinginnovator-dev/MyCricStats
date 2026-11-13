@@ -1369,6 +1369,8 @@ function descriptiveLine(b, lang, forceOver){
 }
 var mcsSpeechPrimed=false;
 var pendingFinishedSpeech=null;
+var pendingAutoCommentary=null;
+var pendingStadiumKind=null;
 function primeSpeech(){
   try{
     if(!window.speechSynthesis||mcsSpeechPrimed)return;
@@ -1763,7 +1765,7 @@ function App(){
     var previous=lastAudioOver.current||{};
     lastAudioBallKey.current=key;
     lastAudioOver.current={innings:innings,over:overNo};
-    if(!stadOn)return;
+    if(!stadOn){pendingStadiumKind=null;return;}
     var runs=ballRuns(ball),isW=ballIsWicket(ball);
     var scoreMeta=ball.score||{};
     var scoreLabel=String(scoreMeta.name||scoreMeta.action||ball.score_name||ball.type||'').toLowerCase();
@@ -1773,9 +1775,9 @@ function App(){
     // Keep the updated event-specific clips: wicket -> whistle, 4/6 -> cheer,
     // and all other deliveries (including 1s, 2s, 3s, dots and extras) -> crowd chant.
     try{
-      if(isW)stadBeep('wicket');
-      else if(isFour||isSix)stadBeep(isSix?'six':'four');
-      else stadBeep('ball');
+      var soundKind=isW?'wicket':(isSix?'six':(isFour?'four':'ball'));
+      if(stadUnlocked||stadiumAudioUnlocked)stadBeep(soundKind);
+      else pendingStadiumKind=soundKind;
     }catch(audioError){console.warn('Stadium event sound failed',audioError);}
   },[detail,selected,stadOn]);
   var lastCommentaryMatchId=useRef('');
@@ -1850,7 +1852,7 @@ function App(){
     lastCommentaryBallKey.current=key;
     lastCommentaryOrder.current=Math.max(lastCommentaryOrder.current,order);
     var line=descriptiveLine(ball,ttsLang);
-    if(ttsOn)speakText(line,ttsLang);
+    if(ttsOn){if(mcsSpeechPrimed)speakText(line,ttsLang);else pendingAutoCommentary={text:line,lang:ttsLang};}
     var runs=ballRuns(ball),isW=ballIsWicket(ball);
     if(isW){
       showEventBanner(setEvBanner,'wicket','WICKET');
@@ -1876,6 +1878,10 @@ function App(){
       try{ unlockAudio(); }catch(e){ try{ unlockStadiumAudio(); }catch(e2){} }
       // Speech synthesis also needs a real user gesture on many Android browsers.
       if(!speechPrimed){speechPrimed=true;try{primeSpeech();}catch(e3){}}
+      window.setTimeout(function(){
+        if(pendingAutoCommentary&&ttsOn){var pendingLine=pendingAutoCommentary;pendingAutoCommentary=null;speakText(pendingLine.text,pendingLine.lang);}
+        if(pendingStadiumKind&&stadOn){var pendingKind=pendingStadiumKind;pendingStadiumKind=null;stadBeep(pendingKind);}
+      },500);
       if(pendingFinishedSpeech){
         var pending=pendingFinishedSpeech;pendingFinishedSpeech=null;
         window.setTimeout(function(){speakText(pending.text,pending.lang);},450);
