@@ -3192,7 +3192,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
               h('div',{className:'over-end'},
                 (ov.inningsKey?('Innings '+ov.inningsKey+' · '):'')+'End of over '+(ov.displayOver!=null?ov.displayOver:ov.overNo)+': '+ov.runs+' runs'+(ov.wickets?', '+ov.wickets+' wicket'+(ov.wickets>1?'s':''):'')+
                 (d?(' · Match '+sc.a+' vs '+sc.b):'')
-              )
+              ),
               h('div',{className:'mcs-over-match-summary'},buildOverScoreSummary(d&&d.balls,ov,sc)),
             );
           })
