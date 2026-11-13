@@ -1787,6 +1787,42 @@ function App(){
   var lastCommentaryMatchId=useRef('');
   var lastCommentaryBallKey=useRef('');
   var lastCommentaryOrder=useRef(-1);
+  // Keep the latest match object reachable by a lightweight watcher. Some
+  // SportMonks refresh paths mutate the nested balls array without replacing
+  // the parent object, so a React dependency effect alone can miss a delivery.
+  var commentaryMatchRef=useRef(null);
+  var commentarySettingsRef=useRef({on:ttsOn,lang:ttsLang});
+  commentaryMatchRef.current=detail||selected;
+  commentarySettingsRef.current={on:ttsOn,lang:ttsLang};
+  useEffect(function(){
+    var watchedMatchId='';
+    var watchedBallKey='';
+    var timer=window.setInterval(function(){
+      try{
+        var match=commentaryMatchRef.current;
+        if(!match||!match.id)return;
+        var mid=String(match.id);
+        var balls=normalizeBalls(Array.isArray(match.balls)?match.balls:[]);
+        if(!balls.length)return;
+        var ball=balls[balls.length-1];
+        var key=mid+'|'+String(inningsKey(ball)||'')+'|'+String(ball.id||ballDedupeKey(ball))+'|'+String(ballRuns(ball))+'|'+String(ballIsWicket(ball));
+        if(watchedMatchId!==mid){watchedMatchId=mid;watchedBallKey=key;return;}
+        if(watchedBallKey===key)return;
+        watchedBallKey=key;
+        // Share the same dedupe key as the normal delivery effect to avoid
+        // duplicate speech regardless of which watcher observes the update first.
+        if(lastCommentaryBallKey.current===key)return;
+        lastCommentaryBallKey.current=key;
+        var settings=commentarySettingsRef.current;
+        if(settings.on){
+          var line=descriptiveLine(ball,settings.lang);
+          if(mcsSpeechPrimed)speakText(line,settings.lang);
+          else pendingAutoCommentary={text:line,lang:settings.lang};
+        }
+      }catch(e){console.warn('Automatic commentary watcher failed',e);}
+    },900);
+    return function(){window.clearInterval(timer);};
+  },[]);
   var lastFinishedSpokenMatchId=useRef('');
   useEffect(function(){
     var match=detail||selected;
