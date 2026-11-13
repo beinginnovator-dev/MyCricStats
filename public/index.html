@@ -1729,19 +1729,28 @@ function currentPlayers(d){
   if(!d)return empty;
   var battingAll=relationRows(d.batting),bowlingAll=relationRows(d.bowling),allBalls=normalizeBalls(d.balls||[]);
   var activeKey=activeInningsKey(d);
-  function sameInnings(row){
-    var key=inningsKey(row);
-    return !activeKey||!key||key===activeKey;
+  // Sportmonks may represent the same innings as "S2", "2" or "2nd innings"
+  // across different relations. Compare innings numbers when labels differ.
+  function inningsNumber(value){
+    var s=String(value==null?'':value).toLowerCase().trim();
+    var m=s.match(/^(?:s\s*)?([1-4])$/)||s.match(/\b([1-4])(?:st|nd|rd|th)\s*innings\b/);
+    return m?Number(m[1]):null;
   }
-  // Keep untagged ball history only when the provider returned no innings tags at all.
-  var anyTaggedBalls=allBalls.some(function(x){return !!inningsKey(x);});
-  var balls=activeKey?allBalls.filter(function(x){var k=inningsKey(x);return k===activeKey||(!k&&!anyTaggedBalls);}):allBalls;
-  var anyTaggedBatting=battingAll.some(function(x){return !!inningsKey(x);});
-  var batting=activeKey?battingAll.filter(function(x){var k=inningsKey(x);return k===activeKey||(!k&&!anyTaggedBatting);}):battingAll;
-  if(!batting.length)batting=battingAll.filter(function(x){return !activeKey||!inningsKey(x)||inningsKey(x)===activeKey;});
-  var anyTaggedBowling=bowlingAll.some(function(x){return !!inningsKey(x);});
-  var bowling=activeKey?bowlingAll.filter(function(x){var k=inningsKey(x);return k===activeKey||(!k&&!anyTaggedBowling);}):bowlingAll;
-  if(!bowling.length)bowling=bowlingAll;
+  function sameInningsKey(value){
+    if(!activeKey||!value)return true;
+    if(String(value)===String(activeKey))return true;
+    var a=inningsNumber(value),b=inningsNumber(activeKey);
+    return a!=null&&b!=null&&a===b;
+  }
+  function rowsInActiveInnings(rows){
+    if(!activeKey)return rows.slice();
+    var matched=rows.filter(function(row){return sameInningsKey(inningsKey(row));});
+    // Never blank current players because one endpoint uses a different innings label.
+    return matched.length?matched:rows.slice();
+  }
+  var balls=rowsInActiveInnings(allBalls);
+  var batting=rowsInActiveInnings(battingAll);
+  var bowling=rowsInActiveInnings(bowlingAll);
 
   function isActive(row){
     return row&&(row.active===true||row.active===1||row.active==='1'||row.is_active===true||row.is_active===1||row.is_active==='1');
@@ -1825,7 +1834,7 @@ function currentPlayers(d){
   });
   if(!bowlRows.length)bowlRows=bowling;
   var lastBowlerId=last&&playerIdOf(last,'bowler');
-  var lastBowlerName=last?(playerName(last.bowler)||last.bowler_name||'').toLowerCase():'';
+  var lastBowlerName=last?String(ballParticipants(last).bowler||'').toLowerCase():'';
   var bowlerRow=bowlRows.find(function(row){
     var id=playerIdOf(row,'bowler');
     if(lastBowlerId!=null&&id!=null)return String(id)===String(lastBowlerId);
@@ -1842,7 +1851,7 @@ function currentPlayers(d){
     bowlRows=bowlRows.slice().sort(function(a,b){return oversAsDecimal(b.overs,b.balls)-oversAsDecimal(a.overs,a.balls);});
     bowlerRow=bowlRows[0]||null;
   }
-  var lastBowler=last?(playerName(last.bowler)||last.bowler_name||''):'';
+  var lastBowler=last?ballParticipants(last).bowler:'';
   return{
     striker:playerName(striker&&(striker.batsman||striker))||'—',
     nonstriker:playerName(non&&(non.batsman||non))||'—',
