@@ -698,9 +698,9 @@ var detailInFlight={};
 var DEFAULT_BG='https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=1200&q=60';
 // Sportmonks fixture endpoint allows up to 10 nested includes. Use only documented fixture relations. Keep this request
 // within that limit; oversized include lists can return HTTP 400 and break both tabs.
-var INCLUDE_LIST='localteam,visitorteam,runs,batting,bowling,bowling.bowler,balls,balls.score,balls.batsman,balls.bowler,lineup,lineup.player';
-var INCLUDE_LIST_SCORECARD='runs,runs.team,batting,batting.batsman,batting.team,bowling,bowling.bowler,bowling.team,lineup,lineup.player';
-var INCLUDE_LIST_SCORECARD_LIGHT='runs,batting,bowling,lineup,lineup.player';
+var INCLUDE_LIST='localteam,visitorteam,runs,batting,bowling,bowling.bowler,balls,balls.score,balls.batsman,balls.bowler';
+var INCLUDE_LIST_SCORECARD='runs,runs.team,batting,batting.batsman,batting.team,bowling,bowling.bowler,bowling.team,lineup';
+var INCLUDE_LIST_SCORECARD_LIGHT='runs,batting,bowling,lineup';
 var INCLUDE_LIST_LIGHT='localteam,visitorteam,runs';
 
 function qs(){try{return new URLSearchParams(location.search);}catch(e){return new URLSearchParams();}}
@@ -2218,7 +2218,7 @@ function App(){
       if((!relationRows(best.lineup).length||lineupNeedsPlayers) &&
          now-(lineupRecoveryAt[mid]||0)>60000){
         lineupRecoveryAt[mid]=now;
-        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'localteam,visitorteam,lineup,lineup.player'),{force:true})
+        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'localteam,visitorteam,lineup'),{force:true})
           .then(function(r){mergeData(r.data||{});})
           .catch(function(e){console.warn('Sportmonks lineup recovery failed',e);}));
       }
@@ -2229,7 +2229,7 @@ function App(){
          relationRows(best.lineup).length<22 && now-(teamSquadRecoveryAt[mid]||0)>60000){
         teamSquadRecoveryAt[mid]=now;
         [String(best.localteam_id),String(best.visitorteam_id)].forEach(function(teamId){
-          jobs.push(smGet(ckUrl('teams/'+teamId,tok,'squad,squad.player'),{force:true})
+          jobs.push(smGet(ckUrl('teams/'+teamId,tok,'squad'),{force:true})
             .then(function(r){
               var td=r.data||{};
               var rows=relationRows(td.squad);
