@@ -852,7 +852,7 @@ var DEFAULT_BG='https://images.unsplash.com/photo-1531415074968-036ba1b575da?aut
 var INCLUDE_LIST='localteam,visitorteam,runs,batting,bowling,bowling.bowler,balls,balls.score,balls.batsman,balls.bowler';
 var INCLUDE_LIST_SCORECARD='runs,runs.team,batting,batting.batsman,batting.team,bowling,bowling.bowler,bowling.team,lineup';
 var INCLUDE_LIST_SCORECARD_LIGHT='runs,batting,bowling,lineup';
-var INCLUDE_LIST_LIGHT='localteam,visitorteam,runs';
+var INCLUDE_LIST_LIGHT='localteam,visitorteam,runs,league';
 
 function qs(){try{return new URLSearchParams(location.search);}catch(e){return new URLSearchParams();}}
 function isViewMode(){return qs().get('view')==='1';}
@@ -1218,17 +1218,20 @@ function statusLabel(state){
   return ({live:'● LIVE',upcoming:'UPCOMING',finished:'RESULT',abandoned:'ABANDONED · NO RESULT',interrupted:'INTERRUPTED',postponed:'POSTPONED',cancelled:'CANCELLED',delayed:'DELAYED'})[state]||'UPCOMING';
 }
 async function smGetFixturePages(url,maxPages){
-  var all=[],page=1,limit=maxPages||10;
+  var all=[],seen={},page=1,limit=maxPages||100;
   while(page<=limit){
     var pageUrl=url+(url.indexOf('?')>=0?'&':'?')+'page='+page+'&per_page=50';
     var response=await smGet(pageUrl);
     var rows=Array.isArray(response.data)?response.data:(response.data?[response.data]:[]);
-    all=all.concat(rows);
+    rows.forEach(function(row){if(row&&row.id!=null)seen[String(row.id)]=row;});
+    all=Object.keys(seen).map(function(id){return seen[id];});
     var pagination=response.meta&&response.meta.pagination;
-    if(pagination&&pagination.total_pages!=null&&page>=Number(pagination.total_pages))break;
-    if(rows.length<50)break;
+    var totalPages=pagination&&Number(pagination.total_pages||pagination.last_page||0);
+    if(totalPages>0){if(page>=totalPages)break;}
+    else if(rows.length<50)break;
     page++;
   }
+  if(page>limit)console.warn('Sportmonks fixture pagination reached safety cap ('+limit+' pages).');
   return all;
 }
 
@@ -1975,6 +1978,9 @@ function App(){
   var _filter=useState('all');var filter=_filter[0],setFilter=_filter[1];
   var _loading=useState(false);var loading=_loading[0],setLoading=_loading[1];
   var _error=useState(null);var error=_error[0],setError=_error[1];
+  var _apiTest=useState(null);var apiTest=_apiTest[0],setApiTest=_apiTest[1];
+  var _apiTesting=useState(false);var apiTesting=_apiTesting[0],setApiTesting=_apiTesting[1];
+  var _availableLeagues=useState([]);var availableLeagues=_availableLeagues[0],setAvailableLeagues=_availableLeagues[1];
   var _settings=useState(false);var settingsOpen=_settings[0],setSettingsOpen=_settings[1];
   var _theme=useState(function(){return lsGet('cric_theme','bw');});
   var _scoreFont=useState(function(){return lsGet('score_font','system-ui');});var scoreFont=_scoreFont[0],setScoreFont=_scoreFont[1];
@@ -2271,26 +2277,31 @@ function App(){
     if(!token&&!isGuest){setError('Add Sportmonks token in Settings ⚙');return;}
     if(!silent){setLoading(true);setError(null);}
     if(force)cacheClear();
-    var past=ymd(addDays(new Date(),-30));
-    var future=ymd(addDays(new Date(),30));
+    var past=ymd(addDays(new Date(),-365));
+    var future=ymd(addDays(new Date(),365));
     // Fetch a rolling 60-day fixture window and follow SportMonks pagination.
     var fixUrl=ckUrl('fixtures',token,INCLUDE_LIST_LIGHT)+'&filter[starts_between]='+encodeURIComponent(past+','+future);
     var apiErrors=[];
     var tasks=[
       smGet(ckUrl('livescores',token,INCLUDE_LIST_LIGHT)).catch(function(e){apiErrors.push('Livescores: '+(e.message||e));console.warn('livescores',e);return{data:[]};}),
-      smGetFixturePages(fixUrl,10).catch(function(e){
+      smGetFixturePages(fixUrl,100).catch(function(e){
         apiErrors.push('Fixtures: '+(e.message||e));
         console.warn('fixtures range',e);
-        return smGetFixturePages(ckUrl('fixtures',token,INCLUDE_LIST_LIGHT)+'&sort=-starting_at',10).catch(function(e2){apiErrors.push('Fixture fallback: '+(e2.message||e2));console.warn(e2);return[];});
-      })
+        return smGetFixturePages(ckUrl('fixtures',token,INCLUDE_LIST_LIGHT)+'&sort=-starting_at',100).catch(function(e2){apiErrors.push('Fixture fallback: '+(e2.message||e2));console.warn(e2);return[];});
+      }),
+      smGet(ckUrl('leagues',token)).catch(function(e){apiErrors.push('Leagues: '+(e.message||e));console.warn('leagues',e);return{data:[]};})
     ];
     Promise.all(tasks).then(function(results){
       var map={};
       var liveRows=results[0]&&results[0].data,fixtureRows=results[1];
+      var leagueRows=results[2]&&results[2].data;
+      var leagueList=Array.isArray(leagueRows)?leagueRows:(leagueRows?[leagueRows]:[]);
+      setAvailableLeagues(leagueList);
+      var leagueById={};leagueList.forEach(function(l){if(l&&l.id!=null)leagueById[String(l.id)]=l;});
       [liveRows,fixtureRows].forEach(function(arr){
         (Array.isArray(arr)?arr:(arr?[arr]:[])).forEach(function(m){if(m&&m.id!=null)map[m.id]=Object.assign({},map[m.id]||{},m);});
       });
-      var list=Object.keys(map).map(function(k){return map[k];});
+      var list=Object.keys(map).map(function(k){var m=map[k];if(!m.league&&m.league_id!=null&&leagueById[String(m.league_id)])m.league=leagueById[String(m.league_id)];return m;});
       list.sort(function(a,b){
         var sa=statusOf(a),sb=statusOf(b);
         var rank={live:0,upcoming:1,delayed:2,interrupted:3,postponed:4,abandoned:5,cancelled:6,finished:7};
@@ -2317,12 +2328,25 @@ function App(){
       if(!list.length && !silent && apiErrors.length){
         setError(apiErrors.join(' · '));
       } else if(!list.length && !silent){
-        setError('SportMonks returned no fixtures in the last 30 / next 30 days. Check cricket API access and subscription coverage.');
+        setError('Sportmonks returned no fixtures in the one-year date window. Check the API token and enabled league coverage.');
       }
 
     }).catch(function(e){if(!silent)setError(String((e&&e.message)||e||'Sportmonks load failed'));})
      .finally(function(){if(!silent)setLoading(false);});
   },[token,shareId]);
+
+  async function testSportmonksAPI(){
+    if(!token){setApiTest({error:'Add your Sportmonks API token first.'});setModalVal('');setModal('token');return;}
+    setApiTesting(true);setApiTest({running:true});
+    var from=ymd(addDays(new Date(),-7)),to=ymd(addDays(new Date(),30));
+    var checks=await Promise.all([
+      smGet(ckUrl('leagues',token),{force:true}).then(function(r){var a=Array.isArray(r.data)?r.data:(r.data?[r.data]:[]);return{ok:true,count:a.length,sample:a.slice(0,6).map(function(x){return x.name;})};}).catch(function(e){return{ok:false,error:e.message||String(e)};}),
+      smGet(ckUrl('livescores',token,INCLUDE_LIST_LIGHT),{force:true}).then(function(r){var a=Array.isArray(r.data)?r.data:(r.data?[r.data]:[]);return{ok:true,count:a.length};}).catch(function(e){return{ok:false,error:e.message||String(e)};}),
+      smGet(ckUrl('fixtures',token,INCLUDE_LIST_LIGHT)+'&filter[starts_between]='+encodeURIComponent(from+','+to)+'&page=1&per_page=50',{force:true}).then(function(r){var a=Array.isArray(r.data)?r.data:(r.data?[r.data]:[]);return{ok:true,count:a.length,pages:r.meta&&r.meta.pagination?(r.meta.pagination.total_pages||r.meta.pagination.last_page||null):null};}).catch(function(e){return{ok:false,error:e.message||String(e)};})
+    ]);
+    setApiTest({checkedAt:new Date().toLocaleString(),leagues:checks[0],livescores:checks[1],fixtures:checks[2]});
+    setApiTesting(false);
+  }
 
   function loadDomestic(){
     fetch('/api/domestic?ts='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('Domestic feed HTTP '+r.status);return r.json();}).then(function(j){
@@ -2931,7 +2955,14 @@ function App(){
       h('div',{className:'settings-dd'},
         viewOnly?null:h(React.Fragment,null,
           h('div',{className:'dd-title'},'API'),
-          h('button',{onClick:function(){setModalVal(token);setModal('token');setSettingsOpen(false);}},token?'Change token':'Add Sportmonks token')
+          h('button',{onClick:function(){setModalVal(token);setModal('token');setSettingsOpen(false);}},token?'Change token':'Add Sportmonks token'),
+          h('button',{disabled:apiTesting,onClick:function(){testSportmonksAPI();}},apiTesting?'Testing Sportmonks API…':'Test Sportmonks API'),
+          apiTest?h('div',{style:{padding:'8px 10px',margin:'6px 0',borderRadius:10,background:'rgba(120,140,160,.12)',fontSize:11,lineHeight:1.5,whiteSpace:'normal'}},
+            apiTest.running?'Checking leagues, live scores and fixtures…':apiTest.error?apiTest.error:h(React.Fragment,null,
+              h('b',null,'API test · '+apiTest.checkedAt),
+              [['Leagues',apiTest.leagues],['Livescores',apiTest.livescores],['Fixtures',apiTest.fixtures]].map(function(row){var v=row[1]||{};return h('div',{key:row[0],style:{marginTop:4}},(v.ok?'✓ ':'✕ ')+row[0]+': '+(v.ok?(v.count+' records'+(v.pages?' · '+v.pages+' pages':'')):v.error));}),
+              apiTest.leagues&&apiTest.leagues.ok?h('div',{style:{marginTop:4,color:'var(--muted)'}},'Token competitions: '+(apiTest.leagues.sample||[]).join(', ')+(apiTest.leagues.count>6?'…':'')):null
+            )):null
         ),
         h('div',{className:'dd-title'},'Theme'),
         THEMES.map(function(t){return h('button',{key:t,className:theme===t?'on':'',onClick:function(){setTheme(t);lsSet('cric_theme',t);}},(t==='bw'?'Black':t==='india'?'India Blue':t.charAt(0).toUpperCase()+t.slice(1)));}),
@@ -3223,7 +3254,7 @@ function App(){
         matchFilter==='domestic'?h('button',{className:'btn',style:{margin:'8px 0'},onClick:loadDomestic},'↻ Refresh scorer matches'):null,
         (!token&&!matches.length&&!viewOnly)?h('div',{className:'empty'},h('div',{style:{marginBottom:12}},'Add your Sportmonks API token to load live matches.'),h('button',{className:'btn primary',onClick:function(){setModalVal('');setModal('token');}},'Add token')):null,
         loading&&!matches.length?h('div',{className:'empty'},h('span',{className:'spinner'}),' Loading…'):null,
-        !loading&&token&&!filtered.length?h('div',{className:'empty'},'No matches in this filter. Free plan: T20I, BBL, CSA T20.'):null,
+        !loading&&token&&!filtered.length?h('div',{className:'empty'},'No matches in this filter. Check the selected date range and competitions enabled for your Sportmonks token.'):null,
         h('div',{className:'match-list'},
           (matchFilter==='domestic'?domestic.slice():filtered.slice()).sort(function(a,b){return (Date.parse(b.starting_at||'')||0)-(Date.parse(a.starting_at||'')||0);}).map(function(m){
             var hn=teamName(m,'local'),an=teamName(m,'visitor');
