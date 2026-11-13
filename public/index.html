@@ -730,8 +730,8 @@ function playerName(p){
   p=unwrapRelation(p);
   if(!p)return'';
   if(typeof p==='string'||typeof p==='number')return String(p);
-  return p.fullname||p.display_name||p.common_name||p.player_name||p.name||
-    [p.firstname,p.lastname].filter(Boolean).join(' ')||p.lastname||'';
+  return p.fullname||p.full_name||p.display_name||p.displayName||p.common_name||p.player_name||p.playername||p.name||p.known_as||
+    [p.firstname||p.first_name,p.lastname||p.last_name].filter(Boolean).join(' ')||p.lastname||p.last_name||'';
 }
 
 async function fetchJson(url){
@@ -882,7 +882,7 @@ function playerIdOf(row,role){
   var field=idFields[role];
   if(field&&row[field]!=null)return row[field];
   if(rel&&(rel.id!=null||rel.player_id!=null))return rel.id!=null?rel.id:rel.player_id;
-  return field?null:(row.player_id||row.batsman_id||row.bowler_id||null);
+  return field?(row.player_id||row.id||null):(row.player_id||row.batsman_id||row.bowler_id||null);
 }
 function teamIdOf(row,role){
   if(!row)return null;
@@ -1901,7 +1901,7 @@ function App(){
   var _schedFilter=useState('latest');var schedFilter=_schedFilter[0],setSchedFilter=_schedFilter[1];
   var _flipIdx=useState(0);var flipIdx=_flipIdx[0],setFlipIdx=_flipIdx[1];
   var _statsOpen=useState(true);var statsOpen=_statsOpen[0],setStatsOpen=_statsOpen[1];
-  var _playersOpen=useState(function(){return lsGet('players_open','0')==='1';});var playersOpen=_playersOpen[0],setPlayersOpen=_playersOpen[1];
+  var _playersOpen=useState(function(){return lsGet('players_open','1')!=='0';});var playersOpen=_playersOpen[0],setPlayersOpen=_playersOpen[1];
   function setPlayersPanelOpen(open){setPlayersOpen(!!open);lsSet('players_open',open?'1':'0');}
   var _sponsorName=useState(function(){return lsGet('sponsor_name','');});var sponsorName=_sponsorName[0],setSponsorName=_sponsorName[1];
   var _sponsorLogo=useState(function(){return lsGet('sponsor_logo','');});var sponsorLogo=_sponsorLogo[0],setSponsorLogo=_sponsorLogo[1];
@@ -2146,10 +2146,12 @@ function App(){
       var now=Date.now(),mid=String(m.id);
       // Scorecard relations are usually static between deliveries. Retry at most
       // once per minute while absent, rather than on every live refresh.
-      if((!relationRows(best.batting).length||!relationRows(best.bowling).length) &&
+      var battingNeedsNames=relationRows(best.batting).some(function(r){return !playerName(r.batsman||r.player)&&!r.player_name&&!r.batsman_name;});
+      var bowlingNeedsNames=relationRows(best.bowling).some(function(r){return !playerName(r.bowler||r.player)&&!r.player_name&&!r.bowler_name;});
+      if((!relationRows(best.batting).length||!relationRows(best.bowling).length||battingNeedsNames||bowlingNeedsNames) &&
          now-(detailRecoveryAt[mid]||0)>60000){
         detailRecoveryAt[mid]=now;
-        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,INCLUDE_LIST_SCORECARD),{force:true})
+        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'runs,runs.team,batting,batting.batsman,batting.team,bowling,bowling.bowler,bowling.team'),{force:true})
           .then(function(r){mergeData(r.data||{});})
           .catch(function(e){console.warn('Sportmonks scorecard recovery failed',e);}));
       }
@@ -2163,10 +2165,11 @@ function App(){
           .catch(function(e){console.warn('Sportmonks commentary recovery failed',e);}));
       }
       // Squad/lineup is a separate static relation; recover it independently when omitted.
-      if(!relationRows(best.lineup).length &&
+      var lineupNeedsPlayers=relationRows(best.lineup).some(function(p){return !playerName(p.player||p)&&!p.player_name&&!p.name;});
+      if((!relationRows(best.lineup).length||lineupNeedsPlayers) &&
          now-(lineupRecoveryAt[mid]||0)>60000){
         lineupRecoveryAt[mid]=now;
-        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'localteam,visitorteam,lineup'),{force:true})
+        jobs.push(smGet(ckUrl('fixtures/'+m.id,tok,'localteam,visitorteam,lineup,lineup.player'),{force:true})
           .then(function(r){mergeData(r.data||{});})
           .catch(function(e){console.warn('Sportmonks lineup recovery failed',e);}));
       }
@@ -2367,7 +2370,7 @@ function App(){
   var liveP=d?currentPlayers(d):{striker:'—',nonstriker:'—',bowler:'—',strikerS:{line1:'',line2:'',line3:''},nonstrikerS:{line1:'',line2:'',line3:''},bowlerS:{line1:'',line2:''}};
   var overs=groupIntoOvers(d&&d.balls||[]);
   // newest over first for commentary; ball history itself is chronological.
-  var oversDesc=overs.slice().reverse();
+  var oversDesc=overs.slice().reverse().map(function(ov){return Object.assign({},ov,{balls:ov.balls.slice().reverse()});});
   var scoreboardOverIndex=overs.length?(scoreboardOverIndexState==null?overs.length-1:Math.max(0,Math.min(overs.length-1,scoreboardOverIndexState))):-1;
   var scoreboardOver=scoreboardOverIndex>=0?overs[scoreboardOverIndex]:null;
   var latestBallList=normalizeBalls(d&&d.balls||[]);
@@ -2965,7 +2968,7 @@ tab==='schedule'?h('div',null,
           return h('table',{className:'table'},
             h('thead',null,h('tr',null,h('th',null,'Batter'),h('th',null,'R'),h('th',null,'B'),h('th',null,'4s'),h('th',null,'6s'),h('th',null,'SR'))),
             h('tbody',null,filtered.slice(0,15).map(function(b,i){
-              var name=playerName(b.batsman)||b.player_name||playerName(b.player)||'—';
+              var name=playerName(b.batsman)||b.batsman_name||b.player_name||playerName(b.player)||b.name||'—';
               var isStriker=(liveP.strikerId!=null&&String(playerIdOf(b,'batsman'))===String(liveP.strikerId))||(!liveP.strikerId&&name.toLowerCase()===String(liveP.striker||'').toLowerCase());
               var r=b.score!=null?b.score:b.runs;var bl=b.ball!=null?b.ball:b.balls;
               var sr=(r!=null&&bl)?((Number(r)/Math.max(1,Number(bl)))*100).toFixed(1):'—';
@@ -2982,7 +2985,7 @@ tab==='schedule'?h('div',null,
           return h('table',{className:'table'},
             h('thead',null,h('tr',null,h('th',null,'Bowler'),h('th',null,'O'),h('th',null,'M'),h('th',null,'R'),h('th',null,'W'),h('th',null,'Econ'))),
             h('tbody',null,filtered.slice(0,12).map(function(b,i){
-              var name=playerName(b.bowler)||playerName(b.player)||b.player_name||'—';var o=b.overs,m=b.medians!=null?b.medians:(b.maidens||0),r=b.runs,w=b.wickets;
+              var name=playerName(b.bowler)||b.bowler_name||b.player_name||playerName(b.player)||b.name||'—';var o=b.overs,m=b.medians!=null?b.medians:(b.maidens||0),r=b.runs,w=b.wickets;
               var econ=(o&&r!=null)?(Number(r)/Math.max(0.1,oversAsDecimal(o,b.balls))).toFixed(2):'—';
               return h('tr',{key:i},h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:6}},(unwrapRelation(b.bowler)&&unwrapRelation(b.bowler).image_path)?h('img',{src:unwrapRelation(b.bowler).image_path,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,h('span',null,name))),h('td',null,o!=null?o:'—'),h('td',null,m),h('td',null,r!=null?r:'—'),h('td',null,w!=null?w:'—'),h('td',null,econ));
             }))
@@ -3042,7 +3045,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
               ov.balls.map(function(b,bi){
                 var line=descriptiveLine(b,ttsLang,ov.displayOver!=null?ov.displayOver:ov.overNo);
                 var cls=ballIsWicket(b)?'hi-w':(ballRuns(b)===4?'hi-4':(ballRuns(b)===6?'hi-6':(ballRuns(b)>0?'hi-run':'')));
-                return h('div',{key:'d'+bi,className:'ball-detail',ref:oi===0&&bi===ov.balls.length-1?commentaryLatestRef:null,style:{cursor:'pointer',display:'flex',alignItems:'flex-start',gap:8},onClick:function(){if(ttsOn)speakText(line,ttsLang);}},
+                return h('div',{key:'d'+bi,className:'ball-detail',ref:oi===0&&bi===0?commentaryLatestRef:null,style:{cursor:'pointer',display:'flex',alignItems:'flex-start',gap:8},onClick:function(){if(ttsOn)speakText(line,ttsLang);}},
                   h('span',{className:'ball-chip '+chipClass(b),style:{flexShrink:0,marginTop:2}},chipLabel(b)),
                   h('span',{dangerouslySetInnerHTML:{__html:colorEvents(line)}})
                 );
@@ -3070,7 +3073,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
           return h('table',{className:'table'},
             h('thead',null,h('tr',null,h('th',null,'Batter'),h('th',null,'R'),h('th',null,'B'),h('th',null,'4s'),h('th',null,'6s'),h('th',null,'SR'))),
             h('tbody',null,filtered.slice(0,20).map(function(b,i){
-              var name=playerName(b.batsman)||'—';var isStriker=(liveP.strikerId!=null&&String(playerIdOf(b,'batsman'))===String(liveP.strikerId))||(!liveP.strikerId&&name.toLowerCase()===String(liveP.striker||'').toLowerCase());var r=b.score!=null?b.score:b.runs;var bl=b.ball!=null?b.ball:b.balls;
+              var name=playerName(b.batsman)||b.batsman_name||b.player_name||playerName(b.player)||'—';var isStriker=(liveP.strikerId!=null&&String(playerIdOf(b,'batsman'))===String(liveP.strikerId))||(!liveP.strikerId&&name.toLowerCase()===String(liveP.striker||'').toLowerCase());var r=b.score!=null?b.score:b.runs;var bl=b.ball!=null?b.ball:b.balls;
               var sr=(r!=null&&bl)?((Number(r)/Math.max(1,Number(bl)))*100).toFixed(1):'—';
               return h('tr',{key:i},h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:6}},(unwrapRelation(b.batsman)&&unwrapRelation(b.batsman).image_path)?h('img',{src:unwrapRelation(b.batsman).image_path,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,h('span',null,(isStriker?'* ':'')+name))),h('td',null,r!=null?r:'—'),h('td',null,bl!=null?bl:'—'),h('td',null,b.four_x!=null?b.four_x:'—'),h('td',null,b.six_x!=null?b.six_x:'—'),h('td',null,sr));
             }))
@@ -3092,7 +3095,7 @@ tab==='bowling'?(!selected?h('div',{className:'empty'},'Select a match'):h('div'
           return h('table',{className:'table'},
             h('thead',null,h('tr',null,h('th',null,'Bowler'),h('th',null,'O'),h('th',null,'M'),h('th',null,'R'),h('th',null,'W'),h('th',null,'Econ'))),
             h('tbody',null,filtered.slice(0,20).map(function(b,i){
-              var name=playerName(b.bowler)||playerName(b.player)||b.player_name||'—';var o=b.overs,m=b.medians!=null?b.medians:(b.maidens||0),r=b.runs,w=b.wickets;
+              var name=playerName(b.bowler)||b.bowler_name||b.player_name||playerName(b.player)||b.name||'—';var o=b.overs,m=b.medians!=null?b.medians:(b.maidens||0),r=b.runs,w=b.wickets;
               var econ=(o&&r!=null)?(Number(r)/Math.max(0.1,oversAsDecimal(o,b.balls))).toFixed(2):'—';
               return h('tr',{key:i},h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:6}},(unwrapRelation(b.bowler)&&unwrapRelation(b.bowler).image_path)?h('img',{src:unwrapRelation(b.bowler).image_path,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,h('span',null,name))),h('td',null,o!=null?o:'—'),h('td',null,m),h('td',null,r!=null?r:'—'),h('td',null,w!=null?w:'—'),h('td',null,econ));
             }))
@@ -3112,7 +3115,7 @@ tab==='squad'?(!selected?h('div',{className:'empty'},'Select a match'):h('div',{
           // Some Sportmonks fixtures expose the lineup relation without nested player/team
           // details, or omit it entirely. Supplement the display with players actually
           // present in the batting/bowling scorecard so the Squad tab is not blank.
-          if(!list.length){
+          if(true){
             (d&&d.batting||[]).forEach(function(row){
               var pl=unwrapRelation(row.batsman)||unwrapRelation(row.player)||row;
               list.push({player:pl,player_id:row.batsman_id||row.player_id||(pl&&pl.id),team_id:row.team_id,team:row.team});
@@ -3133,6 +3136,14 @@ tab==='squad'?(!selected?h('div',{className:'empty'},'Select a match'):h('div',{
           var filtered=list.filter(function(p){
             var teamRel=unwrapRelation(p.team)||p.team||{};
             var tid=p.team_id!=null?p.team_id:(teamRel.id||teamRel.team_id||null);
+            if(tid==null){
+              var pid=p.player_id||p.id||(unwrapRelation(p.player)&&unwrapRelation(p.player).id);
+              var batRow=relationRows(d&&d.batting).find(function(r){return pid!=null&&String(playerIdOf(r,'batsman'))===String(pid);});
+              var bowlRow=relationRows(d&&d.bowling).find(function(r){return pid!=null&&String(playerIdOf(r,'bowler'))===String(pid);});
+              var scoreRow=batRow||bowlRow;
+              if(scoreRow)tid=teamIdOf(scoreRow,batRow?'batsman':'bowler');
+              if(tid==null&&scoreRow){var run=relationRows(d&&d.runs).find(function(r){return inningsKey(r)===inningsKey(scoreRow);});tid=runTeamId(run);}
+            }
             var tname=teamRel.name||p.team_name||p.teamname||'';
             if(squadTeam==='home'){
               if(tid!=null&&homeId!=null)return String(tid)===String(homeId);
@@ -3145,7 +3156,11 @@ tab==='squad'?(!selected?h('div',{className:'empty'},'Select a match'):h('div',{
           });
           
           if(!list.length)return h('div',{className:'muted'},loading?'Loading…':'No lineup or scorecard players are available for this fixture yet.');
-          if(!filtered.length)return h('div',{className:'muted'},'No players listed for this team. Team details were not supplied for this fixture.');
+          if(!filtered.length){
+            var allNamed=list.filter(function(p){return playerName(p.player||p)||p.player_name||p.name;});
+            if(allNamed.length&&allNamed.length<=25)return h('div',null,h('div',{className:'muted',style:{marginBottom:8}},'Team labels were not supplied by the score provider; showing available match players.'),allNamed.map(function(p,i){var pl=unwrapRelation(p.player)||p;var nm=playerName(pl)||p.player_name||p.name||'Player';return h('div',{key:i,style:{padding:'8px 0',borderBottom:'1px solid var(--line)',fontWeight:800}},nm);}));
+            return h('div',{className:'muted'},'No players listed for this team in the provider response.');
+          }
           return h('div',null,
             !officialLineup.length?h('div',{className:'muted',style:{marginBottom:8}},'Showing players who appeared in the scorecard; the provider has not supplied the official squad list.'):null,
             filtered.slice(0,25).map(function(p,i){
