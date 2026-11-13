@@ -1108,7 +1108,8 @@ function ballNeedsPlayerRecovery(d){
   var balls=relationRows(d&&d.balls);
   return balls.some(function(b){
     var p=ballParticipants(b);
-    return !p.batter||!p.bowler||((p.isCatch||p.isRunOut)&&!p.fielder);
+    var dismissed=playerName(b.batsmanout)||playerName(b.dismissed_batsman)||b.batsmanout_name||b.dismissed_batsman_name||'';
+    return !p.batter||!p.bowler||((p.isCatch||p.isRunOut)&&!p.fielder)||(ballIsWicket(b)&&!dismissed);
   });
 }
 function ballHistoryBehind(d){
@@ -1488,7 +1489,8 @@ function descriptiveLine(b, lang, forceOver){
   var isW=ballIsWicket(b);
   var bats=playerName(b.batsman)||playerName(s.batsman)||'';
   var bowl=playerName(b.bowler)||playerName(s.bowler)||'';
-  var catcher=playerName(b.catchstump)||playerName(s.catchstump)||playerName(b.runoutby)||playerName(s.runoutby)||playerName(b.fielder)||playerName(s.fielder)||'';
+  var catcher=playerName(b.catchstump)||playerName(s.catchstump)||playerName(b.runoutby)||playerName(s.runoutby)||playerName(b.fielder)||playerName(s.fielder)||playerName(b.catcher)||playerName(s.catcher)||'';
+  var dismissed=playerName(b.batsmanout)||playerName(s.batsmanout)||playerName(b.dismissed_batsman)||playerName(b.batsman_out)||b.batsmanout_name||b.dismissed_batsman_name||bats;
   var outRaw=s.out||s.dismissal||b.dismissal||b.batsmanout||b.wicket||s.wicket||s.name||'';
   if(outRaw===true||outRaw==='true'||outRaw===1)outRaw='';
   var outType=String(outRaw||'').replace(/\*/g,'').trim();
@@ -1545,7 +1547,7 @@ function descriptiveLine(b, lang, forceOver){
   if(isW){
     var k2=dismissKind();
     var how2=k2==='catch'?('caught'+(catcher?' by '+catcher+' — what a grab!':'')):k2==='bowled'?'bowled — timber!':k2==='lbw'?'LBW — given!':k2==='runout'?'run out':k2==='stumped'?'stumped':'out';
-    return head+'WICKET! '+(bats?bats+' is ':'')+how2+(bowl?' Superb bowling from '+bowl+'.':'');
+    return head+'WICKET! '+(dismissed?dismissed+' is ':'')+how2+(bowl?' Bowler: '+bowl+'.':'');
   }
   if(runs===6)return head+'SIX! A massive hit'+(bats?' from '+bats:'')+' — that is out of the ground!';
   if(runs===4)return head+'FOUR! Beautifully timed'+(bats?' by '+bats:'')+' — races away to the rope.';
@@ -1553,10 +1555,12 @@ function descriptiveLine(b, lang, forceOver){
   if(/no.?ball/.test(scoreName.toLowerCase()))return head+'No-ball'+(runs?(', '+runs+' run'+(runs>1?'s':'')):'')+'.';
   if(/leg.?bye/.test(scoreName.toLowerCase()))return head+'Leg bye, '+(runs||0)+' run'+((runs||0)===1?'':'s')+'.';
   if(/bye/.test(scoreName.toLowerCase()))return head+'Bye, '+(runs||0)+' run'+((runs||0)===1?'':'s')+'.';
-  if(runs===0)return head+'Dot ball — solid defence.';
+  if(runs===0)return head+(scoreName&&/no run|dot/i.test(scoreName)?'No run — defended.':'Dot ball.');
   if(runs===1)return head+'Pushed for a single.';
   if(runs===2)return head+'They come back for two — good running.';
   if(runs===3)return head+'Three runs — excellent running between the wickets.';
+  // Preserve provider-supplied named outcomes instead of replacing them with generic run counts.
+  if(scoreName&&/^[A-Za-z][A-Za-z -]+$/.test(scoreName.trim())&&!/^(no run|dot ball|four|six|wide|wide ball|no ball|leg bye|bye|wicket)$/i.test(scoreName.trim()))return head+scoreName.trim()+'.';
   return head+(runs||0)+' run'+((runs||0)===1?'':'s')+'.';
 }
 var mcsSpeechPrimed=false;
