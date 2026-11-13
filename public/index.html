@@ -670,54 +670,89 @@ body.theme-bw .live-player-stats b,body.theme-bw .live-player-name,
 body.theme-bw .score-player-name{font-weight:400!important}
 </style>
 <style id="mcs-india-blue-theme">
-/* India cricket blue: color palette only, no changes to dimensions or layout. */
+/* India Blue mirrors the Black theme: only the black broadcast/header surfaces
+   become India blue; every section below the scoreboard remains white. */
 body.theme-india{
-  --bg:#061a3a;--bg2:#0a2b5e;--card:#103b78;
-  --line:rgba(255,255,255,.16);--text:#f8fbff;--muted:#c2d4ef;
-  --accent:#ff9933;--blue:#1d65c1;--gold:#ff9933;
-  background:#061a3a!important;color:#f8fbff!important;
+  --bg:#fff;--bg2:#fff;--card:#fff;--line:#dedede;
+  --text:#111;--muted:#555;--accent:#ff9933;--blue:#1457a6;--gold:#ff9933;
+  background:#fff!important;color:#111!important;
 }
-body.theme-india .top-chrome{background:#061a3a!important}
+body.theme-india .app,
+body.theme-india .panel,
+body.theme-india .tabs,
+body.theme-india .card,
+body.theme-india .match-list{background:#fff!important;color:#111!important}
+
+/* Header and scoreboard are the blue equivalents of Black theme's black surfaces. */
+body.theme-india .top-chrome{background:#082f6b!important;color:#fff!important}
 body.theme-india .broadcast,
 body.theme-india .broadcast .bc-content,
 body.theme-india .broadcast .scoreboard-body,
 body.theme-india .broadcast .bar,
 body.theme-india .broadcast .match-header{
-  background:#08285b!important;color:#fff!important;
+  background:#0b4da2!important;color:#fff!important;
 }
+body.theme-india .broadcast .bg-layer{opacity:0!important}
 body.theme-india .broadcast .bg-overlay{
-  background:linear-gradient(120deg,rgba(4,25,64,.96),rgba(10,61,139,.9) 55%,rgba(4,29,75,.96))!important;
+  background:#0b4da2!important;opacity:1!important;
 }
 body.theme-india .broadcast .score-grid{
-  background:linear-gradient(135deg,#0b3477,#124b9b)!important;
-  border:1px solid rgba(255,255,255,.28)!important;
+  background:#0b4da2!important;
+  border:1px solid rgba(255,255,255,.9)!important;
+  box-shadow:none!important;
 }
 body.theme-india .broadcast .brand-chip,
 body.theme-india .broadcast .match-header *,
 body.theme-india .broadcast .tname,
 body.theme-india .broadcast .score-num,
 body.theme-india .broadcast .overs,
+body.theme-india .broadcast .role,
 body.theme-india .broadcast .vs-label,
-body.theme-india .broadcast .meta-row{color:#fff!important}
+body.theme-india .broadcast .meta-row,
+body.theme-india .broadcast .sponsor-slot,
+body.theme-india .broadcast .lp *,
+body.theme-india .broadcast .players-bar *{color:#fff!important}
 body.theme-india .broadcast .live-pill{
-  background:rgba(255,153,51,.16)!important;border-color:#ff9933!important;color:#fff!important;
+  background:rgba(255,153,51,.18)!important;
+  border-color:#ff9933!important;color:#fff!important;
 }
-body.theme-india .tabs{background:#08285b!important;border-color:rgba(255,255,255,.16)!important}
-body.theme-india .tabs button{color:#d8e7ff!important}
-body.theme-india .tabs button.on{color:#fff!important;border-bottom-color:#ff9933!important}
-body.theme-india .panel{background:#061a3a!important;color:#fff!important}
-body.theme-india .card,body.theme-india .match-card,
-body.theme-india .live-player-card,body.theme-india .players-bar,
-body.theme-india .scorecard-panel,body.theme-india .commentary-card{
-  background:#0b2b5b!important;color:#fff!important;border-color:rgba(255,255,255,.16)!important;
+
+/* Everything below the broadcast scoreboard is white with black text. */
+body.theme-india .tabs{
+  background:#fff!important;border-color:#ddd!important;
 }
-body.theme-india .card *,body.theme-india .match-card *,
-body.theme-india .live-player-card *,body.theme-india .players-bar *,
-body.theme-india .scorecard-panel *,body.theme-india .commentary-card *{color:#f4f8ff!important}
-body.theme-india .btn.primary,body.theme-india .filter-row button.on{
-  background:#ff9933!important;color:#071a38!important;border-color:#ff9933!important;
+body.theme-india .tabs button,
+body.theme-india .tabs button.on{
+  background:#fff!important;color:#111!important;
 }
-body.theme-india .live-player-name,body.theme-india .live-player-stats b,
+body.theme-india .tabs button.on{border-bottom-color:#0b4da2!important}
+body.theme-india .panel,
+body.theme-india .card,
+body.theme-india .match-card,
+body.theme-india .live-player-card,
+body.theme-india .players-bar,
+body.theme-india .scorecard-panel,
+body.theme-india .commentary-card,
+body.theme-india .settings-dd,
+body.theme-india .modal-card{
+  background:#fff!important;color:#111!important;border-color:#ddd!important;
+  box-shadow:0 2px 10px rgba(0,0,0,.045)!important;
+}
+body.theme-india .panel *,
+body.theme-india .card *,
+body.theme-india .match-card *,
+body.theme-india .live-player-card *,
+body.theme-india .players-bar *,
+body.theme-india .scorecard-panel *,
+body.theme-india .commentary-card *,
+body.theme-india .settings-dd *,
+body.theme-india .modal-card *{color:#111!important}
+body.theme-india .btn.primary,
+body.theme-india .filter-row button.on{
+  background:#0b4da2!important;color:#fff!important;border-color:#0b4da2!important;
+}
+body.theme-india .live-player-name,
+body.theme-india .live-player-stats b,
 body.theme-india .score-player-name{font-weight:400!important}
 </style>
 
@@ -3889,10 +3924,3 @@ body.theme-light .mc-scores{background:#eaf2f2;color:#10243a!important}
   16%{opacity:1;transform:translateY(0) scale(1.04)}
   25%{opacity:1;transform:translateY(0) scale(1)}
   38%{opacity:1;transform:translateY(0) scale(1.07)}
-  50%{opacity:1;transform:translateY(0) scale(1)}
-  62%{opacity:1;transform:translateY(0) scale(1.07)}
-  74%{opacity:1;transform:translateY(0) scale(1)}
-  88%{opacity:.85;transform:translateY(0) scale(1.02)}
-  100%{opacity:0;transform:translateY(0) scale(.98)}
-}
-</style>
