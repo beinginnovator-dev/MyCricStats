@@ -2156,8 +2156,17 @@ function App(){
 
   useEffect(function(){
     var isGuest=false;try{isGuest=qs().get('view')==='1';}catch(e){}
+    // Invite links already contain the exact fixture ID. Load that fixture directly
+    // instead of waiting for the full 60-day livescores/fixtures list and pagination.
+    if(isGuest&&shareId){
+      var inviteMatch={id:shareId};
+      activeMatchIdRef.current=String(shareId);
+      setSelected(inviteMatch);setDetail(inviteMatch);
+      activateMatchRoom(inviteMatch);
+      loadDetail(inviteMatch,token,false);
+      return;
+    }
     if(token||isGuest)loadList(false);
-    // Selected match is restored inside loadList using ?match= or last_match.
   },[token]);
   // Refresh the live match list automatically; pause while the app is backgrounded.
   useEffect(function(){
