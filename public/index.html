@@ -1971,12 +1971,12 @@ function App(){
   var _scoreboardBallInfo=useState(null);var scoreboardBallInfo=_scoreboardBallInfo[0],setScoreboardBallInfo=_scoreboardBallInfo[1];
   useEffect(function(){setScoreboardOverIndex(null);setScoreboardBallInfo(null);},[selected&&selected.id]);
   var _detail=useState(null);var detail=_detail[0],setDetail=_detail[1];
-  var _tab=useState(function(){var q=qs().get('tab');return q||(!qs().get('match')?'matches':lsGet('mcs_tab','commentary'));});var tab=_tab[0],setTab=_tab[1];
+  var _tab=useState(function(){var q=qs().get('tab');return q||'commentary';});var tab=_tab[0],setTab=_tab[1];
   var _filter=useState('all');var filter=_filter[0],setFilter=_filter[1];
   var _loading=useState(false);var loading=_loading[0],setLoading=_loading[1];
   var _error=useState(null);var error=_error[0],setError=_error[1];
   var _settings=useState(false);var settingsOpen=_settings[0],setSettingsOpen=_settings[1];
-  var _theme=useState(function(){return lsGet('cric_theme','dark');});
+  var _theme=useState(function(){return lsGet('cric_theme','bw');});
   var _scoreFont=useState(function(){return lsGet('score_font','system-ui');});var scoreFont=_scoreFont[0],setScoreFont=_scoreFont[1];
   var theme=_theme[0],setTheme=_theme[1];
   var _bg=useState(function(){return lsGet('bg_cricket',DEFAULT_BG);});
@@ -2297,6 +2297,8 @@ function App(){
         if(rank[sa]!==rank[sb])return rank[sa]-rank[sb];
         return sa==='upcoming'?String(a.starting_at||'').localeCompare(String(b.starting_at||'')):String(b.starting_at||'').localeCompare(String(a.starting_at||''));
       });
+      var inviteId=qs().get('match');
+      if(viewOnly&&inviteId){list=list.filter(function(x){return String(x.id)===String(inviteId);});}
       setMatches(list);
       var restoreId=shareId||lsGet('last_match','');
       // Restore once only; a periodic list refresh must not steal user selection.
@@ -2305,7 +2307,7 @@ function App(){
         if(restored){
           activeMatchIdRef.current=String(restored.id);
           setSelected(restored);setDetail(restored);activateMatchRoom(restored);
-          setTab(qs().get('tab')||(shareId?'scorecard':lsGet('mcs_tab','scorecard')));
+          setTab(viewOnly&&inviteId?'commentary':(qs().get('tab')||(shareId?'commentary':'commentary')));
           loadDetail(restored,token,true);
         }else if(shareId){
           activeMatchIdRef.current=String(shareId);
@@ -2325,6 +2327,8 @@ function App(){
   function loadDomestic(){
     fetch('/api/domestic?ts='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('Domestic feed HTTP '+r.status);return r.json();}).then(function(j){
       var rows=Array.isArray(j.matches)?j.matches:[];
+      var inviteId=qs().get('match');
+      if(viewOnly&&inviteId)rows=rows.filter(function(x){return String(x.id)===String(inviteId);});
       var mapped=rows.map(function(x){
         var a=x.teamA||x.localteam&&x.localteam.name||'Team A',b=x.teamB||x.visitorteam&&x.visitorteam.name||'Team B';
         var aid=x.teamAId||x.localteam_id||('domA-'+x.id),bid=x.teamBId||x.visitorteam_id||('domB-'+x.id);
@@ -2349,7 +2353,7 @@ function App(){
     if(isGuest&&shareId){
       var inviteMatch={id:shareId};
       activeMatchIdRef.current=String(shareId);
-      setSelected(inviteMatch);setDetail(inviteMatch);
+      setSelected(inviteMatch);setDetail(inviteMatch);setTab('commentary');
       activateMatchRoom(inviteMatch);
       loadDetail(inviteMatch,token,false);
       return;
