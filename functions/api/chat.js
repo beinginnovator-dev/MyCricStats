@@ -30,7 +30,7 @@ async function logActivity(db, room, memberId, name, event, detail, now) {
 async function roomData(db, room, memberId, isHost) {
   const [messages, viewers] = await Promise.all([
     db.prepare('SELECT id, member_id AS memberId, name, text, type, created_at AS t, edited FROM mcs_messages WHERE room_id = ? ORDER BY created_at DESC LIMIT ?').bind(room, MAX_MESSAGES).all(),
-    db.prepare('SELECT member_id AS memberId, name, role, last_seen AS last, blocked, removed, muted FROM mcs_members WHERE room_id = ? AND removed = 0 ORDER BY joined_at ASC').bind(room).all()
+    db.prepare('SELECT member_id AS memberId, name, role, joined_at AS joinedAt, last_seen AS last, blocked, removed, muted FROM mcs_members WHERE room_id = ? AND removed = 0 ORDER BY joined_at ASC').bind(room).all()
   ]);
   let activity = { results: [] };
   try { activity = await db.prepare('SELECT id, member_id AS memberId, name, event, detail, created_at AS createdAt FROM mcs_activity WHERE room_id = ? ORDER BY created_at DESC LIMIT 80').bind(room).all(); }
@@ -43,7 +43,7 @@ async function roomData(db, room, memberId, isHost) {
   return {
     messages: (messages.results || []).reverse().map(m => ({ ...m, edited: !!m.edited })),
     viewers: list,
-    activity: isHost ? (activity.results || []) : [],
+    activity: (activity.results || []),
     isHost: !!isHost, memberId, message: 'Connected'
   };
 }
