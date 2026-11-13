@@ -95,7 +95,7 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .news-body .nd{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.35}
 .news-body .nm{font-size:11px;color:var(--muted);margin-top:4px}
 .news-ticker{display:flex;gap:10px;align-items:center;padding:8px 4px;min-height:56px}
-.match-news-ticker{display:flex;align-items:center;gap:8px;overflow:hidden;margin:5px 0 7px;padding:6px 9px;border:1px solid rgba(72,199,232,.35);border-radius:8px;background:rgba(4,16,30,.78);color:#fff;min-height:28px}.match-news-label{flex:0 0 auto;font-size:9px;font-weight:900;letter-spacing:.06em;color:#48c7e8}.match-news-track{min-width:0;overflow:hidden;white-space:nowrap;font-size:11px;font-weight:700}.match-news-track a{color:#fff;text-decoration:none;display:inline-block;padding-right:30px;animation:mcsMatchNews 28s linear infinite}@keyframes mcsMatchNews{0%{transform:translateX(100%)}100%{transform:translateX(-100%)}}
+@keyframes mcsMatchNews{0%{transform:translateX(100%)}100%{transform:translateX(-100%)}}
 .news-ticker img{width:56px;height:42px;border-radius:8px;object-fit:cover;flex-shrink:0;background:rgba(0,0,0,.3)}
 .news-ticker .nt-text{flex:1;min-width:0;overflow:hidden;height:40px;position:relative}
 .news-ticker .nt-scroll{position:absolute;left:0;top:0;width:100%;animation:newsScroll 12s linear infinite}
@@ -2039,18 +2039,6 @@ function App(){
   var _room=useState(function(){return qs().get('room')||lsGet('last_room')||'lobby';});var roomId=_room[0],setRoomId=_room[1];
   var _news=useState([]);var news=_news[0],setNews=_news[1];
   var _newsLoading=useState(false);var newsLoading=_newsLoading[0],setNewsLoading=_newsLoading[1];
-  var _matchNews=useState([]);var matchNews=_matchNews[0],setMatchNews=_matchNews[1];
-  var _matchNewsLoading=useState(false);var matchNewsLoading=_matchNewsLoading[0],setMatchNewsLoading=_matchNewsLoading[1];
-  useEffect(function(){
-    if(!selected){setMatchNews([]);setMatchNewsLoading(false);return;}
-    var home=teamName(selected,'local'),away=teamName(selected,'visitor');
-    if(!home||!away){setMatchNews([]);setMatchNewsLoading(false);return;}
-    var dead=false;
-    function refreshMatchNews(){setMatchNewsLoading(true);loadNewsRss(home,away).then(function(items){if(!dead)setMatchNews((items||[]).slice(0,12));}).finally(function(){if(!dead)setMatchNewsLoading(false);});}
-    refreshMatchNews();
-    var timer=setInterval(refreshMatchNews,10*60*1000);
-    return function(){dead=true;clearInterval(timer);};
-  },[selected&&selected.id,selected&&selected.localteam_id,selected&&selected.visitorteam_id]);
   // Live viewer count is derived from real room presence returned by /api/chat.
 
   useEffect(function(){document.body.className='theme-'+theme;},[theme]);
@@ -2554,7 +2542,6 @@ function App(){
               h('div',{className:'sub'},venue),
               h('div',{className:'status-line'},status||(d.note||''))
             ),
-            selected?h('div',{className:'match-news-ticker'},h('span',{className:'match-news-label'},'MATCH NEWS'),h('div',{className:'match-news-track'},matchNews.length?matchNews.map(function(item,i){return h('a',{key:i,href:item.link||'#',target:'_blank',rel:'noopener noreferrer'},(i?'  •  ':'')+item.title); }):h('span',null,matchNewsLoading?'Fetching Google headlines for '+homeName+' vs '+awayName+'…':'No recent Google headlines found for '+homeName+' vs '+awayName))):null,
             h('div',{className:'score-grid'},
               h('div',{className:'side side-left'},
                 h('div',{className:'tname'},
