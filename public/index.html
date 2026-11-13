@@ -646,17 +646,17 @@ body.theme-dark,body.theme-night{background:radial-gradient(ellipse at 50% -15%,
 @media(prefers-reduced-motion:reduce){.mcs-commentary-latest:after,.mcs-match-result-banner:before,.mcs-match-result-banner:after{animation:none!important}}
 </style>
 
-<style id="mcs-ins-fub-themes">
-/* Ins: photo-sharing inspired violet/pink gradient; FuB: clean social-blue theme. */
-body.theme-ins{--bg:#160d2b;--bg2:#24113d;--card:#2d1748;--line:rgba(255,255,255,.14);--text:#fff8ff;--muted:#d0b8e8;--accent:#e1306c;--blue:#c4a1ff;--gold:#ffd166;background:radial-gradient(circle at 15% 0%,#7432a8 0%,#24113d 42%,#10091e 100%)}
-body.theme-ins .top-chrome,body.theme-ins .tabs{background:rgba(27,12,48,.96)!important}
-body.theme-ins .card{background:linear-gradient(145deg,#32184e,#1d1235)!important;border-color:#ffffff20!important}
-body.theme-ins .btn.primary,body.theme-ins .filter-row button.on{background:linear-gradient(110deg,#f9a23b,#e1306c 48%,#833ab4)!important;border-color:#e1306c!important}
-body.theme-fub{--bg:#071a33;--bg2:#0d2b50;--card:#12365e;--line:rgba(255,255,255,.14);--text:#f5f9ff;--muted:#b9cce4;--accent:#1877f2;--blue:#70b7ff;--gold:#ffd166;background:linear-gradient(145deg,#06152b,#0b2b50 58%,#06182f)}
-body.theme-fub .top-chrome,body.theme-fub .tabs{background:rgba(7,26,51,.97)!important}
-body.theme-fub .card{background:linear-gradient(145deg,#12365e,#0d294a)!important;border-color:#ffffff20!important}
-body.theme-fub .btn.primary,body.theme-fub .filter-row button.on{background:#1877f2!important;border-color:#1877f2!important}
-body.theme-ins .tabs button.on,body.theme-fub .tabs button.on{color:#fff!important}
+<style id="mcs-black-white-theme">
+body.theme-bw{--bg:#fff;--bg2:#fff;--card:#fff;--line:#d8d8d8;--text:#111;--muted:#555;--accent:#111;--blue:#111;--gold:#111;background:#fff!important;color:#111!important}
+body.theme-bw .top-chrome,body.theme-bw .tabs{background:#fff!important;color:#111!important;border-color:#ddd!important}
+body.theme-bw .top-chrome *,body.theme-bw .tabs *,body.theme-bw .tabs button{color:#111!important}
+body.theme-bw .card,body.theme-bw .scoreboard-body{background:#fff!important;color:#111!important;border-color:#ddd!important}
+body.theme-bw .broadcast,body.theme-bw .broadcast .bc-content,body.theme-bw .broadcast .bar,body.theme-bw .broadcast .score-grid,body.theme-bw .broadcast .match-header{background:#050505!important;color:#fff!important}
+body.theme-bw .broadcast *{color:#fff!important}
+body.theme-bw .live-player-card,body.theme-bw .players-bar,body.theme-bw .scorecard-panel,body.theme-bw .commentary-card{background:#fff!important;color:#111!important;border-color:#ddd!important}
+body.theme-bw .live-player-card *,body.theme-bw .players-bar *,body.theme-bw .scorecard-panel *,body.theme-bw .commentary-card *{color:#111!important}
+body.theme-bw .btn.primary,body.theme-bw .filter-row button.on{background:#111!important;color:#fff!important;border-color:#111!important}
+body.theme-bw .live-player-stats b{font-weight:400!important}
 </style>
 
 
@@ -697,6 +697,7 @@ body.theme-ins .tabs button.on,body.theme-fub .tabs button.on{color:#fff!importa
 .mcs-scoreboard-audio-toggle{display:flex;align-items:center;justify-content:center;width:calc(100% - 8px);margin:5px 4px 6px;padding:9px 12px;border:1px solid rgba(84,215,255,.38);border-radius:10px;background:rgba(5,25,43,.88);color:#eaf6ff;font:800 13px inherit;cursor:pointer;}
 .mcs-scoreboard-audio-toggle[aria-pressed="true"]{background:rgba(5,112,82,.9);border-color:rgba(52,211,153,.7);}
 </style>
+<style id="mcs-player-stats-regular-weight">.live-player-stats b{font-weight:400!important}</style>
 </head>
 <body class="theme-dark">
 <div id="root"></div>
@@ -735,7 +736,7 @@ if(!window.React||!window.ReactDOM){
   return;
 }
 var h=React.createElement,useState=React.useState,useEffect=React.useEffect,useCallback=React.useCallback,useRef=React.useRef;
-var THEMES=['dark','light','pitch','night','ins','fub'];
+var THEMES=['dark','light','pitch','night','bw'];
 var CACHE_MS=45000;
 var LIVE_CACHE_MS=3000;
 var DETAIL_CACHE_MS=4000;
@@ -1663,8 +1664,9 @@ function bowlStats(b){
 }
 function currentPlayers(d){
   if(!d)return{striker:'—',nonstriker:'—',bowler:'—',strikerS:{},nonstrikerS:{},bowlerS:{}};
-  var battingAll=relationRows(d.batting), bowling=relationRows(d.bowling), balls=normalizeBalls(d.balls||[]);
+  var battingAll=relationRows(d.batting), bowling=relationRows(d.bowling), allBalls=normalizeBalls(d.balls||[]);
   var activeKey=activeInningsKey(d);
+  var balls=activeKey?allBalls.filter(function(x){return inningsKey(x)===activeKey;}):allBalls;
   var batting=activeKey?battingAll.filter(function(r){return inningsKey(r)===activeKey;}):battingAll;
   if(!batting.length)batting=battingAll;
   var dismissed={};
@@ -2719,7 +2721,7 @@ function App(){
           h('button',{onClick:function(){setModalVal(token);setModal('token');setSettingsOpen(false);}},token?'Change token':'Add Sportmonks token')
         ),
         h('div',{className:'dd-title'},'Theme'),
-        THEMES.map(function(t){return h('button',{key:t,className:theme===t?'on':'',onClick:function(){setTheme(t);lsSet('cric_theme',t);}},(t==='ins'?'Ins':(t==='fub'?'FuB':t.charAt(0).toUpperCase()+t.slice(1))));}),
+        THEMES.map(function(t){return h('button',{key:t,className:theme===t?'on':'',onClick:function(){setTheme(t);lsSet('cric_theme',t);}},(t==='bw'?'Black & White':t.charAt(0).toUpperCase()+t.slice(1)));}),
         viewOnly?null:h(React.Fragment,null,
           h('div',{className:'dd-title'},'Scoreboard background'),
           h('button',{onClick:function(){setModal('bgpanel');setSettingsOpen(false);}},'Image & opacity'),
@@ -2899,33 +2901,33 @@ function App(){
                   h('div',{className:'live-player-role'},'🏏 STRIKER'),
                   h('div',{className:'live-player-name'},(liveP.striker||'—')+' *'),
                   h('div',{className:'live-player-stats'},
-                    h('span',null,h('b',null,liveP.strikerS&&liveP.strikerS.r!=null?liveP.strikerS.r:'—'),h('small',null,'RUNS')),
-                    h('span',null,h('b',null,liveP.strikerS&&liveP.strikerS.b!=null?liveP.strikerS.b:'—'),h('small',null,'BALLS')),
-                    h('span',null,h('b',null,liveP.strikerS&&liveP.strikerS.fours!=null?liveP.strikerS.fours:'—'),h('small',null,'4s')),
-                    h('span',null,h('b',null,liveP.strikerS&&liveP.strikerS.sixes!=null?liveP.strikerS.sixes:'—'),h('small',null,'6s')),
-                    h('span',null,h('b',null,liveP.strikerS&&liveP.strikerS.sr||'—'),h('small',null,'SR'))
+                    h('span',null,h('span',null,liveP.strikerS&&liveP.strikerS.r!=null?liveP.strikerS.r:'—'),h('small',null,'RUNS')),
+                    h('span',null,h('span',null,liveP.strikerS&&liveP.strikerS.b!=null?liveP.strikerS.b:'—'),h('small',null,'BALLS')),
+                    h('span',null,h('span',null,liveP.strikerS&&liveP.strikerS.fours!=null?liveP.strikerS.fours:'—'),h('small',null,'4s')),
+                    h('span',null,h('span',null,liveP.strikerS&&liveP.strikerS.sixes!=null?liveP.strikerS.sixes:'—'),h('small',null,'6s')),
+                    h('span',null,h('span',null,liveP.strikerS&&liveP.strikerS.sr||'—'),h('small',null,'SR'))
                   )
                 ),
                 h('div',{className:'live-player-card nonstriker-card'},
                   h('div',{className:'live-player-role'},'BATTER · NON-STRIKER'),
                   h('div',{className:'live-player-name'},liveP.nonstriker||'—'),
                   h('div',{className:'live-player-stats'},
-                    h('span',null,h('b',null,liveP.nonstrikerS&&liveP.nonstrikerS.r!=null?liveP.nonstrikerS.r:'—'),h('small',null,'RUNS')),
-                    h('span',null,h('b',null,liveP.nonstrikerS&&liveP.nonstrikerS.b!=null?liveP.nonstrikerS.b:'—'),h('small',null,'BALLS')),
-                    h('span',null,h('b',null,liveP.nonstrikerS&&liveP.nonstrikerS.fours!=null?liveP.nonstrikerS.fours:'—'),h('small',null,'4s')),
-                    h('span',null,h('b',null,liveP.nonstrikerS&&liveP.nonstrikerS.sixes!=null?liveP.nonstrikerS.sixes:'—'),h('small',null,'6s')),
-                    h('span',null,h('b',null,liveP.nonstrikerS&&liveP.nonstrikerS.sr||'—'),h('small',null,'SR'))
+                    h('span',null,h('span',null,liveP.nonstrikerS&&liveP.nonstrikerS.r!=null?liveP.nonstrikerS.r:'—'),h('small',null,'RUNS')),
+                    h('span',null,h('span',null,liveP.nonstrikerS&&liveP.nonstrikerS.b!=null?liveP.nonstrikerS.b:'—'),h('small',null,'BALLS')),
+                    h('span',null,h('span',null,liveP.nonstrikerS&&liveP.nonstrikerS.fours!=null?liveP.nonstrikerS.fours:'—'),h('small',null,'4s')),
+                    h('span',null,h('span',null,liveP.nonstrikerS&&liveP.nonstrikerS.sixes!=null?liveP.nonstrikerS.sixes:'—'),h('small',null,'6s')),
+                    h('span',null,h('span',null,liveP.nonstrikerS&&liveP.nonstrikerS.sr||'—'),h('small',null,'SR'))
                   )
                 ),
                 h('div',{className:'live-player-card bowler-card'},
                   h('div',{className:'live-player-role'},'⚾ BOWLER'),
                   h('div',{className:'live-player-name'},liveP.bowler||'—'),
                   h('div',{className:'live-player-stats'},
-                    h('span',null,h('b',null,liveP.bowlerS&&liveP.bowlerS.o||'—'),h('small',null,'OVERS')),
-                    h('span',null,h('b',null,liveP.bowlerS&&liveP.bowlerS.m!=null?liveP.bowlerS.m:'—'),h('small',null,'MAIDENS')),
-                    h('span',null,h('b',null,liveP.bowlerS&&liveP.bowlerS.r!=null?liveP.bowlerS.r:'—'),h('small',null,'RUNS')),
-                    h('span',null,h('b',null,liveP.bowlerS&&liveP.bowlerS.w!=null?liveP.bowlerS.w:'—'),h('small',null,'WICKETS')),
-                    h('span',null,h('b',null,liveP.bowlerS&&liveP.bowlerS.econ||'—'),h('small',null,'ECON'))
+                    h('span',null,h('span',null,liveP.bowlerS&&liveP.bowlerS.o||'—'),h('small',null,'OVERS')),
+                    h('span',null,h('span',null,liveP.bowlerS&&liveP.bowlerS.m!=null?liveP.bowlerS.m:'—'),h('small',null,'MAIDENS')),
+                    h('span',null,h('span',null,liveP.bowlerS&&liveP.bowlerS.r!=null?liveP.bowlerS.r:'—'),h('small',null,'RUNS')),
+                    h('span',null,h('span',null,liveP.bowlerS&&liveP.bowlerS.w!=null?liveP.bowlerS.w:'—'),h('small',null,'WICKETS')),
+                    h('span',null,h('span',null,liveP.bowlerS&&liveP.bowlerS.econ||'—'),h('small',null,'ECON'))
                   )
                 )
               )
