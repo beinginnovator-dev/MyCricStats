@@ -2648,6 +2648,16 @@ function App(){
     setChatActivity(Array.isArray(j.activity)?j.activity:[]);setIsRoomHost(!!j.isHost);setRoomStatus(j.message||'Connected');
   }
   function chatLoad(){return chatRequest('heartbeat').then(function(j){applyChatState(j);return j;}).catch(function(e){setRoomStatus((e&&e.message)||'Room connection failed');return null;});}
+  function renderFanMeta(v){
+    var lastLeave=chatActivity.find(function(a){return a.memberId===v.memberId&&a.event==='leave';});
+    var latest=chatActivity.find(function(a){return a.memberId===v.memberId;});
+    var outAt=lastLeave?Number(lastLeave.createdAt||lastLeave.t||0):Number(v.last||0);
+    return h('div',{className:'room-user-meta',style:{fontSize:10,color:'var(--muted)',margin:'4px 0 7px 17px',lineHeight:1.5}},
+      h('div',null,'IN: '+(v.joinedAt?new Date(Number(v.joinedAt)).toLocaleString():'—')),
+      h('div',null,(v.online?'STATUS: ONLINE':'OUT: '+(outAt?new Date(outAt).toLocaleString():'—'))),
+      h('div',null,'ACTIVITY: '+(latest?((latest.event||'Activity')+' · '+(latest.detail||'')+' · '+new Date(Number(latest.createdAt||latest.t||Date.now())).toLocaleString()):'No activity recorded'))
+    );
+  }
   function leaveChatRoom(){if(!confirm('Leave this match chat? You can join again later.'))return;setChatJoined(false);setChatPop(false);setChatSize('normal');setUnread(0);chatRequest('leave').then(function(j){applyChatState(j);setRoomStatus('You left this chat.');}).catch(function(e){setRoomStatus(e.message);});}
   function chatDelete(id){chatRequest('delete',{id:id}).then(chatLoad).catch(function(e){setRoomStatus(e.message);});}
   function chatEdit(id,newText){chatRequest('edit',{id:id,text:newText}).then(chatLoad).catch(function(e){setRoomStatus(e.message);});}
@@ -3139,7 +3149,7 @@ function App(){
         )
       ),
       chatSize==='minimized'?null:h('div',{className:'cp-body',ref:chatBodyRef,onScroll:function(e){var el=e.currentTarget;chatAtBottomRef.current=(el.scrollHeight-el.scrollTop-el.clientHeight)<70;if(chatAtBottomRef.current)setUnread(0);}},
-        chatSub==='viewers'?h('div',{className:'room-roster'},chatViewers.map(function(v,i){return h('div',{key:v.memberId||i,className:'room-user'},h('div',{className:'room-user-main'},h('span',{className:'presence-dot '+(v.online?'online':'')},'●'),h('b',null,v.name||'Fan'),v.role==='host'?h('span',{className:'host-tag'},'HOST'):null),isRoomHost&&v.memberId!==memberId?h('div',{className:'room-actions'},h('button',{className:'btn',onClick:function(){moderateRoom(v.memberId,v.muted?'unmute':'mute');}},v.muted?'Unmute':'Mute'),h('button',{className:'btn danger',onClick:function(){moderateRoom(v.memberId,'remove');}},'Remove'),h('button',{className:'btn',onClick:function(){moderateRoom(v.memberId,v.blocked?'unblock':'block');}},v.blocked?'Unblock':'Block')):null);}),!chatViewers.length?h('div',{className:'room-empty'},'No room members yet.'):null):
+        chatSub==='viewers'?h('div',{className:'room-roster'},chatViewers.map(function(v,i){return h('div',{key:v.memberId||i,className:'room-user'},h('div',{className:'room-user-main'},h('span',{className:'presence-dot '+(v.online?'online':'')},'●'),h('b',null,v.name||'Fan'),v.role==='host'?h('span',{className:'host-tag'},'HOST'):null),renderFanMeta(v),isRoomHost&&v.memberId!==memberId?h('div',{className:'room-actions'},h('button',{className:'btn',onClick:function(){moderateRoom(v.memberId,v.muted?'unmute':'mute');}},v.muted?'Unmute':'Mute'),h('button',{className:'btn danger',onClick:function(){moderateRoom(v.memberId,'remove');}},'Remove'),h('button',{className:'btn',onClick:function(){moderateRoom(v.memberId,v.blocked?'unblock':'block');}},v.blocked?'Unblock':'Block')):null);}),!chatViewers.length?h('div',{className:'room-empty'},'No room members yet.'):null):
         (chatMsgs.length?chatMsgs:[]).map(function(m,i){
           var me=(m.memberId===memberId)||(m.name===chatName&&!m.memberId);
           var canEdit=me;var canDelete=me||isRoomHost;
@@ -3333,7 +3343,7 @@ function App(){
         h('div',{className:'room-roster'},
           (chatViewers.filter(function(v){return chatSub==='room'||v.online;}).length?chatViewers.filter(function(v){return chatSub==='room'||v.online;}):[]).map(function(v,i){
             return h('div',{key:v.memberId||i,className:'room-user'},
-              h('div',{className:'room-user-main'},h('span',{className:'presence-dot '+(v.online?'online':'')},'●'),h('b',null,v.name||'Fan'),v.role==='host'?h('span',{className:'host-tag'},'HOST'):null,v.blocked?h('span',{className:'host-tag'},'BLOCKED'):null),
+              h('div',{className:'room-user-main'},h('span',{className:'presence-dot '+(v.online?'online':'')},'●'),h('b',null,v.name||'Fan'),v.role==='host'?h('span',{className:'host-tag'},'HOST'):null,v.blocked?h('span',{className:'host-tag'},'BLOCKED'):null),renderFanMeta(v),
               isRoomHost&&v.memberId!==memberId?h('div',{className:'room-actions'},
                 h('button',{className:'btn',onClick:function(){moderateRoom(v.memberId,v.blocked?'unblock':'block');}},v.blocked?'Unblock':'Block'),
                 h('button',{className:'btn danger',onClick:function(){moderateRoom(v.memberId,'remove');}},'Remove')
