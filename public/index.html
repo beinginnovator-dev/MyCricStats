@@ -1798,7 +1798,7 @@ function currentPlayers(d){
           partner=remaining.find(function(row){return row!==calculated;})||null;
         }
       }
-      if(!striker||!isDismissed(striker))striker=calculated||striker;
+      if(flagged.length!==1&&(!striker||!isDismissed(striker)))striker=calculated||striker;
       non=partner;
     }
   }
@@ -1825,7 +1825,7 @@ function currentPlayers(d){
   });
   if(!bowlRows.length)bowlRows=bowling;
   var lastBowlerId=last&&playerIdOf(last,'bowler');
-  var lastBowlerName=last?playerName(last.bowler||last.player||last).toLowerCase():'';
+  var lastBowlerName=last?(playerName(last.bowler)||last.bowler_name||'').toLowerCase():'';
   var bowlerRow=bowlRows.find(function(row){
     var id=playerIdOf(row,'bowler');
     if(lastBowlerId!=null&&id!=null)return String(id)===String(lastBowlerId);
@@ -1842,7 +1842,7 @@ function currentPlayers(d){
     bowlRows=bowlRows.slice().sort(function(a,b){return oversAsDecimal(b.overs,b.balls)-oversAsDecimal(a.overs,a.balls);});
     bowlerRow=bowlRows[0]||null;
   }
-  var lastBowler=last?playerName(last.bowler||last.player||last):'';
+  var lastBowler=last?(playerName(last.bowler)||last.bowler_name||''):'';
   return{
     striker:playerName(striker&&(striker.batsman||striker))||'—',
     nonstriker:playerName(non&&(non.batsman||non))||'—',
@@ -3887,4 +3887,3 @@ body.theme-light .mc-scores{background:#eaf2f2;color:#10243a!important}
   100%{opacity:0;transform:translateY(0) scale(.98)}
 }
 </style>
-
