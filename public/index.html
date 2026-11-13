@@ -664,6 +664,12 @@ body.theme-ins .tabs button.on,body.theme-fub .tabs button.on{color:#fff!importa
 <style id="mcs-over-match-summary">
 .mcs-over-match-summary{padding:10px 12px;background:linear-gradient(120deg,rgba(14,165,233,.13),rgba(16,185,129,.10));border-top:1px solid rgba(84,215,255,.2);font-size:11px;line-height:1.55;font-weight:800;color:#e8f6ff;overflow-wrap:anywhere}
 </style>
+
+<style id="mcs-restore-full-scoreboard">
+/* Restore the full-height broadcast scoreboard; never clip the live player/bowler stats. */
+.broadcast{max-height:none!important;height:auto!important;overflow:visible!important;}
+.broadcast .bc-content,.scoreboard-body,.players-bar,.live-player-cards,.live-player-card{max-height:none!important;overflow:visible!important;}
+</style>
 </head>
 <body class="theme-dark">
 <div id="root"></div>
