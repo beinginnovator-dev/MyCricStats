@@ -2893,13 +2893,13 @@ function App(){
                   else if(runs===0)eventLabel='DOT BALL';
                   else eventLabel=runs+' RUN'+(runs===1?'':'S');
                   var shortDetail=bowlerName+' to '+batterName+' · '+eventLabel;
-                  return h('span',{key:'sb-ball-'+bi,className:'ball-chip mcs-scoreball '+chipClass(b)+(isLatestScoreboardBall?' latest-ball':''),style:{animation:animation,cursor:'pointer'},onClick:function(){setScoreboardBallInfo({title:eventTitle,detail:shortDetail});}},chipLabel(b));
+                  return h('span',{key:'sb-ball-'+bi,className:'ball-chip mcs-scoreball '+chipClass(b)+(isLatestScoreboardBall?' latest-ball':''),style:{animation:animation,cursor:'pointer'},onClick:function(){setScoreboardBallInfo({title:'BALL '+String(b.ball||((scoreboardOver.overIndex||scoreboardOver.overNo||scoreboardOverIndex+1)+'.'+(bi+1)))+' · '+eventTitle,detail:descriptiveLine(b,'en')||shortDetail});}},chipLabel(b));
                 })
               ),
               h('div',{className:'mcs-over-total'},(function(){var legal=scoreboardOver.balls.filter(ballIsLegal).length;var total=scoreboardOver.balls.reduce(function(sum,b){return sum+ballRuns(b);},0);return legal+' BALLS  ·  '+total+' RUNS';})()),
               (function(){
                 var latest=scoreboardOver.balls.length?scoreboardOver.balls[scoreboardOver.balls.length-1]:null;
-                var info=(latest && scoreboardOverIndex===overs.length-1)?null:scoreboardBallInfo;
+                var info=scoreboardBallInfo;
                 if(!info && latest && scoreboardOverIndex===overs.length-1){
                   var ppl=ballParticipants(latest),w=ballIsWicket(latest),rr=ballRuns(latest);
                   var event=w?(ppl.isCatch?'WICKET — CAUGHT'+(ppl.fielder?' by '+ppl.fielder:''):'WICKET'):rr===4?'FOUR':rr===6?'SIX':rr===0?'DOT BALL':rr+' RUN'+(rr===1?'':'S');
