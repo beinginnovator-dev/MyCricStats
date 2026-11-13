@@ -658,15 +658,8 @@ body.theme-fub .btn.primary,body.theme-fub .filter-row button.on{background:#187
 body.theme-ins .tabs button.on,body.theme-fub .tabs button.on{color:#fff!important}
 </style>
 
-<style id="mcs-batting-order-ui">
-.mcs-batting-order{display:flex;flex-direction:column;gap:6px;margin:8px 0 14px}
-.mcs-order-player{display:flex;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:rgba(127,127,127,.055);min-width:0}
-.mcs-order-no{width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex:0 0 24px;border-radius:50%;background:rgba(56,189,248,.14);color:var(--blue);font-size:11px;font-weight:900}
-.mcs-order-name{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
-.mcs-order-name b{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mcs-order-name small{font-size:9px;font-weight:900;letter-spacing:.04em}
-.mcs-order-score{font-size:11px;font-weight:900;white-space:nowrap;color:var(--muted)}
-</style>
+
+<style id="mcs-scorecard-table-ui">.mcs-scorecard-table{min-width:680px;font-size:11px}.mcs-scorecard-table th,.mcs-scorecard-table td{padding:7px 5px}.mcs-scorecard-table td:first-child{min-width:112px}</style>
 </head>
 <body class="theme-dark">
 <div id="root"></div>
@@ -1473,6 +1466,13 @@ function playSyntheticStadiumClip(key){
       gain.gain.setValueAtTime(0.001,now);gain.gain.linearRampToValueAtTime(0.12,now+0.06);
       gain.gain.exponentialRampToValueAtTime(0.001,now+0.82);
       osc.connect(gain);gain.connect(ctx.destination);osc.start(now);osc.stop(now+0.84);
+    }else if(key==='overStart'){
+      var len=Math.floor(ctx.sampleRate*1.35),buffer=ctx.createBuffer(1,len,ctx.sampleRate),data=buffer.getChannelData(0);
+      for(var j=0;j<len;j++)data[j]=(Math.random()*2-1)*0.65;
+      var source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
+      source.buffer=buffer;filter.type='lowpass';filter.frequency.setValueAtTime(260,now);
+      gain.gain.setValueAtTime(0.001,now);gain.gain.linearRampToValueAtTime(0.028,now+0.22);gain.gain.exponentialRampToValueAtTime(0.001,now+1.35);
+      source.connect(filter);filter.connect(gain);gain.connect(ctx.destination);source.start(now);source.stop(now+1.36);
     }else{
       stadNoiseBurst(ctx,now,0.85,key==='cheer'?0.075:0.045);
       if(key==='cheer'){
@@ -1489,65 +1489,17 @@ function playSyntheticStadiumClip(key){
 }
 var stadiumAudioUnlocked=false;
 var stadiumAudioPlayers={};
-var stadiumAudioSources={
-  chant:'/audio/crowd_chant.mp3',
-  cheer:'/audio/crowd_cheer.mp3',
-  whistle:'/audio/crowd_whistle.mp3'
-};
-// Prime the three supplied crowd recordings after the first real user gesture.
+// MP3 crowd files are not present in public/audio yet; use WebAudio sounds.
+var stadiumAudioSources={};
 function unlockStadiumAudio(){
-  try{
-    Object.keys(stadiumAudioSources).forEach(function(key){
-      if(!stadiumAudioPlayers[key]){
-        var audio=new Audio(stadiumAudioSources[key]);
-        audio.preload='auto';audio.volume=0.82;audio.playsInline=true;
-        stadiumAudioPlayers[key]=audio;
-      }
-      var a=stadiumAudioPlayers[key];
-      // Unlock each media element during the real user gesture. Merely calling
-      // load() does not grant autoplay permission on Android Chrome/WebView.
-      try{
-        a.muted=true;
-        var unlockPromise=a.play();
-        if(unlockPromise&&unlockPromise.then){
-          unlockPromise.then(function(){
-            a.pause();a.currentTime=0;a.muted=false;
-          }).catch(function(err){
-            a.muted=false;
-            console.warn('Stadium audio needs a user tap:',stadiumAudioSources[key],err);
-          });
-        }else{
-          a.pause();a.currentTime=0;a.muted=false;
-        }
-      }catch(e){a.muted=false;console.warn('Stadium audio unlock failed:',stadiumAudioSources[key],e);}
-    });
-    stadiumAudioUnlocked=true;
-  }catch(e){console.warn('Stadium audio preload failed',e);}
+  try{var ctx=stadCtx;if(ctx&&ctx.state==='suspended')ctx.resume();stadiumAudioUnlocked=!!ctx;}
+  catch(e){console.warn('Stadium audio unlock failed',e);}
 }
 function playStadiumClip(kind){
   try{
-    var key=kind==='wicket'?'whistle':
-      (kind==='four'||kind==='six'||kind==='boundary'?'cheer':'chant');
-    var isOverStart=kind==='overStart';
-    if(!stadiumAudioPlayers[key])unlockStadiumAudio();
-    var audio=stadiumAudioPlayers[key];
-    if(!audio)return;
-    audio.pause();audio.currentTime=0;
-    // New-over crowd sound should feel distant: quieter and lower-pitched.
-    audio.volume=isOverStart?0.24:(key==='whistle'?0.9:0.82);
-    audio.playbackRate=isOverStart?0.78:1;
-    audio.onended=function(){audio.playbackRate=1;};
-    var fallbackPlayed=false;
-    function fallbackOnce(reason){
-      if(fallbackPlayed)return;fallbackPlayed=true;
-      console.warn('Stadium MP3 unavailable; using WebAudio fallback:',stadiumAudioSources[key],reason||'media error');
-      if(isOverStart){playSyntheticStadiumClip('chant');}
-      else playSyntheticStadiumClip(key);
-    }
-    audio.onerror=function(){fallbackOnce(audio.error);};
-    var p=audio.play();
-    if(p&&p.catch)p.catch(fallbackOnce);
-  }catch(e){console.warn('Stadium MP3 playback failed; using WebAudio fallback',e);playSyntheticStadiumClip(key);}
+    if(!stadUnlocked&&!stadiumAudioUnlocked)unlockAudio();
+    playSyntheticStadiumClip(kind==='wicket'?'whistle':(kind==='four'||kind==='six'||kind==='boundary'?'cheer':(kind==='overStart'?'overStart':'chant')));
+  }catch(e){console.warn('Stadium sound playback failed',e);}
 }
 function stadBeep(kind){playStadiumClip(kind);}
 
@@ -3098,85 +3050,32 @@ tab==='schedule'?h('div',null,
         ),
         h('div',{style:{fontSize:18,fontWeight:900,textAlign:'center',margin:'8px 0'}},(scTeam==='home'?sc.a:sc.b)==='—'?(scTeam==='home'?sc.b:sc.a)!=='—'?'Yet to bat':'Score not available':(scTeam==='home'?sc.a:sc.b)),
         (loading?h('div',{className:'muted',style:{textAlign:'center',padding:'8px 0'}},'Loading scorecard from Sportmonks…'):null),
-        h('h3',null,'Batting order · Playing XI'),
+        h('h3',null,'Batting'),
         (function(){
-          var allLineup=relationRows(d&&d.lineup);
-          var sideId=scTeam==='home'?(d&&d.localteam_id):(d&&d.visitorteam_id);
-          var sideLineup=allLineup.filter(function(p){
-            var pl=unwrapRelation(p.player)||p;
-            var tid=p.team_id!=null?p.team_id:(pl.team_id!=null?pl.team_id:null);
-            return sideId==null||tid==null||String(tid)===String(sideId);
-          });
-          var batRows=rowsForScorecardTeam(relationRows(d&&d.batting),scTeam,d,'batting');
-          function pid(p){var pl=unwrapRelation(p.player)||p;return String(p.player_id!=null?p.player_id:(pl.id!=null?pl.id:(p.id!=null?p.id:'')));}
-          function batId(b){return String(playerIdOf(b,'batsman')||'');}
-          function orderOf(p,i){var v=p.batting_order!=null?p.batting_order:(p.position!=null?p.position:(p.order!=null?p.order:i+1));return Number(v)||i+1;}
-          sideLineup=sideLineup.slice().sort(function(a,b){return orderOf(a,0)-orderOf(b,0);});
-          if(!sideLineup.length){
-            sideLineup=batRows.map(function(b,i){return {player:unwrapRelation(b.batsman)||b.batsman||b,player_id:playerIdOf(b,'batsman'),_fallbackBat:b,position:i+1};});
-          }
-          var strikerId=liveP.strikerId!=null?String(liveP.strikerId):'';
-          var nonStrikerId=liveP.nonStrikerId!=null?String(liveP.nonStrikerId):'';
-          function dismissalFor(b,playerKey){
+          var batting=rowsForScorecardTeam(relationRows(d&&d.batting),scTeam,d,'batting').slice();
+          var lineup=relationRows(d&&d.lineup).filter(function(p){var pl=unwrapRelation(p.player)||p;var tid=p.team_id!=null?p.team_id:pl.team_id;var side=scTeam==='home'?d.localteam_id:d.visitorteam_id;return side==null||tid==null||String(tid)===String(side);});
+          function idOfPlayer(p){var pl=unwrapRelation(p.player)||p;return String(p.player_id!=null?p.player_id:(pl.id!=null?pl.id:(p.id||'')));}
+          function idOfBat(b){return String(playerIdOf(b,'batsman')||'');}
+          function howOut(b,id){
             var raw=b&&(b.dismissal||b.how_out||b.result||b.wicket_type||b.dismissal_type||b.out_reason);
             if(raw&&typeof raw==='object')raw=raw.name||raw.description||raw.type;
             if(raw&&String(raw).toLowerCase()!=='not out')return String(raw);
             var isOut=!!(b&&(b.out||b.is_out||b.wicket||b.batsmanout_id||b.batsmanout));
-            if(isOut)return String(raw||'Out');
-            // If the batting row omits dismissal text, recover the wicket event
-            // from ball-by-ball data and include the fielder/bowler when present.
-            var wicketBall=relationRows(d&&d.balls).find(function(ball){
-              if(!ballIsWicket(ball))return false;
-              var outId=String(playerIdOf(ball,'batsmanout')||'');
-              var batterId=String(playerIdOf(ball,'batsman')||'');
-              return (playerKey&&outId===playerKey)||(playerKey&&batterId===playerKey&&!!ball.batsmanout);
-            });
-            if(wicketBall){
-              var parts=ballParticipants(wicketBall);
-              var label=String((wicketBall.score&& (wicketBall.score.name||wicketBall.score.description))||wicketBall.wicket_type||wicketBall.dismissal_type||'Out');
-              if(parts.isCatch&&parts.fielder)label='Caught by '+parts.fielder;
-              else if(parts.isRunOut&&parts.fielder)label='Run out by '+parts.fielder;
-              if(parts.bowler&&label.toLowerCase().indexOf('run out')!==0)label+=' · b '+parts.bowler;
-              return label;
-            }
-            return '';
+            var ball=relationRows(d&&d.balls).find(function(x){return ballIsWicket(x)&&!!id&&String(playerIdOf(x,'batsmanout')||'')===id;});
+            if(ball){var parts=ballParticipants(ball);var label=String((ball.score&&(ball.score.name||ball.score.description))||ball.wicket_type||ball.dismissal_type||'Out');if(parts.isCatch&&parts.fielder)label='Caught by '+parts.fielder;else if(parts.isRunOut&&parts.fielder)label='Run out by '+parts.fielder;if(parts.bowler&&label.toLowerCase().indexOf('run out')!==0)label+=' · b '+parts.bowler;return label;}
+            return isOut?'Out':'';
           }
-          if(!sideLineup.length)return h('div',{className:'muted'},'Playing XI / batting order is not available in this fixture response yet.');
-          return h('div',{className:'mcs-batting-order'},sideLineup.map(function(p,i){
-            var id=pid(p);
-            var row=batRows.find(function(b){return id&&batId(b)===id;})||p._fallbackBat||null;
-            var name=playerName(p.player||p)||playerName(row&&row.batsman)||p.player_name||p.name||'Player';
-            var outText=dismissalFor(row,id);
-            var isStriker=!!(id&&strikerId&&id===strikerId);
-            var isNonStriker=!!(id&&nonStrikerId&&id===nonStrikerId);
-            var isAtCrease=isStriker||isNonStriker||!!(row&&!outText&&row.score!=null);
-            var status=outText?'OUT · '+outText:(isStriker?'STRIKER':(isNonStriker?'NON-STRIKER':(isAtCrease?'NOT OUT':'YET TO BAT')));
-            var statusColor=outText?'#fb7185':(isAtCrease?'#34d399':'#a8b5c7');
-            var runs=row?(row.score!=null?row.score:(row.runs!=null?row.runs:0)):null;
-            var balls=row?(row.ball!=null?row.ball:(row.balls!=null?row.balls:0)):null;
-            return h('div',{key:id||i,className:'mcs-order-player'},
-              h('span',{className:'mcs-order-no'},String(i+1)),
-              h('div',{className:'mcs-order-name'},
-                h('b',{style:{color:isStriker?'#fbbf24':(isNonStriker?'#67e8f9':'var(--text)')}},(isStriker?'★ ':isNonStriker?'● ':'')+name),
-                h('small',{style:{color:statusColor}},status)
-              ),
-              row?h('span',{className:'mcs-order-score'},String(runs==null?'0':runs)+' ('+String(balls==null?'0':balls)+')'):h('span',{className:'mcs-order-score muted'},'—')
-            );
-          }));
-        })(),
-        h('h3',{style:{marginTop:14}},'Batting'),
-        (function(){
-          var rows=relationRows(d&&d.batting);
-          var filtered=rowsForScorecardTeam(rows,scTeam,d,'batting');
-          if(!filtered.length)return h('div',{className:'muted'},'No batting');
-          return h('table',{className:'table'},
-            h('thead',null,h('tr',null,h('th',null,'Batter'),h('th',null,'R'),h('th',null,'B'),h('th',null,'4s'),h('th',null,'6s'),h('th',null,'SR'))),
-            h('tbody',null,filtered.slice(0,15).map(function(b,i){
-              var name=playerName(b.batsman)||b.batsman_name||b.player_name||playerName(b.player)||b.name||'—';
-              var isStriker=(liveP.strikerId!=null&&String(playerIdOf(b,'batsman'))===String(liveP.strikerId))||(!liveP.strikerId&&name.toLowerCase()===String(liveP.striker||'').toLowerCase());
-              var r=b.score!=null?b.score:b.runs;var bl=b.ball!=null?b.ball:b.balls;
-              var sr=(r!=null&&bl)?((Number(r)/Math.max(1,Number(bl)))*100).toFixed(1):'—';
-              return h('tr',{key:i},h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:6}},(unwrapRelation(b.batsman)&&unwrapRelation(b.batsman).image_path)?h('img',{src:unwrapRelation(b.batsman).image_path,alt:'',style:{width:24,height:24,borderRadius:12,objectFit:'cover'}}):null,h('span',null,(isStriker?'* ':'')+name))),h('td',null,r!=null?r:'—'),h('td',null,bl!=null?bl:'—'),h('td',null,b.four_x!=null?b.four_x:'—'),h('td',null,b.six_x!=null?b.six_x:'—'),h('td',null,sr));
+          var rows=batting.map(function(b){return {b:b,p:unwrapRelation(b.batsman)||b.batsman||b.player,id:idOfBat(b)};});
+          lineup.forEach(function(p){var id=idOfPlayer(p);if(id&&!rows.some(function(x){return x.id===id;}))rows.push({b:null,p:unwrapRelation(p.player)||p,id:id});});
+          if(!rows.length)return h('div',{className:'muted'},loading?'Loading…':'No batting data');
+          return h('table',{className:'table mcs-scorecard-table'},
+            h('thead',null,h('tr',null,h('th',null,'Batter'),h('th',null,'R'),h('th',null,'B'),h('th',null,'4s'),h('th',null,'6s'),h('th',null,'SR'),h('th',null,'Status'),h('th',null,'How out'))),
+            h('tbody',null,rows.map(function(x,i){
+              var b=x.b,id=x.id,name=playerName(x.p)||playerName(b&&b.batsman)||'—';
+              var out=howOut(b,id),striker=(liveP.strikerId!=null&&id===String(liveP.strikerId))||(!liveP.strikerId&&name.toLowerCase()===String(liveP.striker||'').toLowerCase()),nonStriker=liveP.nonStrikerId!=null&&id===String(liveP.nonStrikerId);
+              var status=out?'OUT':(striker||nonStriker?'BATTING':(b?'NOT OUT':'YET TO BAT'));
+              var r=b?(b.score!=null?b.score:b.runs):null,bl=b?(b.ball!=null?b.ball:b.balls):null,sr=(r!=null&&bl!=null&&Number(bl)>0)?(Number(r)/Number(bl)*100).toFixed(1):'—';
+              return h('tr',{key:id||i},h('td',null,h('b',{style:{color:status==='BATTING'?'#22c55e':'inherit'}},(status==='BATTING'?'● ':'')+name)),h('td',null,r==null?'—':r),h('td',null,bl==null?'—':bl),h('td',null,b&&b.four_x!=null?b.four_x:'—'),h('td',null,b&&b.six_x!=null?b.six_x:'—'),h('td',null,sr),h('td',null,h('b',{style:{fontSize:10,color:status==='OUT'?'#fb7185':(status==='BATTING'?'#22c55e':'var(--muted)')}},status)),h('td',{style:{minWidth:110,whiteSpace:'normal',fontSize:10,color:out?'#fb7185':'var(--muted)'}},out||'—'));
             }))
           );
         })(),
