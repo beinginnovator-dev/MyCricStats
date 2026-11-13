@@ -2673,8 +2673,8 @@ function App(){
     var inviteRoom=(roomId&&roomId!=='lobby')?roomId:('m'+currentId);var u=new URL('https://mycricstats-invite.being-innovator.workers.dev/');u.searchParams.set('room',inviteRoom);u.searchParams.set('match',String(currentId));u.searchParams.set('view','1');u.searchParams.set('tab','commentary');u.searchParams.set('open','1');
     var link=u.toString(),matchTitle=(league||'Cricket match')+' · '+currentHome+' vs '+currentAway;
     var scoreText=currentHome+' '+currentScore.a+' | '+currentAway+' '+currentScore.b;
-    var inviteIntro=(chatName||'A MyCricStats host')+' invites you to '+matchTitle+'.\\nLatest score: '+scoreText+' ('+(currentScore.overs||'overs unavailable')+').\\nJoin for live score, ball-by-ball commentary and match chat.';
-    var inviteText=inviteIntro+'\\n'+link;
+    var inviteIntro=(chatName||'A MyCricStats host')+' invites you to '+matchTitle+'.\nLatest score: '+scoreText+' ('+(currentScore.overs||'overs unavailable')+').\nJoin for live score, ball-by-ball commentary and match chat.';
+    var inviteText=inviteIntro+'\n\n'+link;
     var inviteFile=buildInviteCard();
     var payload={title:'MyCricStats · '+matchTitle,text:inviteText};
     try{if(inviteFile&&navigator.canShare&&navigator.canShare({files:[inviteFile]}))payload.files=[inviteFile];}
