@@ -4051,3 +4051,262 @@ body.theme-light .match-card{
 }
 body.theme-light .chat-fab{background:#08b85a!important;color:#fff!important}
 </style>
+
+
+<style id="mcs-reference-theme-all-modes">
+/* Match the supplied reference in every selectable app theme. */
+body.theme-dark,body.theme-light,body.theme-pitch,body.theme-night,body.theme-bw{
+  --bg:#fff!important;--bg2:#fff!important;--card:#fff!important;
+  --line:#dedede!important;--text:#080808!important;--muted:#555!important;
+  background:#fff!important;color:#080808!important;
+}
+body.theme-dark .app,body.theme-light .app,body.theme-pitch .app,
+body.theme-night .app,body.theme-bw .app{
+  max-width:760px!important;background:#fff!important;color:#080808!important;
+}
+body.theme-dark .top-chrome,body.theme-light .top-chrome,
+body.theme-pitch .top-chrome,body.theme-night .top-chrome,
+body.theme-bw .top-chrome{background:#fff!important}
+body.theme-dark .broadcast,body.theme-light .broadcast,
+body.theme-pitch .broadcast,body.theme-night .broadcast,
+body.theme-bw .broadcast{
+  display:flex!important;flex-direction:column!important;
+  max-height:none!important;height:auto!important;overflow:visible!important;
+  margin:0 0 10px!important;padding:4px 0 12px!important;
+  background:#000!important;color:#fff!important;
+  border:3px solid #fff!important;border-radius:0 0 18px 18px!important;
+  border-bottom:3px solid #fff!important;box-shadow:none!important;isolation:isolate;
+}
+body.theme-dark .broadcast .bg-layer,body.theme-light .broadcast .bg-layer,
+body.theme-pitch .broadcast .bg-layer,body.theme-night .broadcast .bg-layer,
+body.theme-bw .broadcast .bg-layer{display:none!important}
+body.theme-dark .broadcast .bg-overlay,body.theme-light .broadcast .bg-overlay,
+body.theme-pitch .broadcast .bg-overlay,body.theme-night .broadcast .bg-overlay,
+body.theme-bw .broadcast .bg-overlay{background:#000!important;opacity:1!important}
+body.theme-dark .broadcast .bc-content,body.theme-light .broadcast .bc-content,
+body.theme-pitch .broadcast .bc-content,body.theme-night .broadcast .bc-content,
+body.theme-bw .broadcast .bc-content,
+body.theme-dark .broadcast .scoreboard-body,body.theme-light .broadcast .scoreboard-body,
+body.theme-pitch .broadcast .scoreboard-body,body.theme-night .broadcast .scoreboard-body,
+body.theme-bw .broadcast .scoreboard-body{background:#000!important;color:#fff!important;overflow:visible!important}
+body.theme-dark .broadcast .bar,body.theme-light .broadcast .bar,
+body.theme-pitch .broadcast .bar,body.theme-night .broadcast .bar,
+body.theme-bw .broadcast .bar{
+  min-height:52px!important;padding:8px 12px!important;background:#000!important;color:#fff!important;
+}
+body.theme-dark .broadcast .bar .icon-btn,body.theme-light .broadcast .bar .icon-btn,
+body.theme-pitch .broadcast .bar .icon-btn,body.theme-night .broadcast .bar .icon-btn,
+body.theme-bw .broadcast .bar .icon-btn{
+  width:48px!important;height:48px!important;border-radius:50%!important;
+  background:#171717!important;border:1px solid #555!important;color:#fff!important;
+}
+body.theme-dark .broadcast .brand-chip,body.theme-light .broadcast .brand-chip,
+body.theme-pitch .broadcast .brand-chip,body.theme-night .broadcast .brand-chip,
+body.theme-bw .broadcast .brand-chip{color:#fff!important;font-size:17px!important}
+body.theme-dark .broadcast .brand-chip img,body.theme-light .broadcast .brand-chip img,
+body.theme-pitch .broadcast .brand-chip img,body.theme-night .broadcast .brand-chip img,
+body.theme-bw .broadcast .brand-chip img{width:42px!important;height:42px!important;border:2px solid #fff!important;box-shadow:none!important}
+body.theme-dark .broadcast .live-pill,body.theme-light .broadcast .live-pill,
+body.theme-pitch .broadcast .live-pill,body.theme-night .broadcast .live-pill,
+body.theme-bw .broadcast .live-pill{
+  color:#fff!important;background:#16080c!important;border:2px solid #ef244d!important;
+  padding:7px 15px!important;font-size:12px!important;
+}
+body.theme-dark .broadcast .scoreboard-body,body.theme-light .broadcast .scoreboard-body,
+body.theme-pitch .broadcast .scoreboard-body,body.theme-night .broadcast .scoreboard-body,
+body.theme-bw .broadcast .scoreboard-body{padding:8px 10px 14px!important}
+body.theme-dark .broadcast .match-header,body.theme-light .broadcast .match-header,
+body.theme-pitch .broadcast .match-header,body.theme-night .broadcast .match-header,
+body.theme-bw .broadcast .match-header{padding:8px 4px 12px!important;background:#000!important;text-align:center!important}
+body.theme-dark .broadcast .match-header .title,body.theme-light .broadcast .match-header .title,
+body.theme-pitch .broadcast .match-header .title,body.theme-night .broadcast .match-header .title,
+body.theme-bw .broadcast .match-header .title{color:#fff!important;font-size:26px!important;font-weight:900!important;letter-spacing:.04em!important}
+body.theme-dark .broadcast .match-header .sub,body.theme-light .broadcast .match-header .sub,
+body.theme-pitch .broadcast .match-header .sub,body.theme-night .broadcast .match-header .sub,
+body.theme-bw .broadcast .match-header .sub{color:#fff!important;font-size:17px!important;font-weight:800!important}
+body.theme-dark .broadcast .match-header .status-line,body.theme-light .broadcast .match-header .status-line,
+body.theme-pitch .broadcast .match-header .status-line,body.theme-night .broadcast .match-header .status-line,
+body.theme-bw .broadcast .match-header .status-line{color:#fff!important;font-size:13px!important}
+body.theme-dark .broadcast .score-grid,body.theme-light .broadcast .score-grid,
+body.theme-pitch .broadcast .score-grid,body.theme-night .broadcast .score-grid,
+body.theme-bw .broadcast .score-grid{
+  margin:8px 2px 0!important;padding:18px 10px!important;min-height:150px!important;
+  align-items:center!important;background:#000!important;border:2px solid #f5f5f5!important;
+  border-radius:25px!important;box-shadow:none!important;
+  grid-template-columns:minmax(0,1fr) 38px minmax(0,1fr)!important;
+}
+body.theme-dark .broadcast .side,body.theme-light .broadcast .side,
+body.theme-pitch .broadcast .side,body.theme-night .broadcast .side,
+body.theme-bw .broadcast .side{padding:0 4px!important}
+body.theme-dark .broadcast .tname,body.theme-light .broadcast .tname,
+body.theme-pitch .broadcast .tname,body.theme-night .broadcast .tname,
+body.theme-bw .broadcast .tname{color:#fff!important;font-size:15px!important;font-weight:800!important;min-height:25px!important;gap:7px!important}
+body.theme-dark .broadcast .tname img.flag,body.theme-light .broadcast .tname img.flag,
+body.theme-pitch .broadcast .tname img.flag,body.theme-night .broadcast .tname img.flag,
+body.theme-bw .broadcast .tname img.flag{width:34px!important;height:24px!important}
+body.theme-dark .broadcast .score-num,body.theme-light .broadcast .score-num,
+body.theme-pitch .broadcast .score-num,body.theme-night .broadcast .score-num,
+body.theme-bw .broadcast .score-num{color:#fff!important;font-size:clamp(29px,7vw,42px)!important;font-weight:900!important;line-height:1.12!important}
+body.theme-dark .broadcast .overs,body.theme-light .broadcast .overs,
+body.theme-pitch .broadcast .overs,body.theme-night .broadcast .overs,
+body.theme-bw .broadcast .overs{color:#fff!important;font-size:19px!important;font-weight:800!important}
+body.theme-dark .broadcast .vs-label,body.theme-light .broadcast .vs-label,
+body.theme-pitch .broadcast .vs-label,body.theme-night .broadcast .vs-label,
+body.theme-bw .broadcast .vs-label{color:#fff!important;font-size:16px!important;font-weight:900!important}
+body.theme-dark .broadcast .meta-row,body.theme-light .broadcast .meta-row,
+body.theme-pitch .broadcast .meta-row,body.theme-night .broadcast .meta-row,
+body.theme-bw .broadcast .meta-row{color:#fff!important;font-size:13px!important;margin-top:12px!important}
+body.theme-dark .broadcast .mcs-scoreboard-over-wrap,body.theme-light .broadcast .mcs-scoreboard-over-wrap,
+body.theme-pitch .broadcast .mcs-scoreboard-over-wrap,body.theme-night .broadcast .mcs-scoreboard-over-wrap,
+body.theme-bw .broadcast .mcs-scoreboard-over-wrap{gap:7px!important;margin:28px auto 5px!important}
+body.theme-dark .broadcast .mcs-over-nav,body.theme-light .broadcast .mcs-over-nav,
+body.theme-pitch .broadcast .mcs-over-nav,body.theme-night .broadcast .mcs-over-nav,
+body.theme-bw .broadcast .mcs-over-nav{display:none!important}
+body.theme-dark .broadcast .mcs-scoreboard-overballs,body.theme-light .broadcast .mcs-scoreboard-overballs,
+body.theme-pitch .broadcast .mcs-scoreboard-overballs,body.theme-night .broadcast .mcs-scoreboard-overballs,
+body.theme-bw .broadcast .mcs-scoreboard-overballs{gap:7px!important;min-height:46px!important;margin:0 auto 10px!important}
+body.theme-dark .broadcast .ball-chip.mcs-scoreball,body.theme-light .broadcast .ball-chip.mcs-scoreball,
+body.theme-pitch .broadcast .ball-chip.mcs-scoreball,body.theme-night .broadcast .ball-chip.mcs-scoreball,
+body.theme-bw .broadcast .ball-chip.mcs-scoreball{
+  width:46px!important;height:46px!important;min-width:46px!important;
+  font-size:19px!important;font-weight:900!important;
+}
+body.theme-dark .broadcast .ball-chip.mcs-scoreball.c0,body.theme-light .broadcast .ball-chip.mcs-scoreball.c0,
+body.theme-pitch .broadcast .ball-chip.mcs-scoreball.c0,body.theme-night .broadcast .ball-chip.mcs-scoreball.c0,
+body.theme-bw .broadcast .ball-chip.mcs-scoreball.c0{background:#747b82!important;color:#fff!important}
+body.theme-dark .broadcast .ball-chip.mcs-scoreball.c1,body.theme-light .broadcast .ball-chip.mcs-scoreball.c1,
+body.theme-pitch .broadcast .ball-chip.mcs-scoreball.c1,body.theme-night .broadcast .ball-chip.mcs-scoreball.c1,
+body.theme-bw .broadcast .ball-chip.mcs-scoreball.c1,
+body.theme-dark .broadcast .ball-chip.mcs-scoreball.c2,body.theme-light .broadcast .ball-chip.mcs-scoreball.c2,
+body.theme-pitch .broadcast .ball-chip.mcs-scoreball.c2,body.theme-night .broadcast .ball-chip.mcs-scoreball.c2,
+body.theme-bw .broadcast .ball-chip.mcs-scoreball.c2,
+body.theme-dark .broadcast .ball-chip.mcs-scoreball.c3,body.theme-light .broadcast .ball-chip.mcs-scoreball.c3,
+body.theme-pitch .broadcast .ball-chip.mcs-scoreball.c3,body.theme-night .broadcast .ball-chip.mcs-scoreball.c3,
+body.theme-bw .broadcast .ball-chip.mcs-scoreball.c3{background:#1769e8!important;color:#fff!important}
+body.theme-dark .broadcast .ball-chip.mcs-scoreball.c4,body.theme-light .broadcast .ball-chip.mcs-scoreball.c4,
+body.theme-pitch .broadcast .ball-chip.mcs-scoreball.c4,body.theme-night .broadcast .ball-chip.mcs-scoreball.c4,
+body.theme-bw .broadcast .ball-chip.mcs-scoreball.c4{background:#08b83f!important;color:#fff!important}
+body.theme-dark .broadcast .ball-chip.mcs-scoreball.c6,body.theme-light .broadcast .ball-chip.mcs-scoreball.c6,
+body.theme-pitch .broadcast .ball-chip.mcs-scoreball.c6,body.theme-night .broadcast .ball-chip.mcs-scoreball.c6,
+body.theme-bw .broadcast .ball-chip.mcs-scoreball.c6{background:#7c3aed!important;color:#fff!important}
+body.theme-dark .broadcast .ball-chip.mcs-scoreball.cw,body.theme-light .broadcast .ball-chip.mcs-scoreball.cw,
+body.theme-pitch .broadcast .ball-chip.mcs-scoreball.cw,body.theme-night .broadcast .ball-chip.mcs-scoreball.cw,
+body.theme-bw .broadcast .ball-chip.mcs-scoreball.cw{background:#e11d48!important;color:#fff!important}
+body.theme-dark .broadcast .mcs-over-total,body.theme-light .broadcast .mcs-over-total,
+body.theme-pitch .broadcast .mcs-over-total,body.theme-night .broadcast .mcs-over-total,
+body.theme-bw .broadcast .mcs-over-total{display:none!important}
+body.theme-dark .broadcast .mcs-ball-player-info,body.theme-light .broadcast .mcs-ball-player-info,
+body.theme-pitch .broadcast .mcs-ball-player-info,body.theme-night .broadcast .mcs-ball-player-info,
+body.theme-bw .broadcast .mcs-ball-player-info{
+  width:min(100%,520px)!important;min-height:54px!important;margin:22px auto 2px!important;
+  padding:9px 12px!important;display:flex!important;flex-wrap:nowrap!important;gap:10px!important;
+  justify-content:flex-start!important;overflow:hidden!important;background:#000!important;
+  border:2px solid #fff!important;border-radius:14px!important;color:#fff!important;
+  font-size:13px!important;line-height:1.3!important;
+}
+body.theme-dark .broadcast .mcs-ball-player-info b,body.theme-light .broadcast .mcs-ball-player-info b,
+body.theme-pitch .broadcast .mcs-ball-player-info b,body.theme-night .broadcast .mcs-ball-player-info b,
+body.theme-bw .broadcast .mcs-ball-player-info b{color:#fff!important;font-size:15px!important;white-space:nowrap!important}
+body.theme-dark .broadcast .mcs-ball-player-info span,body.theme-light .broadcast .mcs-ball-player-info span,
+body.theme-pitch .broadcast .mcs-ball-player-info span,body.theme-night .broadcast .mcs-ball-player-info span,
+body.theme-bw .broadcast .mcs-ball-player-info span{color:#fff!important;font-size:13px!important}
+body.theme-dark .broadcast .mcs-ball-player-info button,body.theme-light .broadcast .mcs-ball-player-info button,
+body.theme-pitch .broadcast .mcs-ball-player-info button,body.theme-night .broadcast .mcs-ball-player-info button,
+body.theme-bw .broadcast .mcs-ball-player-info button{color:#fff!important}
+/* Lower app area: white cards, black text, no pale/low-contrast text. */
+body.theme-dark .top-chrome,body.theme-light .top-chrome,
+body.theme-pitch .top-chrome,body.theme-night .top-chrome,
+body.theme-bw .top-chrome{background:#fff!important}
+body.theme-dark .tabs,body.theme-light .tabs,body.theme-pitch .tabs,
+body.theme-night .tabs,body.theme-bw .tabs{background:#fff!important;border-bottom:1px solid #ddd!important;box-shadow:none!important}
+body.theme-dark .tabs button,body.theme-light .tabs button,body.theme-pitch .tabs button,
+body.theme-night .tabs button,body.theme-bw .tabs button{
+  background:#fff!important;color:#111!important;font-size:14px!important;font-weight:800!important;
+  border-bottom:4px solid transparent!important;
+}
+body.theme-dark .tabs button.on,body.theme-light .tabs button.on,
+body.theme-pitch .tabs button.on,body.theme-night .tabs button.on,body.theme-bw .tabs button.on{
+  color:#000!important;border-bottom-color:#000!important;background:#fff!important;text-shadow:none!important;
+}
+body.theme-dark .panel,body.theme-light .panel,body.theme-pitch .panel,
+body.theme-night .panel,body.theme-bw .panel{background:#fff!important;color:#080808!important;overflow-y:auto!important}
+body.theme-dark .panel .card,body.theme-light .panel .card,body.theme-pitch .panel .card,
+body.theme-night .panel .card,body.theme-bw .panel .card{
+  background:#fff!important;color:#080808!important;border:1px solid #ddd!important;
+  border-radius:18px!important;box-shadow:0 2px 12px rgba(0,0,0,.055)!important;
+}
+body.theme-dark .panel .card h3,body.theme-light .panel .card h3,
+body.theme-pitch .panel .card h3,body.theme-night .panel .card h3,body.theme-bw .panel .card h3,
+body.theme-dark .panel .card .muted,body.theme-light .panel .card .muted,
+body.theme-pitch .panel .card .muted,body.theme-night .panel .card .muted,
+body.theme-bw .panel .card .muted,
+body.theme-dark .panel .card table th,body.theme-light .panel .card table th,
+body.theme-pitch .panel .card table th,body.theme-night .panel .card table th,
+body.theme-bw .panel .card table th,
+body.theme-dark .panel .card table td,body.theme-light .panel .card table td,
+body.theme-pitch .panel .card table td,body.theme-night .panel .card table td,
+body.theme-bw .panel .card table td{color:#080808!important}
+body.theme-dark .panel .card table th,body.theme-light .panel .card table th,
+body.theme-pitch .panel .card table th,body.theme-night .panel .card table th,
+body.theme-bw .panel .card table th,
+body.theme-dark .panel .card table td,body.theme-light .panel .card table td,
+body.theme-pitch .panel .card table td,body.theme-night .panel .card table td,
+body.theme-bw .panel .card table td{border-color:#ddd!important}
+body.theme-dark .panel .card .mcs-latest-ball,body.theme-light .panel .card .mcs-latest-ball,
+body.theme-pitch .panel .card .mcs-latest-ball,body.theme-night .panel .card .mcs-latest-ball,
+body.theme-bw .panel .card .mcs-latest-ball{
+  background:#fff!important;border:1px solid #ccc!important;color:#080808!important;
+  font-weight:500!important;
+}
+body.theme-dark .panel .card .mcs-latest-ball div,body.theme-light .panel .card .mcs-latest-ball div,
+body.theme-pitch .panel .card .mcs-latest-ball div,body.theme-night .panel .card .mcs-latest-ball div,
+body.theme-bw .panel .card .mcs-latest-ball div{color:#080808!important}
+body.theme-dark .panel .filter-row button,body.theme-light .panel .filter-row button,
+body.theme-pitch .panel .filter-row button,body.theme-night .panel .filter-row button,
+body.theme-bw .panel .filter-row button{
+  background:#fff!important;color:#080808!important;border:1px solid #bbb!important;
+}
+body.theme-dark .panel .filter-row button.on,body.theme-light .panel .filter-row button.on,
+body.theme-pitch .panel .filter-row button.on,body.theme-night .panel .filter-row button.on,
+body.theme-bw .panel .filter-row button.on{background:#000!important;color:#fff!important;border-color:#000!important}
+body.theme-dark .panel .table,body.theme-light .panel .table,
+body.theme-pitch .panel .table,body.theme-night .panel .table,body.theme-bw .panel .table{background:#fff!important;color:#080808!important}
+body.theme-dark .panel .table th,body.theme-light .panel .table th,
+body.theme-pitch .panel .table th,body.theme-night .panel .table th,
+body.theme-bw .panel .table th,
+body.theme-dark .panel .table td,body.theme-light .panel .table td,
+body.theme-pitch .panel .table td,body.theme-night .panel .table td,
+body.theme-bw .panel .table td{color:#080808!important;border-color:#ddd!important}
+body.theme-dark .panel .muted,body.theme-light .panel .muted,
+body.theme-pitch .panel .muted,body.theme-night .panel .muted,body.theme-bw .panel .muted{color:#444!important}
+body.theme-dark .comm-settings-toggle,body.theme-light .comm-settings-toggle,
+body.theme-pitch .comm-settings-toggle,body.theme-night .comm-settings-toggle,
+body.theme-bw .comm-settings-toggle,
+body.theme-dark .mcs-scoreboard-audio-toggle,body.theme-light .mcs-scoreboard-audio-toggle,
+body.theme-pitch .mcs-scoreboard-audio-toggle,body.theme-night .mcs-scoreboard-audio-toggle,
+body.theme-bw .mcs-scoreboard-audio-toggle{
+  background:#fff!important;color:#080808!important;border:1px solid #bbb!important;
+}
+body.theme-dark .players-bar,body.theme-light .players-bar,body.theme-pitch .players-bar,
+body.theme-night .players-bar,body.theme-bw .players-bar{background:#fff!important;color:#080808!important;border-color:#ddd!important}
+body.theme-dark .players-bar *,body.theme-light .players-bar *,body.theme-pitch .players-bar *,
+body.theme-night .players-bar *,body.theme-bw .players-bar *{color:#080808!important}
+body.theme-dark .live-player-card,body.theme-light .live-player-card,
+body.theme-pitch .live-player-card,body.theme-night .live-player-card,body.theme-bw .live-player-card{
+  background:#fff!important;border:1px solid #ddd!important;box-shadow:none!important;
+}
+body.theme-dark .live-player-name,body.theme-light .live-player-name,
+body.theme-pitch .live-player-name,body.theme-night .live-player-name,body.theme-bw .live-player-name,
+body.theme-dark .live-player-stats b,body.theme-light .live-player-stats b,
+body.theme-pitch .live-player-stats b,body.theme-night .live-player-stats b,
+body.theme-bw .live-player-stats b{color:#080808!important;font-weight:400!important}
+body.theme-dark .live-player-role,body.theme-light .live-player-role,
+body.theme-pitch .live-player-role,body.theme-night .live-player-role,body.theme-bw .live-player-role,
+body.theme-dark .live-player-stats small,body.theme-light .live-player-stats small,
+body.theme-pitch .live-player-stats small,body.theme-night .live-player-stats small,
+body.theme-bw .live-player-stats small{color:#555!important}
+body.theme-dark .score-player-name,body.theme-light .score-player-name,
+body.theme-pitch .score-player-name,body.theme-night .score-player-name,body.theme-bw .score-player-name{font-weight:400!important}
+body.theme-dark .chat-fab,body.theme-light .chat-fab,body.theme-pitch .chat-fab,
+body.theme-night .chat-fab,body.theme-bw .chat-fab{background:#08b85a!important;color:#fff!important}
+</style>
