@@ -2899,9 +2899,33 @@ function App(){
               h('div',{className:'sub'},token?'Pick a match below':'Add token in ⚙ Settings')
             );
           })())
-        )
-      )
-    ),
+        ),
+        selected&&selected.starting_at?(function(){
+          function dayKey(value){
+            var dt=new Date(value);
+            if(!isFinite(dt.getTime()))return '';
+            return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+          }
+          var currentDay=dayKey(selected.starting_at);
+          var sameDay=matches.filter(function(m){return m&&m.id&&dayKey(m.starting_at)===currentDay;})
+            .sort(function(a,b){return (Date.parse(a.starting_at||'')||0)-(Date.parse(b.starting_at||'')||0);});
+          if(sameDay.length<2)return null;
+          return h('div',{className:'mcs-same-day-matches'},
+            h('div',{className:'mcs-same-day-label'},'MORE MATCHES · '+new Date(selected.starting_at).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})),
+            h('div',{className:'mcs-same-day-track'},
+              sameDay.map(function(m){
+                var scores=scoreLine(m),state=statusOf(m),active=String(m.id)===String(selected.id);
+                return h('button',{type:'button',key:'same-day-'+m.id,className:'mcs-same-day-card'+(active?' active':''),onClick:function(){if(!active)selectMatch(m);}},
+                  h('span',{className:'mcs-same-day-status'},state==='live'?'● LIVE':state==='finished'?'FULL TIME':statusLabel(state)),
+                  h('span',{className:'mcs-same-day-teams'},shortName(teamName(m,'local'))+'  vs  '+shortName(teamName(m,'visitor'))),
+                  h('span',{className:'mcs-same-day-score'},scores.a+'  ·  '+scores.b),
+                  h('span',{className:'mcs-same-day-time'},fmtWhen(m.starting_at)||'Time TBA')
+                );
+              })
+            )
+          );
+        })():null
+      ),
 
     settingsOpen?h(React.Fragment,null,
       h('div',{className:'settings-backdrop',onClick:function(){setSettingsOpen(false);}}),
@@ -4213,4 +4237,21 @@ body.theme-night .panel .mcs-match-result-banner .mcs-result-players *,
 body.theme-india .panel .mcs-match-result-banner .mcs-result-players *{
   color:#dbeafe!important;text-shadow:none!important;
 }
+</style>
+
+
+<style id="mcs-same-day-horizontal-scoreboard">
+.mcs-same-day-matches{position:relative;z-index:3;padding:5px 12px 10px;min-width:0;max-width:100%;overflow:hidden}
+.mcs-same-day-label{color:rgba(255,255,255,.76);font-size:10px;font-weight:900;letter-spacing:.12em;margin:0 2px 6px}
+.mcs-same-day-track{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:1px 1px 7px;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.42) transparent}
+.mcs-same-day-track::-webkit-scrollbar{height:4px}
+.mcs-same-day-track::-webkit-scrollbar-thumb{background:rgba(255,255,255,.4);border-radius:8px}
+.mcs-same-day-card{flex:0 0 min(72vw,245px);min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:9px 11px;border:1px solid rgba(255,255,255,.24);border-radius:11px;background:rgba(255,255,255,.09);color:#fff;text-align:left;scroll-snap-align:start;cursor:pointer}
+.mcs-same-day-card.active{border:1.5px solid #facc15;background:rgba(250,204,21,.14);box-shadow:inset 0 0 0 1px rgba(250,204,21,.12)}
+.mcs-same-day-status{font-size:9px;font-weight:900;letter-spacing:.08em;color:#fde68a}
+.mcs-same-day-teams{font-size:12px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.mcs-same-day-score{font-size:12px;font-weight:800;color:#fff}
+.mcs-same-day-time{font-size:10px;color:rgba(255,255,255,.72)}
+body.theme-bw .mcs-same-day-card,body.theme-dark .mcs-same-day-card,body.theme-night .mcs-same-day-card{background:#171717;border-color:#555}
+body.theme-india .mcs-same-day-card{background:#082f6b;border-color:rgba(255,255,255,.35)}
 </style>
