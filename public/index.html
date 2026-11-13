@@ -1792,6 +1792,12 @@ function App(){
     if(!lastAudioBallKey.current){
       lastAudioBallKey.current=key;
       lastAudioOver.current={innings:innings,over:overNo};
+      // If the match was opened before its first delivery arrived, treat that
+      // first delivery as the opening of an over (not as an old replay).
+      if(stadOn&&(overNo===1||overNo===0||Number(notation.ball)===1)){
+        if(stadUnlocked||stadiumAudioUnlocked)stadBeep('overStart');
+        else pendingStadiumKind='overStart';
+      }
       return;
     }
     if(key===lastAudioBallKey.current)return;
