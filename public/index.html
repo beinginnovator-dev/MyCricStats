@@ -1489,16 +1489,33 @@ function playSyntheticStadiumClip(key){
 }
 var stadiumAudioUnlocked=false;
 var stadiumAudioPlayers={};
-// MP3 crowd files are not present in public/audio yet; use WebAudio sounds.
-var stadiumAudioSources={};
+var stadiumAudioSources={chant:'/audio/crowd_chant.mp3',cheer:'/audio/crowd_cheer.mp3',whistle:'/audio/crowd_whistle.mp3'};
 function unlockStadiumAudio(){
-  try{var ctx=stadCtx;if(ctx&&ctx.state==='suspended')ctx.resume();stadiumAudioUnlocked=!!ctx;}
-  catch(e){console.warn('Stadium audio unlock failed',e);}
+  try{
+    Object.keys(stadiumAudioSources).forEach(function(key){
+      if(!stadiumAudioPlayers[key]){
+        var a=new Audio(stadiumAudioSources[key]);a.preload='auto';a.playsInline=true;a.volume=.8;stadiumAudioPlayers[key]=a;
+      }
+      var a=stadiumAudioPlayers[key];a.muted=true;
+      var p=a.play();
+      if(p&&p.then)p.then(function(){
+        a.pause();a.currentTime=0;a.muted=false;stadiumAudioUnlocked=true;
+        if(pendingStadiumKind&&stadOn){var pending=pendingStadiumKind;pendingStadiumKind=null;setTimeout(function(){playStadiumClip(pending);},80);}
+      }).catch(function(err){a.muted=false;stadiumAudioUnlocked=false;console.warn('Stadium audio unlock failed',key,err);});
+      else{a.pause();a.currentTime=0;a.muted=false;stadiumAudioUnlocked=true;}
+      a.load();
+    });
+    if(stadCtx&&stadCtx.state==='suspended')stadCtx.resume();
+  }catch(e){stadiumAudioUnlocked=false;console.warn('Stadium audio unlock failed',e);}
 }
 function playStadiumClip(kind){
   try{
-    if(!stadUnlocked&&!stadiumAudioUnlocked)unlockAudio();
-    playSyntheticStadiumClip(kind==='wicket'?'whistle':(kind==='four'||kind==='six'||kind==='boundary'?'cheer':(kind==='overStart'?'overStart':'chant')));
+    var key=kind==='wicket'?'whistle':(kind==='four'||kind==='six'||kind==='boundary'?'cheer':'chant');
+    if(!stadiumAudioUnlocked){pendingStadiumKind=kind;return;}
+    var a=stadiumAudioPlayers[key];if(!a){pendingStadiumKind=kind;return;}
+    a.pause();a.currentTime=0;a.muted=false;a.volume=kind==='overStart'?.22:(key==='whistle'?.88:.82);
+    a.playbackRate=kind==='overStart'?.78:1;
+    var p=a.play();if(p&&p.catch)p.catch(function(err){stadiumAudioUnlocked=false;pendingStadiumKind=kind;console.warn('Stadium playback blocked',key,err);});
   }catch(e){console.warn('Stadium sound playback failed',e);}
 }
 function stadBeep(kind){playStadiumClip(kind);}
@@ -1712,68 +1729,42 @@ function App(){
   var lastAudioBallKey=useRef('');
   var lastAudioOver=useRef(null);
   var lastAudioMatchId=useRef('');
+  var stadiumMatchRef=useRef(null);
+  stadiumMatchRef.current=detail||selected;
   useEffect(function(){
-    var match=detail||selected;
-    if(!match||!match.id)return;
-    var matchId=String(match.id);
-    // Normalize/sort before choosing the latest ball: provider responses are not
-    // guaranteed to arrive in chronological array order.
-    var balls=normalizeBalls(Array.isArray(match.balls)?match.balls:[]);
-    if(!balls.length){
-      if(lastAudioMatchId.current!==matchId){
-        lastAudioMatchId.current=matchId;
-        lastAudioBallKey.current='';
-        lastAudioOver.current=null;
+    function checkLatestDelivery(){
+      var match=stadiumMatchRef.current;if(!match||!match.id)return;
+      var matchId=String(match.id),balls=normalizeBalls(Array.isArray(match.balls)?match.balls:[]);
+      if(!balls.length){
+        if(lastAudioMatchId.current!==matchId){lastAudioMatchId.current=matchId;lastAudioBallKey.current='';lastAudioOver.current=null;}
+        return;
       }
-      return;
-    }
-    var ball=balls[balls.length-1];
-    if(!ball)return;
-    var key=matchId+'|'+String(ball.id||ballDedupeKey(ball))+'|'+String(ballRuns(ball))+'|'+String(ballIsWicket(ball));
-    var notation=parseBallNotation(ball);
-    var overNo=notation.over;
-    if(overNo==null&&ball.over!=null)overNo=Number(ball.over);
-    if(overNo!=null&&!isFinite(overNo))overNo=null;
-    var innings=String(inningsKey(ball)||match.innings||'1');
-    if(lastAudioMatchId.current!==matchId){
-      lastAudioMatchId.current=matchId;
-      lastAudioBallKey.current=key;
-      lastAudioOver.current={innings:innings,over:overNo};
-      return; // Do not play old-ball sounds when a viewer first opens a match.
-    }
-    if(!lastAudioBallKey.current){
-      lastAudioBallKey.current=key;
-      lastAudioOver.current={innings:innings,over:overNo};
-      // If the match was opened before its first delivery arrived, treat that
-      // first delivery as the opening of an over (not as an old replay).
-      if(stadOn&&(overNo===1||overNo===0||Number(notation.ball)===1)){
-        if(stadUnlocked||stadiumAudioUnlocked)stadBeep('overStart');
-        else pendingStadiumKind='overStart';
+      var ball=balls[balls.length-1];if(!ball)return;
+      var key=matchId+'|'+String(inningsKey(ball)||'')+'|'+String(ball.id||ballDedupeKey(ball))+'|'+String(ballRuns(ball))+'|'+String(ballIsWicket(ball));
+      var notation=parseBallNotation(ball),overNo=notation.over;
+      if(overNo==null&&ball.over!=null)overNo=Number(ball.over);
+      if(overNo!=null&&!isFinite(overNo))overNo=null;
+      var innings=String(inningsKey(ball)||match.innings||'1');
+      if(lastAudioMatchId.current!==matchId){lastAudioMatchId.current=matchId;lastAudioBallKey.current=key;lastAudioOver.current={innings:innings,over:overNo};return;}
+      if(!lastAudioBallKey.current){
+        lastAudioBallKey.current=key;lastAudioOver.current={innings:innings,over:overNo};
+        if(stadOn&&(overNo===1||overNo===0||Number(notation.ball)===1)){if(stadiumAudioUnlocked)stadBeep('overStart');else pendingStadiumKind='overStart';}
+        return;
       }
-      return;
-    }
-    if(key===lastAudioBallKey.current)return;
-    var previous=lastAudioOver.current||{};
-    lastAudioBallKey.current=key;
-    lastAudioOver.current={innings:innings,over:overNo};
-    if(!stadOn){pendingStadiumKind=null;return;}
-    var runs=ballRuns(ball),isW=ballIsWicket(ball);
-    var scoreMeta=ball.score||{};
-    var scoreLabel=String(scoreMeta.name||scoreMeta.action||ball.score_name||ball.type||'').toLowerCase();
-    var isFour=runs===4||/\b(four|boundary)\b/.test(scoreLabel);
-    var isSix=runs===6||/\b(six|maximum)\b/.test(scoreLabel);
-    // Stadium ambience is intentionally event-only: boundaries, wickets and
-    // the first delivery of a new over. No sound for ordinary balls.
-    try{
-      var boundary=isFour||isSix;
+      if(key===lastAudioBallKey.current)return;
+      var previous=lastAudioOver.current||{};lastAudioBallKey.current=key;lastAudioOver.current={innings:innings,over:overNo};
+      if(!stadOn){pendingStadiumKind=null;return;}
+      var runs=ballRuns(ball),isW=ballIsWicket(ball),meta=ball.score||{};
+      var label=String(meta.name||meta.action||ball.score_name||ball.type||'').toLowerCase();
+      var isFour=runs===4||/\\b(four|boundary)\\b/.test(label),isSix=runs===6||/\\b(six|maximum)\\b/.test(label);
       var overStarted=previous.over!=null&&overNo!=null&&(previous.innings!==innings||Number(previous.over)!==Number(overNo));
-      var soundKind=isW?'wicket':(boundary?(isSix?'six':'four'):(overStarted?'overStart':null));
-      if(soundKind){
-        if(stadUnlocked||stadiumAudioUnlocked)stadBeep(soundKind);
-        else pendingStadiumKind=soundKind;
-      }
-    }catch(audioError){console.warn('Stadium event sound failed',audioError);}
-  },[detail,selected,stadOn]);
+      var soundKind=isW?'wicket':((isFour||isSix)?(isSix?'six':'four'):(overStarted?'overStart':null));
+      if(soundKind){if(stadiumAudioUnlocked)stadBeep(soundKind);else pendingStadiumKind=soundKind;}
+    }
+    checkLatestDelivery();
+    var timer=window.setInterval(checkLatestDelivery,900);
+    return function(){window.clearInterval(timer);};
+  },[detail&&detail.id,selected&&selected.id,stadOn]);
   var lastCommentaryMatchId=useRef('');
   var lastCommentaryBallKey=useRef('');
   var lastCommentaryOrder=useRef(-1);
@@ -2359,19 +2350,23 @@ function App(){
   }
   function buildInviteCard(){
     try{
+      var current=detail||selected;if(!current)return null;
+      var local=teamName(current,'local'),visitor=teamName(current,'visitor');
+      var score=scoreLine(current)||sc;
+      var matchStatus=statusOf(current)==='live'?'LIVE':String(current.status||current.note||'MATCH').toUpperCase();
       var c=document.createElement('canvas');c.width=1080;c.height=600;var x=c.getContext('2d');
       var g=x.createLinearGradient(0,0,1080,600);g.addColorStop(0,'#06152d');g.addColorStop(.58,'#102f50');g.addColorStop(1,'#073b37');x.fillStyle=g;x.fillRect(0,0,1080,600);
-      x.fillStyle='#ff0f50';x.fillRect(0,0,1080,12);x.fillStyle='#fff';x.beginPath();x.arc(82,75,27,0,Math.PI*2);x.fill();x.fillStyle='#08203d';x.font='900 19px Montserrat,Arial';x.textAlign='center';x.fillText('MCS',82,82);x.textAlign='left';x.fillStyle='#fff';x.font='800 38px Montserrat,Arial';x.fillText('MYCRICSTATS · LIVE MATCH ROOM',126,88);
+      x.fillStyle='#ff0f50';x.fillRect(0,0,1080,12);x.fillStyle='#fff';x.beginPath();x.arc(82,75,27,0,Math.PI*2);x.fill();x.fillStyle='#08203d';x.font='900 19px Montserrat,Arial';x.textAlign='center';x.fillText('MCS',82,82);x.textAlign='left';x.fillStyle='#fff';x.font='800 38px Montserrat,Arial';x.fillText('MYCRICSTATS · LIVE SCORE SNAPSHOT',126,88);
       x.fillStyle='#b7c7dc';x.font='600 27px Montserrat,Arial';x.fillText((league||'LIVE CRICKET').slice(0,48),56,150);
-      x.fillStyle='#fff';x.font='800 44px Montserrat,Arial';x.fillText((homeName+'  VS  '+awayName).slice(0,42),56,226);
-      x.fillStyle='#f8fafc';x.font='900 66px Montserrat,Arial';x.fillText(String(sc.a||'—'),56,340);x.fillText(String(sc.b||'—'),580,340);
-      x.fillStyle='#9fb4c9';x.font='600 24px Montserrat,Arial';x.fillText(homeName.slice(0,22),58,390);x.fillText(awayName.slice(0,22),582,390);
-      x.fillStyle='#dbeafe';x.font='600 23px Montserrat,Arial';x.fillText('Overs: '+(sc.overs||'—')+' · '+(st==='live'?'LIVE':String(st||'MATCH').toUpperCase()),56,438);
+      x.fillStyle='#fff';x.font='800 44px Montserrat,Arial';x.fillText((local+'  VS  '+visitor).slice(0,42),56,226);
+      x.fillStyle='#f8fafc';x.font='900 66px Montserrat,Arial';x.fillText(String(score.a||'—'),56,340);x.fillText(String(score.b||'—'),580,340);
+      x.fillStyle='#9fb4c9';x.font='600 24px Montserrat,Arial';x.fillText(local.slice(0,22),58,390);x.fillText(visitor.slice(0,22),582,390);
+      x.fillStyle='#dbeafe';x.font='600 23px Montserrat,Arial';x.fillText('Overs: '+(score.overs||'—')+' · '+matchStatus,56,438);
       x.fillStyle='#fbbf24';x.font='700 26px Montserrat,Arial';x.fillText('Invited by '+(chatName||'MCS fan'),56,492);
       x.fillStyle='#dbeafe';x.font='600 23px Montserrat,Arial';x.fillText('Live score · commentary · match chat',56,545);
       var data=c.toDataURL('image/png'),raw=atob(data.split(',')[1]),bytes=new Uint8Array(raw.length);for(var i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
-      return new File([bytes],'mycricstats-match-invite.png',{type:'image/png'});
-    }catch(e){return null;}
+      return new File([bytes],'mycricstats-latest-scoreboard.png',{type:'image/png'});
+    }catch(e){console.warn('Could not build scoreboard invite image',e);return null;}
   }
 
   function showShareFallback(text,label){
@@ -2410,15 +2405,19 @@ function App(){
     showShareFallback(fallbackText,label);
   }
   function shareMatchInvite(){
-    if(!selected){setToast('Select a match first');setTimeout(function(){setToast(null);},2200);return;}
-    var u=new URL('/',location.origin);u.searchParams.set('room',roomId||('m'+selected.id));u.searchParams.set('match',selected.id);u.searchParams.set('view','1');u.searchParams.set('tab','commentary');u.searchParams.set('open','1');
-    var link=u.toString(),matchTitle=(league||'Cricket match')+' · '+homeName+' vs '+awayName;
-    var scoreText=homeName+' '+sc.a+' | '+awayName+' '+sc.b;
-    var inviteIntro=(chatName||'A MyCricStats host')+' invites you to '+matchTitle+'.\nCurrent score: '+scoreText+'.\nJoin for live score, ball-by-ball commentary and match chat.';
-    var inviteText=inviteIntro+'\n'+link;
-    // Share a real URL, not the generated PNG. This keeps the match link
-    // clickable in WhatsApp, Messages and other Android share targets.
-    var payload={title:'MyCricStats · '+matchTitle,text:inviteIntro,url:link};
+    var current=detail||selected;
+    if(!current){setToast('Select a match first');setTimeout(function(){setToast(null);},2200);return;}
+    var currentId=current.id,currentHome=teamName(current,'local'),currentAway=teamName(current,'visitor');
+    var currentScore=scoreLine(current)||sc;
+    var u=new URL('/',location.origin);u.searchParams.set('room',roomId||('m'+currentId));u.searchParams.set('match',currentId);u.searchParams.set('view','1');u.searchParams.set('tab','commentary');u.searchParams.set('open','1');
+    var link=u.toString(),matchTitle=(league||'Cricket match')+' · '+currentHome+' vs '+currentAway;
+    var scoreText=currentHome+' '+currentScore.a+' | '+currentAway+' '+currentScore.b;
+    var inviteIntro=(chatName||'A MyCricStats host')+' invites you to '+matchTitle+'.\\nLatest score: '+scoreText+' ('+(currentScore.overs||'overs unavailable')+').\\nJoin for live score, ball-by-ball commentary and match chat.';
+    var inviteText=inviteIntro+'\\n'+link;
+    var inviteFile=buildInviteCard();
+    var payload={title:'MyCricStats · '+matchTitle,text:inviteText};
+    try{if(inviteFile&&navigator.canShare&&navigator.canShare({files:[inviteFile]}))payload.files=[inviteFile];}
+    catch(fileShareError){console.warn('Scoreboard image sharing unavailable',fileShareError);}
     launchShare(payload,inviteText,'Match invitation copied');
   }
   function inviteChat(){if(viewOnly)setRoomStatus('Sharing this live match link.');shareMatchInvite();}
