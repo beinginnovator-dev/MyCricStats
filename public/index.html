@@ -1971,7 +1971,7 @@ function App(){
   var _scoreboardBallInfo=useState(null);var scoreboardBallInfo=_scoreboardBallInfo[0],setScoreboardBallInfo=_scoreboardBallInfo[1];
   useEffect(function(){setScoreboardOverIndex(null);setScoreboardBallInfo(null);},[selected&&selected.id]);
   var _detail=useState(null);var detail=_detail[0],setDetail=_detail[1];
-  var _tab=useState(function(){var q=qs().get('tab');return q||'commentary';});var tab=_tab[0],setTab=_tab[1];
+  var _tab=useState(function(){var q=qs().get('tab');return q||'scorecard';});var tab=_tab[0],setTab=_tab[1];
   var _filter=useState('all');var filter=_filter[0],setFilter=_filter[1];
   var _loading=useState(false);var loading=_loading[0],setLoading=_loading[1];
   var _error=useState(null);var error=_error[0],setError=_error[1];
@@ -2307,7 +2307,7 @@ function App(){
         if(restored){
           activeMatchIdRef.current=String(restored.id);
           setSelected(restored);setDetail(restored);activateMatchRoom(restored);
-          setTab(viewOnly&&inviteId?'commentary':(qs().get('tab')||(shareId?'commentary':'commentary')));
+          setTab(qs().get('tab')||'scorecard');
           loadDetail(restored,token,true);
         }else if(shareId){
           activeMatchIdRef.current=String(shareId);
@@ -2353,7 +2353,7 @@ function App(){
     if(isGuest&&shareId){
       var inviteMatch={id:shareId};
       activeMatchIdRef.current=String(shareId);
-      setSelected(inviteMatch);setDetail(inviteMatch);setTab('commentary');
+      setSelected(inviteMatch);setDetail(inviteMatch);setTab(qs().get('tab')||'scorecard');
       activateMatchRoom(inviteMatch);
       loadDetail(inviteMatch,token,false);
       return;
@@ -2548,7 +2548,7 @@ function App(){
     activeMatchIdRef.current=String(m.id);
     var battingSide=currentBattingSide(m||{});
     setBatTeam(battingSide);setScTeam(battingSide);setBowlTeamTab(battingSide==='home'?'away':'home');
-    setSelected(m);setDetail(m);setTab('commentary');lsSet('mcs_tab','commentary');
+    setSelected(m);setDetail(m);setTab('scorecard');lsSet('mcs_tab','scorecard');
     if(m&&m.id)activateMatchRoom(m);
     if(m&&m._domestic){lsSet('last_match',String(m.id));setDetail(m);return;}
     loadDetail(m);
@@ -2738,8 +2738,7 @@ function App(){
       h('div',{className:'bc-content'},
         h('div',{className:'bar',style:{justifyContent:'space-between'}},
           h('div',{style:{display:'flex',alignItems:'center',minWidth:70}},
-            h('span',{className:'brand-chip'},h('img',{src:'/icons/icon-192.png',alt:'MCS'}),'MCS'),
-            null
+            h('div',{className:'mcs-brand-lockup'},h('span',{className:'brand-chip'},h('img',{src:'/icons/icon-192.png',alt:'MCS'}),'MCS'),h('small',null,'MyCricStats'))
           ),
           h('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',flex:1}},
             selected?h('span',{className:'live-pill fans-online-pill',style:{position:'relative',top:2}},h('i'),'FANS ONLINE · '+chatViewers.filter(function(v){return v.online;}).length):null
@@ -3103,7 +3102,6 @@ function App(){
     toast?h('div',{className:'toast'},toast):null,
 
     
-            h('button',{type:'button',className:'mcs-scoreboard-audio-toggle','aria-pressed':ttsOn,onClick:function(){var v=!ttsOn;setTtsOn(v);setStadOn(v);lsSet('tts_on',v?'1':'0');lsSet('stad_on',v?'1':'0');if(v){try{primeSpeech();unlockAudio();speakText(ttsLang==='hi'?'कमेंट्री चालू है।':'Commentary enabled.',ttsLang);}catch(e){}}else{try{window.speechSynthesis.cancel();}catch(e){}}}},ttsOn?'🔊 Commentary & Stadium: ON':'🔇 Listen to Commentary'),
             h('div',{className:'players-bar'},
               h('div',{role:'button',tabIndex:0,'aria-expanded':playersOpen,style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4,minHeight:30,cursor:'pointer',touchAction:'manipulation'},onClick:function(){if(!playersOpen)setPlayersPanelOpen(true);},onKeyDown:function(e){if((e.key==='Enter'||e.key===' ')&&!playersOpen){e.preventDefault();setPlayersPanelOpen(true);}}},
                 h('span',{style:{fontSize:11,fontWeight:800,color:'#fde68a',flex:1}},'Current Players · Scorecard'),
@@ -3373,7 +3371,8 @@ tab==='schedule'?h('div',null,
               var out=howOut(b,id),striker=(liveP.strikerId!=null&&id===String(liveP.strikerId))||(!liveP.strikerId&&name.toLowerCase()===String(liveP.striker||'').toLowerCase()),nonStriker=liveP.nonStrikerId!=null&&id===String(liveP.nonStrikerId);
               var status=out?'OUT':(striker||nonStriker?'BATTING':(b?'NOT OUT':'YET TO BAT'));
               var r=b?(b.score!=null?b.score:b.runs):null,bl=b?(b.ball!=null?b.ball:b.balls):null,sr=(r!=null&&bl!=null&&Number(bl)>0)?(Number(r)/Number(bl)*100).toFixed(1):'—';
-              return h('tr',{key:id||i},h('td',null,h('b',{style:{color:status==='BATTING'?'#22c55e':'inherit'}},(status==='BATTING'?'● ':'')+name)),h('td',null,r==null?'—':r),h('td',null,bl==null?'—':bl),h('td',null,b&&b.four_x!=null?b.four_x:'—'),h('td',null,b&&b.six_x!=null?b.six_x:'—'),h('td',null,sr),h('td',null,h('b',{style:{fontSize:10,color:status==='OUT'?'#fb7185':(status==='BATTING'?'#22c55e':'var(--muted)')}},status)),h('td',{style:{minWidth:110,whiteSpace:'normal',fontSize:10,color:out?'#fb7185':'var(--muted)'}},out||'—'));
+              var playerPhoto=(x.p&&x.p.image_path)||(b&&((unwrapRelation(b.batsman)||{}).image_path))||'';
+              return h('tr',{key:id||i},h('td',null,h('div',{className:'mcs-scorecard-player'},playerPhoto?h('img',{src:playerPhoto,alt:'',loading:'lazy'}):h('span',{className:'mcs-player-avatar'},(name||'?').split(/\\s+/).map(function(v){return v.charAt(0);}).slice(0,2).join('').toUpperCase()),h('b',{style:{color:status==='BATTING'?'#22c55e':'inherit'}},(status==='BATTING'?'● ':'')+name))),h('td',null,r==null?'—':r),h('td',null,bl==null?'—':bl),h('td',null,b&&b.four_x!=null?b.four_x:'—'),h('td',null,b&&b.six_x!=null?b.six_x:'—'),h('td',null,sr),h('td',null,h('b',{style:{fontSize:10,color:status==='OUT'?'#fb7185':(status==='BATTING'?'#22c55e':'var(--muted)')}},status)),h('td',{className:'mcs-how-out'},out||'—'));
             }))
           );
         })(),
@@ -4252,4 +4251,17 @@ body.theme-india .panel .mcs-match-result-banner .mcs-result-players *{
 .mcs-same-day-chip-time{font-size:10px;font-weight:650;color:rgba(255,255,255,.72);white-space:nowrap}
 body.theme-bw .mcs-same-day-chip,body.theme-dark .mcs-same-day-chip,body.theme-night .mcs-same-day-chip{background:#171717;border-color:#555}
 body.theme-india .mcs-same-day-chip{background:#082f6b;border-color:rgba(255,255,255,.35)}
+</style>
+
+
+<style id="mcs-scorecard-photo-wrap-brand">
+.mcs-brand-lockup{display:flex;flex-direction:column;align-items:flex-start;gap:0;line-height:1}
+.mcs-brand-lockup small{font-size:8px;font-weight:700;letter-spacing:.08em;color:rgba(255,255,255,.78);margin-left:34px;margin-top:2px}
+.mcs-scorecard-player{display:flex;align-items:center;gap:7px;min-width:0}
+.mcs-scorecard-player img,.mcs-player-avatar{width:30px;height:30px;flex:0 0 30px;border-radius:50%;object-fit:cover;border:1px solid #cbd5e1}
+.mcs-player-avatar{display:inline-flex;align-items:center;justify-content:center;background:#e2e8f0;color:#243447;font-size:10px;font-weight:900}
+.mcs-scorecard-player b{white-space:normal;overflow-wrap:anywhere}
+.mcs-scorecard-table{table-layout:auto}
+.mcs-scorecard-table th:last-child,.mcs-scorecard-table td.mcs-how-out{min-width:155px;max-width:230px;white-space:normal!important;overflow-wrap:anywhere;word-break:normal;line-height:1.35}
+.mcs-scorecard-table td.mcs-how-out{font-size:11px!important;padding:8px 7px}
 </style>
