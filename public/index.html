@@ -1888,7 +1888,7 @@ function App(){
         lastCommentaryBallKey.current=key;
         var settings=commentarySettingsRef.current;
         if(settings.on){
-          var line=descriptiveLine(ball,settings.lang);
+          var line=descriptiveLine(ball,settings.lang),overSummary=buildOverSummarySpeech(match,ball);\n          if(overSummary)line+=' . '+overSummary;
           if(mcsSpeechPrimed)speakText(line,settings.lang);
           else pendingAutoCommentary={text:line,lang:settings.lang};
         }
@@ -1964,7 +1964,7 @@ function App(){
     if(key===lastCommentaryBallKey.current)return;
     lastCommentaryBallKey.current=key;
     lastCommentaryOrder.current=Math.max(lastCommentaryOrder.current,order);
-    var line=descriptiveLine(ball,ttsLang);
+    var line=descriptiveLine(ball,ttsLang),overSummary=buildOverSummarySpeech(match,ball);\n    if(overSummary)line+=' . '+overSummary;
     if(ttsOn){if(mcsSpeechPrimed)speakText(line,ttsLang);else pendingAutoCommentary={text:line,lang:ttsLang};}
     var runs=ballRuns(ball),isW=ballIsWicket(ball);
     if(isW){
