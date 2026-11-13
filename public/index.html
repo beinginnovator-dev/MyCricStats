@@ -2215,34 +2215,8 @@ function App(){
           .then(function(r){mergeData(r.data||{});})
           .catch(function(e){console.warn('Sportmonks lineup recovery failed',e);}));
       }
-      // SportMonks exposes the match XI on fixtures.lineup and a team's wider
-      // roster separately on teams/{id}?include=squad. Use that roster when
-      // the fixture has not yet supplied both sides' named lineup.
-      if(best.localteam_id!=null && best.visitorteam_id!=null &&
-         relationRows(best.lineup).length<22 && now-(teamSquadRecoveryAt[mid]||0)>60000){
-        teamSquadRecoveryAt[mid]=now;
-        [String(best.localteam_id),String(best.visitorteam_id)].forEach(function(teamId){
-          jobs.push(smGet(ckUrl('teams/'+teamId,tok,'squad'),{force:true})
-            .then(function(r){
-              var td=r.data||{};
-              var rows=relationRows(td.squad);
-              if(!rows.length && td.data)rows=relationRows(td.data.squad);
-              if(!rows.length)return;
-              var current=relationRows(best.lineup).slice();
-              rows.forEach(function(p){
-                var pl=unwrapRelation(p.player)||p;
-                var pid=p.player_id||pl.id||p.id;
-                var duplicate=current.some(function(x){
-                  var xp=unwrapRelation(x.player)||x;
-                  return pid!=null && String(x.player_id||xp.id||x.id||'')===String(pid) && String(x.team_id||'')===teamId;
-                });
-                if(!duplicate)current.push(Object.assign({},p,{player:pl,player_id:pid,team_id:teamId,team:{id:teamId,name:teamId===String(best.localteam_id)?teamName(best,'local'):teamName(best,'visitor')}}));
-              });
-              best.lineup=current;
-            })
-            .catch(function(e){console.warn('Sportmonks team squad recovery failed',e);}));
-        });
-      }
+      // Do not merge teams.squad into fixture.lineup: squad is the full roster,
+      // not the players selected for this match. Scorecard uses fixture XI only.
       return Promise.all(jobs).then(function(){return normaliseMatchDetail(best,m);});
     }
     smGet(ckUrl('fixtures/'+m.id,tok,INCLUDE_LIST),{force:true}).then(function(r){
@@ -3051,7 +3025,16 @@ tab==='schedule'?h('div',null,
         h('h3',null,'Batting'),
         (function(){
           var batting=rowsForScorecardTeam(relationRows(d&&d.batting),scTeam,d,'batting').slice();
-          var lineup=relationRows(d&&d.lineup).filter(function(p){var pl=unwrapRelation(p.player)||p;var tid=p.team_id!=null?p.team_id:pl.team_id;var side=scTeam==='home'?d.localteam_id:d.visitorteam_id;return side==null||tid==null||String(tid)===String(side);});
+          var lineup=relationRows(d&&d.lineup).filter(function(p){
+            var pl=unwrapRelation(p.player)||p;
+            var tid=p.team_id!=null?p.team_id:pl.team_id;
+            var side=scTeam==='home'?d.localteam_id:d.visitorteam_id;
+            return side!=null&&tid!=null&&String(tid)===String(side);
+          });
+          // Fixture lineup represents players selected for this match. Never
+          // append the full team squad; deduplicate and cap XI entries at 11.
+          var lineupSeen={};
+          lineup=lineup.filter(function(p){var id=p.player_id||((unwrapRelation(p.player)||p).id)||p.id;if(id==null)return false;id=String(id);if(lineupSeen[id])return false;lineupSeen[id]=true;return true;}).slice(0,11);
           function idOfPlayer(p){var pl=unwrapRelation(p.player)||p;return String(p.player_id!=null?p.player_id:(pl.id!=null?pl.id:(p.id||'')));}
           function idOfBat(b){return String(playerIdOf(b,'batsman')||'');}
           function howOut(b,id){
