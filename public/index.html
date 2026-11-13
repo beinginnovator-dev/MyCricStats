@@ -3128,7 +3128,7 @@ function App(){
               var upcoming=matches.filter(function(m){return statusOf(m)==='upcoming';}).sort(function(a,b){
                 var ad=String(a.starting_at||'').slice(0,10),bd=String(b.starting_at||'').slice(0,10);
                 if((ad===today)!==(bd===today))return ad===today?-1:1;
-                return String(a.starting_at||'').localeCompare(String(b.starting_at||''));
+                return (Date.parse(b.starting_at||'')||0)-(Date.parse(a.starting_at||'')||0);
               }).slice(0,5);
               return h('div',{style:{padding:'8px 10px 12px'}},
                 h('div',{style:{fontSize:12,fontWeight:900,letterSpacing:'.08em',color:'var(--muted)',margin:'2px 0 8px'}},'TODAY & UPCOMING MATCHES'),
@@ -3203,7 +3203,7 @@ function App(){
         loading&&!matches.length?h('div',{className:'empty'},h('span',{className:'spinner'}),' Loading…'):null,
         !loading&&token&&!filtered.length?h('div',{className:'empty'},'No matches in this filter. Free plan: T20I, BBL, CSA T20.'):null,
         h('div',{className:'match-list'},
-          (matchFilter==='domestic'?domestic.slice().sort(function(a,b){return (Date.parse(b.starting_at||'')||0)-(Date.parse(a.starting_at||'')||0);}):filtered.slice().sort(function(a,b){if(matchFilter==='live'){return (Date.parse(b.starting_at||'')||0)-(Date.parse(a.starting_at||'')||0);}return 0;})).map(function(m){
+          (matchFilter==='domestic'?domestic.slice():filtered.slice()).sort(function(a,b){return (Date.parse(b.starting_at||'')||0)-(Date.parse(a.starting_at||'')||0);}).map(function(m){
             var hn=teamName(m,'local'),an=teamName(m,'visitor');
             var s=scoreLine(m);var st2=statusOf(m);
             var lg=(m.league&&m.league.name)||m.type||'';
@@ -3267,7 +3267,7 @@ tab==='schedule'?h('div',null,
         ),
         (function(){
           var list=matches.slice();
-          if(schedFilter==='upcoming')list=list.filter(function(m){return statusOf(m)==='upcoming';}).sort(function(a,b){return String(a.starting_at||'').localeCompare(String(b.starting_at||''));});
+          if(schedFilter==='upcoming')list=list.filter(function(m){return statusOf(m)==='upcoming';}).sort(function(a,b){return (Date.parse(b.starting_at||'')||0)-(Date.parse(a.starting_at||'')||0);});
           else if(schedFilter==='past')list=list.filter(function(m){return ['finished','abandoned','interrupted','postponed','cancelled'].indexOf(statusOf(m))>=0;}).sort(function(a,b){return String(b.starting_at||'').localeCompare(String(a.starting_at||''));});
           else list=list.sort(function(a,b){
             var ra={live:0,upcoming:1,delayed:2,interrupted:3,postponed:4,abandoned:5,cancelled:6,finished:7};var sa=statusOf(a),sb=statusOf(b);
