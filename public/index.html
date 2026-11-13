@@ -1214,6 +1214,16 @@ function statusOf(m){
   if(m&&m.live||/1st innings|2nd innings|3rd innings|4th innings|innings break|stump day|\blive\b/.test(s))return 'live';
   return 'upcoming';
 }
+function matchDateOrder(a,b){
+  var now=new Date(),today=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+  var ta=Date.parse(a&&a.starting_at||''),tb=Date.parse(b&&b.starting_at||'');
+  if(!isFinite(ta))return isFinite(tb)?1:0;
+  if(!isFinite(tb))return -1;
+  var aFuture=ta>=today,bFuture=tb>=today;
+  // Today and future first (nearest date first), then past dates (most recent past first).
+  if(aFuture!==bFuture)return aFuture?-1:1;
+  return aFuture?ta-tb:tb-ta;
+}
 function statusLabel(state){
   return ({live:'● LIVE',upcoming:'UPCOMING',finished:'RESULT',abandoned:'ABANDONED · NO RESULT',interrupted:'INTERRUPTED',postponed:'POSTPONED',cancelled:'CANCELLED',delayed:'DELAYED'})[state]||'UPCOMING';
 }
@@ -3256,7 +3266,7 @@ function App(){
         loading&&!matches.length?h('div',{className:'empty'},h('span',{className:'spinner'}),' Loading…'):null,
         !loading&&token&&!filtered.length?h('div',{className:'empty'},'No matches in this filter. Check the selected date range and competitions enabled for your Sportmonks token.'):null,
         h('div',{className:'match-list'},
-          (matchFilter==='domestic'?domestic.slice():filtered.slice()).sort(function(a,b){return (Date.parse(b.starting_at||'')||0)-(Date.parse(a.starting_at||'')||0);}).map(function(m){
+          (matchFilter==='domestic'?domestic.slice():filtered.slice()).sort(matchDateOrder).map(function(m){
             var hn=teamName(m,'local'),an=teamName(m,'visitor');
             var s=scoreLine(m);var st2=statusOf(m);
             var lg=(m.league&&m.league.name)||m.type||'';
@@ -3320,12 +3330,12 @@ tab==='schedule'?h('div',null,
         ),
         (function(){
           var list=matches.slice();
-          if(schedFilter==='upcoming')list=list.filter(function(m){return statusOf(m)==='upcoming';}).sort(function(a,b){return (Date.parse(b.starting_at||'')||0)-(Date.parse(a.starting_at||'')||0);});
+          if(schedFilter==='upcoming')list=list.filter(function(m){return statusOf(m)==='upcoming';}).sort(matchDateOrder);
           else if(schedFilter==='past')list=list.filter(function(m){return ['finished','abandoned','interrupted','postponed','cancelled'].indexOf(statusOf(m))>=0;}).sort(function(a,b){return String(b.starting_at||'').localeCompare(String(a.starting_at||''));});
           else list=list.sort(function(a,b){
-            var ra={live:0,upcoming:1,delayed:2,interrupted:3,postponed:4,abandoned:5,cancelled:6,finished:7};var sa=statusOf(a),sb=statusOf(b);
-            if(ra[sa]!==ra[sb])return ra[sa]-ra[sb];
-            return String(a.starting_at||'').localeCompare(String(b.starting_at||''));
+            var byDate=matchDateOrder(a,b);if(byDate!==0)return byDate;
+            var ra={live:0,upcoming:1,delayed:2,interrupted:3,postponed:4,abandoned:5,cancelled:6,finished:7};
+            return (ra[statusOf(a)]||0)-(ra[statusOf(b)]||0);
           });
           if(!list.length)return h('div',{className:'empty'},loading?'Loading fixtures…':'No fixtures available for this schedule.');
           return list.map(function(m){
