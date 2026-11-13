@@ -692,6 +692,11 @@ body.theme-ins .tabs button.on,body.theme-fub .tabs button.on{color:#fff!importa
   .players-bar .live-player-stats small{font-size:10px!important;line-height:1.15!important;}
 }
 </style>
+
+<style id="mcs-scoreboard-audio-toggle">
+.mcs-scoreboard-audio-toggle{display:flex;align-items:center;justify-content:center;width:calc(100% - 8px);margin:5px 4px 6px;padding:9px 12px;border:1px solid rgba(84,215,255,.38);border-radius:10px;background:rgba(5,25,43,.88);color:#eaf6ff;font:800 13px inherit;cursor:pointer;}
+.mcs-scoreboard-audio-toggle[aria-pressed="true"]{background:rgba(5,112,82,.9);border-color:rgba(52,211,153,.7);}
+</style>
 </head>
 <body class="theme-dark">
 <div id="root"></div>
@@ -1803,11 +1808,11 @@ function App(){
   var _modal=useState(null);var modal=_modal[0],setModal=_modal[1];
   var _modalVal=useState('');var modalVal=_modalVal[0],setModalVal=_modalVal[1];
   var _adminAds=useState(false);var adminAds=_adminAds[0],setAdminAds=_adminAds[1];
-  var _ttsOn=useState(function(){return lsGet('tts_on','1')==='1';});
+  var _ttsOn=useState(function(){return lsGet('tts_on','0')==='1';});
   var ttsOn=_ttsOn[0],setTtsOn=_ttsOn[1];
   var _ttsLang=useState(function(){return lsGet('tts_lang','hi')||'hi';});
   var ttsLang=_ttsLang[0],setTtsLang=_ttsLang[1];
-  var _stadOn=useState(function(){var v=lsGet('stad_on','1');return v!=='0';});
+  var _stadOn=useState(function(){return lsGet('stad_on','0')==='1'&&lsGet('tts_on','0')==='1';});
   var stadOn=_stadOn[0],setStadOn=_stadOn[1];
   var _commSettingsOpen=useState(false);var commSettingsOpen=_commSettingsOpen[0],setCommSettingsOpen=_commSettingsOpen[1];
   var commentaryLatestRef=useRef(null);
@@ -2713,9 +2718,9 @@ function App(){
           h('button',{onClick:function(){setAdminAds(true);setSettingsOpen(false);}},'Sponsor ads')
         ),
         h('div',{className:'dd-title'},'Audio'),
-        h('button',{onClick:function(){var v=!ttsOn;setTtsOn(v);lsSet('tts_on',v?'1':'0');if(v){try{primeSpeech();speakText(ttsLang==='hi'?'कमेंट्री चालू है।':'Commentary enabled.',ttsLang);}catch(e){}}else{try{window.speechSynthesis.cancel();}catch(e){}}}},ttsOn?'TTS / Commentary: On':'TTS / Commentary: Off'),
+        h('button',{onClick:function(){var v=!ttsOn;setTtsOn(v);setStadOn(v);lsSet('tts_on',v?'1':'0');lsSet('stad_on',v?'1':'0');if(v){try{primeSpeech();unlockAudio();speakText(ttsLang==='hi'?'कमेंट्री चालू है।':'Commentary enabled.',ttsLang);}catch(e){}}else{try{window.speechSynthesis.cancel();}catch(e){}}}},ttsOn?'TTS / Commentary: On · Stadium: On':'TTS / Commentary: Off · Stadium: Off'),
         h('button',{onClick:function(){var L=ttsLang==='en'?'hi':'en';setTtsLang(L);lsSet('tts_lang',L);}},'TTS language: '+(ttsLang==='hi'?'हिन्दी':'English')),
-        h('button',{onClick:function(){var v=!stadOn;setStadOn(v);lsSet('stad_on',v?'1':'0');if(v){try{unlockAudio();}catch(e){}}}},stadOn?'Stadium sounds: On':'Stadium sounds: Off'),
+        h('button',{onClick:function(){var v=!stadOn;setStadOn(v);setTtsOn(v);lsSet('stad_on',v?'1':'0');lsSet('tts_on',v?'1':'0');if(v){try{primeSpeech();unlockAudio();}catch(e){}}else{try{window.speechSynthesis.cancel();}catch(e){}}}},stadOn?'Commentary + Stadium: On':'Commentary + Stadium: Off'),
         h('button',{onClick:function(){try{unlockAudio();stadBeep('four');}catch(e){console.warn(e);}}},'Enable audio & test stadium sound'),
         h('button',{onClick:function(){try{primeSpeech();speakText(ttsLang==='hi'?'कमेंट्री चालू है।':'Commentary is working.',ttsLang);}catch(e){console.warn(e);}}},'Test commentary voice'),
         h('div',{className:'dd-title'},'Animation'),
@@ -2873,6 +2878,7 @@ function App(){
     toast?h('div',{className:'toast'},toast):null,
 
     
+            h('button',{type:'button',className:'mcs-scoreboard-audio-toggle','aria-pressed':ttsOn,onClick:function(){var v=!ttsOn;setTtsOn(v);setStadOn(v);lsSet('tts_on',v?'1':'0');lsSet('stad_on',v?'1':'0');if(v){try{primeSpeech();unlockAudio();speakText(ttsLang==='hi'?'कमेंट्री चालू है।':'Commentary enabled.',ttsLang);}catch(e){}}else{try{window.speechSynthesis.cancel();}catch(e){}}}},ttsOn?'🔊 Commentary & Stadium: ON':'🔇 Listen to Commentary'),
             h('div',{className:'players-bar'},
               h('div',{role:'button',tabIndex:0,'aria-expanded':playersOpen,style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4,minHeight:30,cursor:'pointer',touchAction:'manipulation'},onClick:function(){if(!playersOpen)setPlayersPanelOpen(true);},onKeyDown:function(e){if((e.key==='Enter'||e.key===' ')&&!playersOpen){e.preventDefault();setPlayersPanelOpen(true);}}},
                 h('span',{style:{fontSize:11,fontWeight:800,color:'#fde68a',flex:1}},'Current Players · Scorecard'),
