@@ -1223,28 +1223,51 @@ function rowIsOut(row){
   return !!outText&&['false','0','no','not out','not_out'].indexOf(outText)<0;
 }
 function buildOverScoreSummary(allBalls,ov,scoreForMatch){
-  var list=normalizeBalls(allBalls||[]), key=ov.inningsKey||'', endNo=Number(ov.displayOver!=null?ov.displayOver:ov.overNo)||0;
-  var upto=list.filter(function(b){var ik=inningsKey(b)||String(b.innings_id||b.inning_id||b.innings||'');var p=parseBallNotation(b);return (!key||!ik||ik===key)&&p.over!=null&&p.over<=endNo;});
-  if(!upto.length)return '';
+  var allOvers=groupIntoOvers(allBalls||[]), currentIndex=-1;
+  for(var i=0;i<allOvers.length;i++){
+    var candidate=allOvers[i];
+    if(candidate.inningsKey===ov.inningsKey&&candidate.overNo===ov.overNo){currentIndex=i;break;}
+  }
+  if(currentIndex<0){
+    var lastKey=(ov.balls||[]).length?ballDedupeKey(ov.balls[ov.balls.length-1]):'';
+    currentIndex=allOvers.findIndex(function(x){return x.balls.some(function(b){return ballDedupeKey(b)===lastKey;});});
+  }
+  if(currentIndex<0)return '';
+  var current=allOvers[currentIndex], key=current.inningsKey||'', upto=allOvers.slice(0,currentIndex+1).filter(function(x){return !key||!x.inningsKey||x.inningsKey===key;});
   var total=0,wkts=0,legal=0,bat={},bowl={};
-  upto.forEach(function(b){
-    var r=ballRuns(b),p=ballParticipants(b),bid=playerIdOf(b,'batsman')||p.batter||'Unknown batter',boid=playerIdOf(b,'bowler')||p.bowler||'Unknown bowler';
-    total+=r;if(ballIsWicket(b))wkts++;if(ballIsLegal(b))legal++;
-    var bk=String(bid);if(!bat[bk])bat[bk]={name:p.batter||'Batter',runs:0,balls:0};
-    if(!/wide|no.?ball/i.test(String((b.score&&b.score.name)||b.score_name||''))){bat[bk].balls++;}
-    bat[bk].runs+=r;
-    var ok=String(boid);if(!bowl[ok])bowl[ok]={name:p.bowler||'Bowler',runs:0,wickets:0,legal:0};
-    bowl[ok].runs+=r;if(ballIsWicket(b))bowl[ok].wickets++;if(ballIsLegal(b))bowl[ok].legal++;
+  upto.forEach(function(group){
+    group.balls.forEach(function(b){
+      var p=ballParticipants(b), runs=ballRuns(b);
+      var batterId=playerIdOf(b,'batsman')||p.batter||'Unknown batter';
+      var bowlerId=playerIdOf(b,'bowler')||p.bowler||'Unknown bowler';
+      total+=runs;if(ballIsWicket(b))wkts++;if(ballIsLegal(b))legal++;
+      var bk=String(batterId);
+      if(!bat[bk])bat[bk]={name:p.batter||'Batter',runs:0,balls:0};
+      bat[bk].runs+=runs;
+      if(ballIsLegal(b))bat[bk].balls++;
+      var ok=String(bowlerId);
+      if(!bowl[ok])bowl[ok]={name:p.bowler||'Bowler',runs:0,wickets:0,legal:0};
+      bowl[ok].runs+=runs;
+      if(ballIsWicket(b))bowl[ok].wickets++;
+      if(ballIsLegal(b))bowl[ok].legal++;
+    });
   });
-  var bats=Object.keys(bat).map(function(k){return bat[k];}).sort(function(a,b){return b.runs-a.runs;});
-  var bows=Object.keys(bowl).map(function(k){return bowl[k];}).sort(function(a,b){return b.wickets-a.wickets||a.runs-b.runs;});
-  var bestBat=bats[0],lastBall=upto[upto.length-1],lastBowler=ballParticipants(lastBall).bowler;
-  var bestBowl=bows.find(function(x){return x.name===lastBowler;})||bows[0];
-  var overCount=Math.floor(legal/6),ballsInOver=legal%6;
-  var overText=overCount+(ballsInOver?'.'+ballsInOver:'');
+  var currentBatterIds={},currentBowlerIds={};
+  current.balls.forEach(function(b){
+    var p=ballParticipants(b),bi=playerIdOf(b,'batsman')||p.batter,bo=playerIdOf(b,'bowler')||p.bowler;
+    if(bi)currentBatterIds[String(bi)]=p.batter||String(bi);
+    if(bo)currentBowlerIds[String(bo)]=p.bowler||String(bo);
+  });
+  var batterLines=Object.keys(currentBatterIds).map(function(id){
+    var x=bat[id];return x?x.name+' '+x.runs+' ('+x.balls+')':currentBatterIds[id]+' 0 (0)';
+  });
+  var bowlerLines=Object.keys(currentBowlerIds).map(function(id){
+    var x=bowl[id];return x?x.name+' '+Math.floor(x.legal/6)+(x.legal%6?'.'+(x.legal%6):'')+'-'+x.runs+'-'+x.wickets:currentBowlerIds[id]+' 0-0-0';
+  });
+  var overText=Math.floor(legal/6)+(legal%6?'.'+(legal%6):'');
   return 'MATCH SCORE · '+total+'/'+wkts+' ('+overText+' ov)'+
-    (bestBat?'  |  BATTER · '+bestBat.name+' '+bestBat.runs+' ('+bestBat.balls+')':'')+
-    (bestBowl?'  |  BOWLER · '+bestBowl.name+' '+Math.floor(bestBowl.legal/6)+(bestBowl.legal%6?'.'+(bestBowl.legal%6):'')+'-'+bestBowl.runs+'-'+bestBowl.wickets:'');
+    (batterLines.length?'  |  BATTER · '+batterLines.join(' / '):'')+
+    (bowlerLines.length?'  |  BOWLER · '+bowlerLines.join(' / '):'');
 }
 function groupIntoOvers(balls){
   var list=normalizeBalls(balls), map={}, order=[];
