@@ -1571,7 +1571,10 @@ function bowlStats(b){
 }
 function currentPlayers(d){
   if(!d)return{striker:'—',nonstriker:'—',bowler:'—',strikerS:{},nonstrikerS:{},bowlerS:{}};
-  var batting=relationRows(d.batting), bowling=relationRows(d.bowling), balls=normalizeBalls(d.balls||[]);
+  var battingAll=relationRows(d.batting), bowling=relationRows(d.bowling), balls=normalizeBalls(d.balls||[]);
+  var activeKey=activeInningsKey(d);
+  var batting=activeKey?battingAll.filter(function(r){return inningsKey(r)===activeKey;}):battingAll;
+  if(!batting.length)batting=battingAll;
   var dismissed={};
   balls.forEach(function(x){if(ballIsWicket(x)){var outId=playerIdOf(x,'batsmanout')||playerIdOf(x,'batsman');if(outId!=null)dismissed[String(outId)]=true;}});
   var notOut=batting.filter(function(b){var id=playerIdOf(b,'batsman');return !rowIsOut(b)&&!(id!=null&&dismissed[String(id)]);});
@@ -1901,7 +1904,7 @@ function App(){
   var _schedFilter=useState('latest');var schedFilter=_schedFilter[0],setSchedFilter=_schedFilter[1];
   var _flipIdx=useState(0);var flipIdx=_flipIdx[0],setFlipIdx=_flipIdx[1];
   var _statsOpen=useState(true);var statsOpen=_statsOpen[0],setStatsOpen=_statsOpen[1];
-  var _playersOpen=useState(function(){return lsGet('players_open','1')!=='0';});var playersOpen=_playersOpen[0],setPlayersOpen=_playersOpen[1];
+  var _playersOpen=useState(true);var playersOpen=_playersOpen[0],setPlayersOpen=_playersOpen[1];
   function setPlayersPanelOpen(open){setPlayersOpen(!!open);lsSet('players_open',open?'1':'0');}
   var _sponsorName=useState(function(){return lsGet('sponsor_name','');});var sponsorName=_sponsorName[0],setSponsorName=_sponsorName[1];
   var _sponsorLogo=useState(function(){return lsGet('sponsor_logo','');});var sponsorLogo=_sponsorLogo[0],setSponsorLogo=_sponsorLogo[1];
