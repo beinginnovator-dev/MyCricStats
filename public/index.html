@@ -1496,14 +1496,13 @@ function unlockStadiumAudio(){
       if(!stadiumAudioPlayers[key]){
         var a=new Audio(stadiumAudioSources[key]);a.preload='auto';a.playsInline=true;a.volume=.8;stadiumAudioPlayers[key]=a;
       }
-      var a=stadiumAudioPlayers[key];a.muted=true;
+      var a=stadiumAudioPlayers[key];a.load();a.muted=true;
       var p=a.play();
       if(p&&p.then)p.then(function(){
         a.pause();a.currentTime=0;a.muted=false;stadiumAudioUnlocked=true;
         if(pendingStadiumKind&&stadOn){var pending=pendingStadiumKind;pendingStadiumKind=null;setTimeout(function(){playStadiumClip(pending);},80);}
       }).catch(function(err){a.muted=false;stadiumAudioUnlocked=false;console.warn('Stadium audio unlock failed',key,err);});
       else{a.pause();a.currentTime=0;a.muted=false;stadiumAudioUnlocked=true;}
-      a.load();
     });
     if(stadCtx&&stadCtx.state==='suspended')stadCtx.resume();
   }catch(e){stadiumAudioUnlocked=false;console.warn('Stadium audio unlock failed',e);}
