@@ -1492,17 +1492,41 @@ var stadiumAudioPlayers={};
 var stadiumAudioSources={chant:'/audio/crowd_chant.mp3',cheer:'/audio/crowd_cheer.mp3',whistle:'/audio/crowd_whistle.mp3'};
 function unlockStadiumAudio(){
   try{
-    Object.keys(stadiumAudioSources).forEach(function(key){
+    var keys=Object.keys(stadiumAudioSources),ready=0,failed=0;
+    if(!keys.length){stadiumAudioUnlocked=false;console.warn('No stadium audio files configured');return;}
+    keys.forEach(function(key){
       if(!stadiumAudioPlayers[key]){
-        var a=new Audio(stadiumAudioSources[key]);a.preload='auto';a.playsInline=true;a.volume=.8;stadiumAudioPlayers[key]=a;
+        var a=new Audio();
+        a.preload='auto';a.playsInline=true;a.src=stadiumAudioSources[key];
+        a.addEventListener('error',function(){console.warn('Stadium audio file failed to load',key,a.currentSrc,a.error);});
+        stadiumAudioPlayers[key]=a;
       }
-      var a=stadiumAudioPlayers[key];a.load();a.muted=true;
+      var a=stadiumAudioPlayers[key];
+      a.load();
+      // Start each media element UNMUTED at near-silent volume inside the
+      // user's actual tap. Muted autoplay does not reliably unlock later
+      // unmuted playback on Android Chrome/WebView.
+      a.pause();a.currentTime=0;a.muted=false;a.volume=0.01;
       var p=a.play();
-      if(p&&p.then)p.then(function(){
-        a.pause();a.currentTime=0;a.muted=false;stadiumAudioUnlocked=true;
-        if(pendingStadiumKind&&stadOn){var pending=pendingStadiumKind;pendingStadiumKind=null;setTimeout(function(){playStadiumClip(pending);},80);}
-      }).catch(function(err){a.muted=false;stadiumAudioUnlocked=false;console.warn('Stadium audio unlock failed',key,err);});
-      else{a.pause();a.currentTime=0;a.muted=false;stadiumAudioUnlocked=true;}
+      if(p&&p.then){
+        p.then(function(){
+          ready++;a.pause();a.currentTime=0;a.volume=0.82;
+          if(ready+failed===keys.length){
+            stadiumAudioUnlocked=ready>0;
+            if(pendingStadiumKind&&stadOn){
+              var pending=pendingStadiumKind;pendingStadiumKind=null;
+              setTimeout(function(){playStadiumClip(pending);},120);
+            }
+          }
+        }).catch(function(err){
+          failed++;a.pause();a.volume=0.82;
+          console.warn('Stadium audio unlock failed',key,err);
+          if(ready+failed===keys.length)stadiumAudioUnlocked=ready>0;
+        });
+      }else{
+        ready++;a.pause();a.currentTime=0;a.volume=0.82;
+        if(ready+failed===keys.length)stadiumAudioUnlocked=ready>0;
+      }
     });
     if(stadCtx&&stadCtx.state==='suspended')stadCtx.resume();
   }catch(e){stadiumAudioUnlocked=false;console.warn('Stadium audio unlock failed',e);}
@@ -1514,7 +1538,11 @@ function playStadiumClip(kind){
     var a=stadiumAudioPlayers[key];if(!a){pendingStadiumKind=kind;return;}
     a.pause();a.currentTime=0;a.muted=false;a.volume=kind==='overStart'?.22:(key==='whistle'?.88:.82);
     a.playbackRate=kind==='overStart'?.78:1;
-    var p=a.play();if(p&&p.catch)p.catch(function(err){stadiumAudioUnlocked=false;pendingStadiumKind=kind;console.warn('Stadium playback blocked',key,err);});
+    var p=a.play();
+    if(p&&p.catch)p.catch(function(err){
+      stadiumAudioUnlocked=false;pendingStadiumKind=kind;
+      console.warn('Stadium playback blocked',key,'URL:',a.currentSrc,'error:',err);
+    });
   }catch(e){console.warn('Stadium sound playback failed',e);}
 }
 function stadBeep(kind){playStadiumClip(kind);}
