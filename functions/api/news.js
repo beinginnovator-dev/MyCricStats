@@ -6,7 +6,12 @@ const FEEDS = [
   { name: 'Google Cricket', url: 'https://news.google.com/rss/search?q=cricket+when:2d&hl=en-IN&gl=IN&ceid=IN:en' }
 ];
 
-export async function onRequest() {
+export async function onRequest({ request }) {
+  const requestUrl = new URL(request.url);
+  const matchQuery = (requestUrl.searchParams.get('q') || '').trim();
+  const feeds = matchQuery
+    ? [{ name: 'Google News · Selected Match', url: 'https://news.google.com/rss/search?q=' + encodeURIComponent(matchQuery) + '&hl=en-IN&gl=IN&ceid=IN:en' }]
+    : FEEDS;
   const headers = new Headers({
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'application/json',
@@ -14,7 +19,7 @@ export async function onRequest() {
   });
   try {
     const results = await Promise.all(
-      FEEDS.map(async (f) => {
+      feeds.map(async (f) => {
         try {
           const res = await fetch(f.url, {
             headers: {
