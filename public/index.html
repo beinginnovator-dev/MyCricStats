@@ -2670,7 +2670,7 @@ function App(){
     if(!current){setToast('Select a match first');setTimeout(function(){setToast(null);},2200);return;}
     var currentId=current.id,currentHome=teamName(current,'local'),currentAway=teamName(current,'visitor');
     var currentScore=scoreLine(current)||sc;
-    var inviteRoom=(roomId&&roomId!=='lobby')?roomId:('m'+currentId);var u=new URL('https://mycricstats.pages.dev/');u.searchParams.set('room',inviteRoom);u.searchParams.set('match',String(currentId));u.searchParams.set('view','1');u.searchParams.set('tab','commentary');u.searchParams.set('open','1');
+    var inviteRoom=(roomId&&roomId!=='lobby')?roomId:('m'+currentId);var u=new URL('https://mycricstats-invite.being-innovator.workers.dev/');u.searchParams.set('room',inviteRoom);u.searchParams.set('match',String(currentId));u.searchParams.set('view','1');u.searchParams.set('tab','commentary');u.searchParams.set('open','1');
     var link=u.toString(),matchTitle=(league||'Cricket match')+' · '+currentHome+' vs '+currentAway;
     var scoreText=currentHome+' '+currentScore.a+' | '+currentAway+' '+currentScore.b;
     var inviteIntro=(chatName||'A MyCricStats host')+' invites you to '+matchTitle+'.\\nLatest score: '+scoreText+' ('+(currentScore.overs||'overs unavailable')+').\\nJoin for live score, ball-by-ball commentary and match chat.';
