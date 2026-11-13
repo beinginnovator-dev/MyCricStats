@@ -1269,6 +1269,21 @@ function buildOverScoreSummary(allBalls,ov,scoreForMatch){
     (batterLines.length?'  |  BATTER · '+batterLines.join(' / '):'')+
     (bowlerLines.length?'  |  BOWLER · '+bowlerLines.join(' / '):'');
 }
+function buildOverSummarySpeech(match,ball){
+  var groups=groupIntoOvers(match&&match.balls||[]),p=parseBallNotation(ball),ik=inningsKey(ball)||'';
+  var current=groups.find(function(g){return g.inningsKey===ik&&g.overNo===p.over;});
+  if(!current||current.legal<6)return '';
+  var summary=buildOverScoreSummary(match&&match.balls,current,null);
+  if(!summary)return '';
+  var spoken=summary.replace(/^MATCH SCORE\s*·\s*/,'End of over. Team score ')
+    .replace(/\s*\|\s*BATTER\s*·\s*/,' . Batter ')
+    .replace(/\s*\|\s*BOWLER\s*·\s*/,' . Bowler ');
+  spoken=spoken.replace(/(\d+)\/(\d+)\s*\(([\d.]+) ov\)/,'$1 runs for $2 wickets in $3 overs')
+    .replace(/([A-Za-z][^|.]*?)\s+(\d+)\s+\((\d+)\)/g,'$1 scored $2 runs from $3 balls')
+    .replace(/([A-Za-z][^|.]*?)\s+(\d+(?:\.\d+)?)-(\d+)-(\d+)/g,'$1 bowled $2 overs, conceded $3 runs and took $4 wickets');
+  return spoken+'.';
+}
+
 function groupIntoOvers(balls){
   var list=normalizeBalls(balls), map={}, order=[];
   list.forEach(function(b){
