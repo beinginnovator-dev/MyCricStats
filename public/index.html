@@ -660,6 +660,9 @@ body.theme-ins .tabs button.on,body.theme-fub .tabs button.on{color:#fff!importa
 
 
 <style id="mcs-scorecard-table-ui">.mcs-scorecard-table{min-width:680px;font-size:11px}.mcs-scorecard-table th,.mcs-scorecard-table td{padding:7px 5px}.mcs-scorecard-table td:first-child{min-width:112px}</style>
+<style id="mcs-over-match-summary">
+.mcs-over-match-summary{padding:10px 12px;background:linear-gradient(120deg,rgba(14,165,233,.13),rgba(16,185,129,.10));border-top:1px solid rgba(84,215,255,.2);font-size:11px;line-height:1.55;font-weight:800;color:#e8f6ff;overflow-wrap:anywhere}
+</style>
 </head>
 <body class="theme-dark">
 <div id="root"></div>
@@ -1218,6 +1221,30 @@ function rowIsOut(row){
   if(row.out===true||row.out===1||row.out==='1'||row.wicket===true||row.dismissal||row.batsmanout)return true;
   var outText=String(row.out||'').toLowerCase().trim();
   return !!outText&&['false','0','no','not out','not_out'].indexOf(outText)<0;
+}
+function buildOverScoreSummary(allBalls,ov,scoreForMatch){
+  var list=normalizeBalls(allBalls||[]), key=ov.inningsKey||'', endNo=Number(ov.displayOver!=null?ov.displayOver:ov.overNo)||0;
+  var upto=list.filter(function(b){var ik=inningsKey(b)||String(b.innings_id||b.inning_id||b.innings||'');var p=parseBallNotation(b);return (!key||!ik||ik===key)&&p.over!=null&&p.over<=endNo;});
+  if(!upto.length)return '';
+  var total=0,wkts=0,legal=0,bat={},bowl={};
+  upto.forEach(function(b){
+    var r=ballRuns(b),p=ballParticipants(b),bid=playerIdOf(b,'batsman')||p.batter||'Unknown batter',boid=playerIdOf(b,'bowler')||p.bowler||'Unknown bowler';
+    total+=r;if(ballIsWicket(b))wkts++;if(ballIsLegal(b))legal++;
+    var bk=String(bid);if(!bat[bk])bat[bk]={name:p.batter||'Batter',runs:0,balls:0};
+    if(!/wide|no.?ball/i.test(String((b.score&&b.score.name)||b.score_name||''))){bat[bk].balls++;}
+    bat[bk].runs+=r;
+    var ok=String(boid);if(!bowl[ok])bowl[ok]={name:p.bowler||'Bowler',runs:0,wickets:0,legal:0};
+    bowl[ok].runs+=r;if(ballIsWicket(b))bowl[ok].wickets++;if(ballIsLegal(b))bowl[ok].legal++;
+  });
+  var bats=Object.keys(bat).map(function(k){return bat[k];}).sort(function(a,b){return b.runs-a.runs;});
+  var bows=Object.keys(bowl).map(function(k){return bowl[k];}).sort(function(a,b){return b.wickets-a.wickets||a.runs-b.runs;});
+  var bestBat=bats[0],lastBall=upto[upto.length-1],lastBowler=ballParticipants(lastBall).bowler;
+  var bestBowl=bows.find(function(x){return x.name===lastBowler;})||bows[0];
+  var overCount=Math.floor(legal/6),ballsInOver=legal%6;
+  var overText=overCount+(ballsInOver?'.'+ballsInOver:'');
+  return 'MATCH SCORE · '+total+'/'+wkts+' ('+overText+' ov)'+
+    (bestBat?'  |  BATTER · '+bestBat.name+' '+bestBat.runs+' ('+bestBat.balls+')':'')+
+    (bestBowl?'  |  BOWLER · '+bestBowl.name+' '+Math.floor(bestBowl.legal/6)+(bestBowl.legal%6?'.'+(bestBowl.legal%6):'')+'-'+bestBowl.runs+'-'+bestBowl.wickets:'');
 }
 function groupIntoOvers(balls){
   var list=normalizeBalls(balls), map={}, order=[];
@@ -3166,6 +3193,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
                 (ov.inningsKey?('Innings '+ov.inningsKey+' · '):'')+'End of over '+(ov.displayOver!=null?ov.displayOver:ov.overNo)+': '+ov.runs+' runs'+(ov.wickets?', '+ov.wickets+' wicket'+(ov.wickets>1?'s':''):'')+
                 (d?(' · Match '+sc.a+' vs '+sc.b):'')
               )
+              h('div',{className:'mcs-over-match-summary'},buildOverScoreSummary(d&&d.balls,ov,sc)),
             );
           })
         )
