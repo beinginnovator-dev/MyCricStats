@@ -3864,3 +3864,190 @@ body.theme-light .table td{
   font-weight:400!important;
 }
 </style>
+
+
+<style id="mcs-reference-screenshot-theme">
+/* Reference screenshot theme: black broadcast card over a crisp white app canvas. */
+body.theme-light{
+  --bg:#fff!important;--bg2:#fff!important;--card:#fff!important;
+  --line:#dedede!important;--text:#080808!important;--muted:#555!important;
+  background:#fff!important;color:#080808!important;
+}
+body.theme-light,body.theme-light .app,body.theme-light .panel,
+body.theme-light .top-chrome,body.theme-light .tabs,
+body.theme-light .card,body.theme-light .match-list{
+  background:#fff!important;color:#080808!important;
+}
+body.theme-light .app{max-width:760px!important}
+body.theme-light .top-chrome{background:#000!important}
+body.theme-light .broadcast{
+  margin:0 0 10px!important;padding:4px 0 12px!important;
+  background:#000!important;color:#fff!important;
+  border:3px solid #fff!important;border-radius:0 0 18px 18px!important;
+  box-shadow:none!important;isolation:isolate;
+}
+body.theme-light .broadcast .bg-layer{display:none!important}
+body.theme-light .broadcast .bg-overlay{background:#000!important;opacity:1!important}
+body.theme-light .broadcast .bc-content,
+body.theme-light .broadcast .scoreboard-body{background:#000!important}
+body.theme-light .broadcast .bar{
+  min-height:52px!important;padding:8px 12px!important;
+  background:#000!important;
+}
+body.theme-light .broadcast .bar .icon-btn{
+  width:48px!important;height:48px!important;border-radius:50%!important;
+  background:#171717!important;border:1px solid #555!important;color:#fff!important;
+}
+body.theme-light .broadcast .brand-chip{color:#fff!important;font-size:17px!important}
+body.theme-light .broadcast .brand-chip img{
+  width:42px!important;height:42px!important;border:2px solid #fff!important;
+  box-shadow:none!important;
+}
+body.theme-light .broadcast .live-pill{
+  color:#fff!important;background:#16080c!important;
+  border:2px solid #ef244d!important;padding:7px 15px!important;
+  font-size:12px!important;
+}
+body.theme-light .broadcast .scoreboard-body{padding:8px 10px 14px!important}
+body.theme-light .broadcast .match-header{padding:8px 4px 12px!important}
+body.theme-light .broadcast .match-header .title{
+  color:#fff!important;font-size:26px!important;font-weight:900!important;
+  letter-spacing:.04em!important;
+}
+body.theme-light .broadcast .match-header .sub{
+  color:#fff!important;font-size:17px!important;font-weight:800!important;
+}
+body.theme-light .broadcast .match-header .status-line{
+  color:#fff!important;font-size:13px!important;
+}
+body.theme-light .broadcast .score-grid{
+  margin:8px 2px 0!important;padding:18px 10px!important;
+  min-height:150px!important;align-items:center!important;
+  background:#000!important;border:2px solid #f5f5f5!important;
+  border-radius:25px!important;box-shadow:none!important;
+  grid-template-columns:minmax(0,1fr) 38px minmax(0,1fr)!important;
+}
+body.theme-light .broadcast .side{padding:0 4px!important}
+body.theme-light .broadcast .tname{
+  color:#fff!important;font-size:15px!important;font-weight:800!important;
+  min-height:25px!important;gap:7px!important;
+}
+body.theme-light .broadcast .tname img.flag{width:34px!important;height:24px!important}
+body.theme-light .broadcast .score-num{
+  color:#fff!important;font-size:clamp(29px,7vw,42px)!important;
+  font-weight:900!important;line-height:1.12!important;
+}
+body.theme-light .broadcast .overs{
+  color:#fff!important;font-size:19px!important;font-weight:800!important;
+}
+body.theme-light .broadcast .vs-label{
+  color:#fff!important;font-size:16px!important;font-weight:900!important;
+}
+body.theme-light .broadcast .meta-row{
+  color:#fff!important;font-size:13px!important;margin-top:12px!important;
+}
+body.theme-light .broadcast .mcs-scoreboard-over-wrap{
+  gap:7px!important;margin:28px auto 5px!important;
+}
+body.theme-light .broadcast .mcs-over-nav{display:none!important}
+body.theme-light .broadcast .mcs-scoreboard-overballs{
+  gap:7px!important;min-height:46px!important;margin:0 auto 10px!important;
+}
+body.theme-light .broadcast .ball-chip.mcs-scoreball{
+  width:46px!important;height:46px!important;min-width:46px!important;
+  font-size:19px!important;font-weight:900!important;
+}
+body.theme-light .broadcast .ball-chip.mcs-scoreball.c0{background:#747b82!important;color:#fff!important}
+body.theme-light .broadcast .ball-chip.mcs-scoreball.c1{background:#1769e8!important;color:#fff!important}
+body.theme-light .broadcast .ball-chip.mcs-scoreball.c2,
+body.theme-light .broadcast .ball-chip.mcs-scoreball.c3{background:#1769e8!important;color:#fff!important}
+body.theme-light .broadcast .ball-chip.mcs-scoreball.c4{background:#08b83f!important;color:#fff!important}
+body.theme-light .broadcast .ball-chip.mcs-scoreball.c6{background:#7c3aed!important;color:#fff!important}
+body.theme-light .broadcast .ball-chip.mcs-scoreball.cw{background:#e11d48!important;color:#fff!important}
+body.theme-light .broadcast .mcs-over-total{display:none!important}
+body.theme-light .broadcast .mcs-ball-player-info{
+  width:min(100%,520px)!important;min-height:54px!important;
+  margin:22px auto 2px!important;padding:9px 12px!important;
+  display:flex!important;flex-wrap:nowrap!important;gap:10px!important;
+  justify-content:flex-start!important;overflow:hidden!important;
+  background:#000!important;border:2px solid #fff!important;
+  border-radius:14px!important;color:#fff!important;
+  font-size:13px!important;line-height:1.3!important;
+}
+body.theme-light .broadcast .mcs-ball-player-info b{
+  color:#fff!important;font-size:15px!important;white-space:nowrap!important;
+}
+body.theme-light .broadcast .mcs-ball-player-info span{
+  color:#fff!important;font-size:13px!important;
+}
+body.theme-light .broadcast .mcs-ball-player-info button{color:#fff!important}
+body.theme-light .tabs{
+  background:#fff!important;border-bottom:1px solid #ddd!important;
+  box-shadow:none!important;
+}
+body.theme-light .tabs button{
+  background:#fff!important;color:#111!important;
+  font-size:14px!important;font-weight:800!important;
+  border-bottom:4px solid transparent!important;
+}
+body.theme-light .tabs button.on{
+  color:#000!important;border-bottom-color:#000!important;
+  background:#fff!important;text-shadow:none!important;
+}
+body.theme-light .panel{padding:12px!important;background:#fff!important}
+body.theme-light .card{
+  background:#fff!important;color:#111!important;
+  border:1px solid #ddd!important;border-radius:18px!important;
+  box-shadow:0 2px 12px rgba(0,0,0,.055)!important;
+}
+body.theme-light .card h3,
+body.theme-light .card .muted,
+body.theme-light .card table th,
+body.theme-light .card table td,
+body.theme-light .panel,
+body.theme-light .panel p,
+body.theme-light .panel label,
+body.theme-light .panel h1,
+body.theme-light .panel h2,
+body.theme-light .panel h3,
+body.theme-light .panel h4,
+body.theme-light .panel .muted,
+body.theme-light .table th,
+body.theme-light .table td,
+body.theme-light .empty,
+body.theme-light .footer,
+body.theme-light .match-card,
+body.theme-light .match-card *{
+  color:#080808!important;
+}
+body.theme-light .card table th,
+body.theme-light .card table td,
+body.theme-light .table th,
+body.theme-light .table td{border-color:#e2e2e2!important}
+body.theme-light .btn,
+body.theme-light .filter-row button,
+body.theme-light input,
+body.theme-light select,
+body.theme-light textarea{
+  color:#080808!important;background:#fff!important;border-color:#ccc!important;
+}
+body.theme-light .btn.primary,
+body.theme-light .filter-row button.on{background:#000!important;color:#fff!important;border-color:#000!important}
+body.theme-light .live-player-card{
+  background:#fff!important;border:1px solid #ddd!important;
+  box-shadow:none!important;
+}
+body.theme-light .live-player-name,
+body.theme-light .live-player-stats b{color:#080808!important;font-weight:400!important}
+body.theme-light .live-player-role,
+body.theme-light .live-player-stats small{color:#555!important}
+body.theme-light .score-player-name,
+body.theme-light .players-bar .live-player-name{font-weight:400!important}
+body.theme-light .players-bar{background:#fff!important;color:#080808!important;border-color:#ddd!important}
+body.theme-light .players-bar *{color:#080808!important}
+body.theme-light .match-card{
+  background:#fff!important;border:1px solid #e1e1e1!important;
+  box-shadow:0 2px 10px rgba(0,0,0,.04)!important;
+}
+body.theme-light .chat-fab{background:#08b85a!important;color:#fff!important}
+</style>
