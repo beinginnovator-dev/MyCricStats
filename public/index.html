@@ -1725,51 +1725,131 @@ function bowlStats(b){
   return{o:o,m:m,r:r,w:w,econ:econ,line1:line1,line2:'Econ: '+econ};
 }
 function currentPlayers(d){
-  if(!d)return{striker:'—',nonstriker:'—',bowler:'—',strikerS:{},nonstrikerS:{},bowlerS:{}};
-  var battingAll=relationRows(d.batting), bowling=relationRows(d.bowling), allBalls=normalizeBalls(d.balls||[]);
+  var empty={striker:'—',nonstriker:'—',bowler:'—',strikerS:{},nonstrikerS:{},bowlerS:{}};
+  if(!d)return empty;
+  var battingAll=relationRows(d.batting),bowlingAll=relationRows(d.bowling),allBalls=normalizeBalls(d.balls||[]);
   var activeKey=activeInningsKey(d);
-  var balls=activeKey?allBalls.filter(function(x){return inningsKey(x)===activeKey;}):allBalls;
-  var batting=activeKey?battingAll.filter(function(r){return inningsKey(r)===activeKey;}):battingAll;
-  if(!batting.length)batting=battingAll;
+  function sameInnings(row){
+    var key=inningsKey(row);
+    return !activeKey||!key||key===activeKey;
+  }
+  // Keep untagged ball history only when the provider returned no innings tags at all.
+  var anyTaggedBalls=allBalls.some(function(x){return !!inningsKey(x);});
+  var balls=activeKey?allBalls.filter(function(x){var k=inningsKey(x);return k===activeKey||(!k&&!anyTaggedBalls);}):allBalls;
+  var anyTaggedBatting=battingAll.some(function(x){return !!inningsKey(x);});
+  var batting=activeKey?battingAll.filter(function(x){var k=inningsKey(x);return k===activeKey||(!k&&!anyTaggedBatting);}):battingAll;
+  if(!batting.length)batting=battingAll.filter(function(x){return !activeKey||!inningsKey(x)||inningsKey(x)===activeKey;});
+  var anyTaggedBowling=bowlingAll.some(function(x){return !!inningsKey(x);});
+  var bowling=activeKey?bowlingAll.filter(function(x){var k=inningsKey(x);return k===activeKey||(!k&&!anyTaggedBowling);}):bowlingAll;
+  if(!bowling.length)bowling=bowlingAll;
+
+  function isActive(row){
+    return row&&(row.active===true||row.active===1||row.active==='1'||row.is_active===true||row.is_active===1||row.is_active==='1');
+  }
+  function isExplicitStriker(row){
+    return row&&(row.is_striker===true||row.is_striker===1||row.is_striker==='1'||
+      row.on_strike===true||row.on_strike===1||row.on_strike==='1'||row.striker===true||row.striker===1);
+  }
   var dismissed={};
-  balls.forEach(function(x){if(ballIsWicket(x)){var outId=playerIdOf(x,'batsmanout')||playerIdOf(x,'batsman');if(outId!=null)dismissed[String(outId)]=true;}});
-  var notOut=batting.filter(function(b){var id=playerIdOf(b,'batsman');return !rowIsOut(b)&&!(id!=null&&dismissed[String(id)]);});
-  var active=notOut.filter(function(b){return b.active===true||b.active===1||b.active==='1';});
+  balls.forEach(function(x){
+    if(ballIsWicket(x)){
+      var outId=playerIdOf(x,'batsmanout')||playerIdOf(x,'batsman');
+      if(outId!=null)dismissed[String(outId)]=true;
+    }
+  });
+  function isDismissed(row){
+    var id=playerIdOf(row,'batsman');
+    return rowIsOut(row)||(id!=null&&!!dismissed[String(id)]);
+  }
+  var notOut=batting.filter(function(row){return !isDismissed(row);});
+  var active=notOut.filter(isActive);
   if(active.length>=2)notOut=active;
-  if(notOut.length<2)notOut=batting.filter(function(b){var id=playerIdOf(b,'batsman');return !rowIsOut(b)&&!(id!=null&&dismissed[String(id)]);}).slice(-2);
-  var striker=null, non=null, last=balls.length?balls[balls.length-1]:null;
-  if(last&&notOut.length>=2){
-    var lastId=playerIdOf(last,'batsman'), lastName=playerName(last.batsman||last.player||last).toLowerCase();
-    var faced=notOut.find(function(r){var id=playerIdOf(r,'batsman');return (lastId!=null&&id!=null&&String(id)===String(lastId))||(!lastId&&lastName&&playerName(r.batsman||r.player||r).toLowerCase()===lastName);});
+  var striker=null,non=null,last=balls.length?balls[balls.length-1]:null;
+
+  // Prefer an explicit striker flag from the live batting feed when present.
+  var flagged=notOut.filter(isExplicitStriker);
+  if(flagged.length===1)striker=flagged[0];
+
+  if(last){
+    var lastId=playerIdOf(last,'batsman');
+    var lastName=playerName(last.batsman||last.player||last).toLowerCase();
+    var faced=notOut.find(function(row){
+      var id=playerIdOf(row,'batsman');
+      return (lastId!=null&&id!=null&&String(id)===String(lastId))||
+        (!lastId&&lastName&&playerName(row.batsman||row.player||row).toLowerCase()===lastName);
+    });
     if(faced){
-      var p=parseBallNotation(last), overBalls=balls.filter(function(x){var q=parseBallNotation(x);return (p.over!=null&&q.over===p.over);});
+      var p=parseBallNotation(last);
+      var overBalls=balls.filter(function(x){var q=parseBallNotation(x);return p.over!=null&&q.over===p.over;});
       var legalInOver=overBalls.filter(ballIsLegal).length;
+      var overEnded=p.over!=null&&legalInOver>=6;
+      // Runs on the delivery include bat runs and extras; odd completed runs change ends.
       var odd=(ballRuns(last)%2)===1;
-      var overEnded=legalInOver>=6;
-      var swap=odd!==overEnded;
-      striker=swap?notOut.find(function(r){return r!==faced;}):faced;
-      non=swap?faced:notOut.find(function(r){return r!==faced;});
+      var nextIsOther=odd!==overEnded;
+      var calculated=nextIsOther?notOut.find(function(row){return row!==faced;}):faced;
+      var partner=nextIsOther?faced:notOut.find(function(row){return row!==faced;});
       if(ballIsWicket(last)){
-        // A dismissed batter cannot remain on strike; prefer explicit active flags if supplied.
-        var activeOthers=active.filter(function(r){return !samePlayerRow(r,faced);});
-        if(activeOthers.length>=1){striker=activeOthers[0];non=activeOthers[1]||notOut.find(function(r){return r!==faced&&r!==activeOthers[0];});}
+        var outId=playerIdOf(last,'batsmanout')||playerIdOf(last,'batsman');
+        var facedId=playerIdOf(faced,'batsman');
+        if(outId!=null&&facedId!=null&&String(outId)===String(facedId)){
+          // The faced batter was dismissed: do not leave them marked as striker.
+          var remaining=notOut.filter(function(row){return row!==faced;});
+          calculated=remaining.length?remaining[remaining.length-1]:null;
+          partner=remaining.find(function(row){return row!==calculated;})||null;
+        }
       }
+      if(!striker||!isDismissed(striker))striker=calculated||striker;
+      non=partner;
     }
   }
-  if(!striker||!non){striker=notOut[0]||null;non=notOut[1]||null;}
-  var batTeamId=(striker&&teamIdOf(striker,'batsman'))||(last&&last.batsman&&last.batsman.team_id);
-  var bowlSorted=bowling.filter(function(b){var tid=teamIdOf(b,'bowler');return batTeamId==null||tid==null||String(tid)!==String(batTeamId);});
-  if(!bowlSorted.length)bowlSorted=bowling.slice();
+  if(!striker&&flagged.length===1)striker=flagged[0];
+  if(!striker&&active.length===2){
+    // If ball-by-ball striker identity is unavailable, avoid guessing from arbitrary array order.
+    var ordered=active.slice().sort(function(a,b){
+      return Number(b.sort||b.position||0)-Number(a.sort||a.position||0);
+    });
+    striker=ordered.find(isExplicitStriker)||null;
+    non=non||ordered.find(function(x){return x!==striker;})||null;
+  }
+  if(!striker&&notOut.length===1)striker=notOut[0];
+  if(!non&&notOut.length>=2)non=notOut.find(function(x){return x!==striker;})||null;
+
+  // Bowling figures belong to the opponent in the active innings. Resolve the
+  // bowler from the most recent delivery first, then match that player to figures.
+  var batTeamId=(striker&&teamIdOf(striker,'batsman'))||
+    (non&&teamIdOf(non,'batsman'))||(last&&last.batsman&&last.batsman.team_id);
+  var opponentId=batTeamId!=null?(String(batTeamId)===String(d.localteam_id)?d.visitorteam_id:d.localteam_id):null;
+  var bowlRows=bowling.filter(function(row){
+    var tid=teamIdOf(row,'bowler');
+    return opponentId==null||tid==null||String(tid)===String(opponentId);
+  });
+  if(!bowlRows.length)bowlRows=bowling;
   var lastBowlerId=last&&playerIdOf(last,'bowler');
-  var bowler=lastBowlerId!=null?bowlSorted.find(function(b){return String(playerIdOf(b,'bowler'))===String(lastBowlerId);}):null;
-  if(!bowler){bowlSorted.sort(function(a,b){return (Number(b.overs)||0)-(Number(a.overs)||0);});bowler=bowlSorted[0];}
+  var lastBowlerName=last?playerName(last.bowler||last.player||last).toLowerCase():'';
+  var bowlerRow=bowlRows.find(function(row){
+    var id=playerIdOf(row,'bowler');
+    if(lastBowlerId!=null&&id!=null)return String(id)===String(lastBowlerId);
+    return !!lastBowlerName&&playerName(row.bowler||row.player||row).toLowerCase()===lastBowlerName;
+  });
+  if(!bowlerRow){
+    var activeBowlers=bowlRows.filter(isActive);
+    if(activeBowlers.length)bowlerRow=activeBowlers[activeBowlers.length-1];
+  }
+  if(!bowlerRow&&lastBowlerName){
+    bowlerRow=bowlRows.find(function(row){return playerName(row.bowler||row.player||row).toLowerCase()===lastBowlerName;});
+  }
+  if(!bowlerRow){
+    bowlRows=bowlRows.slice().sort(function(a,b){return oversAsDecimal(b.overs,b.balls)-oversAsDecimal(a.overs,a.balls);});
+    bowlerRow=bowlRows[0]||null;
+  }
+  var lastBowler=last?playerName(last.bowler||last.player||last):'';
   return{
     striker:playerName(striker&&(striker.batsman||striker))||'—',
     nonstriker:playerName(non&&(non.batsman||non))||'—',
-    bowler:playerName(bowler&&(bowler.bowler||bowler))||playerName(last&&last.bowler)||'—',
-    strikerS:batStats(striker),nonstrikerS:batStats(non),bowlerS:bowlStats(bowler),
+    bowler:lastBowler||playerName(bowlerRow&&(bowlerRow.bowler||bowlerRow))||'—',
+    strikerS:batStats(striker),nonstrikerS:batStats(non),bowlerS:bowlStats(bowlerRow),
     strikerId:striker&&playerIdOf(striker,'batsman'),nonstrikerId:non&&playerIdOf(non,'batsman'),
-    batTeam:batTeamId,bowlTeam:''
+    batTeam:batTeamId,bowlTeam:opponentId
   };
 }
 function teamFlagUrl(team){
@@ -3807,5 +3887,4 @@ body.theme-light .mc-scores{background:#eaf2f2;color:#10243a!important}
   100%{opacity:0;transform:translateY(0) scale(.98)}
 }
 </style>
-
 
