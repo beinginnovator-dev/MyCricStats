@@ -1695,8 +1695,8 @@ function teamFlagUrl(team){
 }
 function loadNewsRss(home,away){
   var matchQuery=home&&away?String(home)+' vs '+String(away)+' cricket':'';
-  var searchTerms=matchQuery?matchQuery+' when:7d':'cricket OR T20 when:2d';
-  var q='https://news.google.com/rss/search?q='+encodeURIComponent(searchTerms)+'&hl=en-IN&gl=IN&ceid=IN:en';
+  if(matchQuery){return fetch('/api/news?q='+encodeURIComponent(matchQuery+' when:7d'),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('news api');return r.json();}).then(function(j){return Array.isArray(j.data)?j.data:[];}).catch(function(e){console.warn('Match news unavailable',e);return [];});}
+  var q='https://news.google.com/rss/search?q=cricket+OR+T20+when:2d&hl=en-IN&gl=IN&ceid=IN:en';
   function parseGoogleXml(xml){
     var items=[];
     var parts=String(xml||'').split(/<item[\s>]/i);
@@ -2040,12 +2040,13 @@ function App(){
   var _news=useState([]);var news=_news[0],setNews=_news[1];
   var _newsLoading=useState(false);var newsLoading=_newsLoading[0],setNewsLoading=_newsLoading[1];
   var _matchNews=useState([]);var matchNews=_matchNews[0],setMatchNews=_matchNews[1];
+  var _matchNewsLoading=useState(false);var matchNewsLoading=_matchNewsLoading[0],setMatchNewsLoading=_matchNewsLoading[1];
   useEffect(function(){
-    if(!selected){setMatchNews([]);return;}
+    if(!selected){setMatchNews([]);setMatchNewsLoading(false);return;}
     var home=teamName(selected,'local'),away=teamName(selected,'visitor');
-    if(!home||!away){setMatchNews([]);return;}
+    if(!home||!away){setMatchNews([]);setMatchNewsLoading(false);return;}
     var dead=false;
-    function refreshMatchNews(){loadNewsRss(home,away).then(function(items){if(!dead)setMatchNews((items||[]).slice(0,12));}).catch(function(){if(!dead)setMatchNews([]);});}
+    function refreshMatchNews(){setMatchNewsLoading(true);loadNewsRss(home,away).then(function(items){if(!dead)setMatchNews((items||[]).slice(0,12));}).finally(function(){if(!dead)setMatchNewsLoading(false);});}
     refreshMatchNews();
     var timer=setInterval(refreshMatchNews,10*60*1000);
     return function(){dead=true;clearInterval(timer);};
@@ -2553,7 +2554,7 @@ function App(){
               h('div',{className:'sub'},venue),
               h('div',{className:'status-line'},status||(d.note||''))
             ),
-            matchNews.length?h('div',{className:'match-news-ticker'},h('span',{className:'match-news-label'},'MATCH NEWS'),h('div',{className:'match-news-track'},matchNews.map(function(item,i){return h('a',{key:i,href:item.link||'#',target:'_blank',rel:'noopener noreferrer'},(i?'  •  ':'')+item.title);}))):null,
+            selected?h('div',{className:'match-news-ticker'},h('span',{className:'match-news-label'},'MATCH NEWS'),h('div',{className:'match-news-track'},matchNews.length?matchNews.map(function(item,i){return h('a',{key:i,href:item.link||'#',target:'_blank',rel:'noopener noreferrer'},(i?'  •  ':'')+item.title); }):h('span',null,matchNewsLoading?'Fetching Google headlines for '+homeName+' vs '+awayName+'…':'No recent Google headlines found for '+homeName+' vs '+awayName))):null,
             h('div',{className:'score-grid'},
               h('div',{className:'side side-left'},
                 h('div',{className:'tname'},
@@ -2980,7 +2981,7 @@ function App(){
         loading&&!matches.length?h('div',{className:'empty'},h('span',{className:'spinner'}),' Loading…'):null,
         !loading&&token&&!filtered.length?h('div',{className:'empty'},'No matches in this filter. Free plan: T20I, BBL, CSA T20.'):null,
         h('div',{className:'match-list'},
-          (matchFilter==='domestic'?domestic:filtered).map(function(m){
+          (matchFilter==='domestic'?domestic.slice().sort(function(a,b){return (Date.parse(b.starting_at||'')||0)-(Date.parse(a.starting_at||'')||0);}):filtered.slice().sort(function(a,b){if(matchFilter==='live'){return (Date.parse(b.starting_at||'')||0)-(Date.parse(a.starting_at||'')||0);}return 0;})).map(function(m){
             var hn=teamName(m,'local'),an=teamName(m,'visitor');
             var s=scoreLine(m);var st2=statusOf(m);
             var lg=(m.league&&m.league.name)||m.type||'';
