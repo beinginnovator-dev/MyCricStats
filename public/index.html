@@ -1978,7 +1978,7 @@ function randomRoomToken(){try{var a=new Uint8Array(24);crypto.getRandomValues(a
 function App(){
 
   var viewOnly=isViewMode();
-  var shareId=qs().get('match')||lsGet('last_match','')||'';
+  var shareId=qs().get('match')||'';
   var _token=useState(function(){return lsGet('sportmonks_token','');});
   var token=_token[0],setToken=_token[1];
   var _matches=useState([]);var matches=_matches[0],setMatches=_matches[1];
@@ -2328,7 +2328,7 @@ function App(){
       var inviteId=qs().get('match');
       if(viewOnly&&inviteId){list=list.filter(function(x){return String(x.id)===String(inviteId);});}
       setMatches(list);
-      var restoreId=shareId||lsGet('last_match','');
+      var restoreId=shareId||(viewOnly?'':lsGet('last_match',''));
       // Restore once only; a periodic list refresh must not steal user selection.
       if(restoreId&&!activeMatchIdRef.current){
         var restored=list.find(function(x){return String(x.id)===String(restoreId);});
@@ -2338,8 +2338,19 @@ function App(){
           setTab(qs().get('tab')||'scorecard');
           loadDetail(restored,token,true);
         }else if(shareId){
+          // A shared URL always wins, even before its fixture appears in the list.
           activeMatchIdRef.current=String(shareId);
-          var placeholder={id:shareId};setSelected(placeholder);activateMatchRoom(placeholder);loadDetail(placeholder,token,true);
+          var placeholder={id:shareId};setSelected(placeholder);setDetail(null);activateMatchRoom(placeholder);loadDetail(placeholder,token,true);
+        }
+      }else if(viewOnly&&!shareId&&!activeMatchIdRef.current){
+        // Viewer home: open the current live fixture automatically; never restore
+        // an unrelated match from this device's previous local session.
+        var liveMatch=list.find(function(x){return statusOf(x)==='live';});
+        if(liveMatch){
+          activeMatchIdRef.current=String(liveMatch.id);
+          setSelected(liveMatch);setDetail(liveMatch);activateMatchRoom(liveMatch);
+          setTab(qs().get('tab')||'scorecard');
+          loadDetail(liveMatch,token,true);
         }
       }
       if(!list.length && !silent && apiErrors.length){
@@ -2380,9 +2391,17 @@ function App(){
         return Object.assign({},x,{id:x.id,localteam_id:aid,visitorteam_id:bid,localteam:{id:aid,name:a},visitorteam:{id:bid,name:b},runs:runs,live:normalizedStatus==='live',status:normalizedStatus,starting_at:x.when||x.starting_at,league:{name:x.name||'Domestic match'},type:x.type||'Domestic',_domestic:true});
       });
       setDomestic(mapped);
-      var restoreDomestic=shareId||lsGet('last_match','');
+      var restoreDomestic=shareId||(viewOnly?'':lsGet('last_match',''));
       var dm=mapped.find(function(x){return String(x.id)===String(restoreDomestic);});
       if(dm){setSelected(dm);setDetail(dm);activateMatchRoom(dm);setTab(qs().get('tab')||lsGet('mcs_tab','scorecard'));}
+      else if(viewOnly&&!shareId&&!activeMatchIdRef.current){
+        var domesticLive=mapped.find(function(x){return statusOf(x)==='live';});
+        if(domesticLive){
+          activeMatchIdRef.current=String(domesticLive.id);
+          setSelected(domesticLive);setDetail(domesticLive);activateMatchRoom(domesticLive);
+          setTab(qs().get('tab')||'scorecard');
+        }
+      }
     }).catch(function(e){console.warn('Domestic feed',e);});
   }
   useEffect(function(){loadDomestic();var id=setInterval(function(){if(document.visibilityState==='visible')loadDomestic();},10000);var onv=function(){if(document.visibilityState==='visible')loadDomestic();};document.addEventListener('visibilitychange',onv);return function(){clearInterval(id);document.removeEventListener('visibilitychange',onv);};},[]);
