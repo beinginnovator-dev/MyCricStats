@@ -1655,7 +1655,13 @@ function stadNoiseBurst(ctx, now, dur, vol){
 }
 function playSyntheticStadiumClip(key){
   try{
-    var ctx=stadCtx&&stadCtx.state==='running'?stadCtx:unlockAudio();if(!ctx)return;
+    var ctx=stadCtx;if(!ctx){var AudioCtx=window.AudioContext||window.webkitAudioContext;if(!AudioCtx)return;stadCtx=new AudioCtx();ctx=stadCtx;}
+    if(ctx.state!=='running'){
+      // AudioContext.resume() must happen after a user gesture on mobile.
+      // Queue the cue until the context is actually running instead of silently dropping it.
+      if(!ctx.__mcsResumePending){ctx.__mcsResumePending=true;Promise.resolve(ctx.resume()).then(function(){ctx.__mcsResumePending=false;if(ctx.state==='running'){var queued=ctx.__mcsQueuedCue;ctx.__mcsQueuedCue=null;if(queued)playSyntheticStadiumClip(queued);}}).catch(function(){ctx.__mcsResumePending=false;});}
+      ctx.__mcsQueuedCue=key;return;
+    }
     var now=ctx.currentTime+0.03;
     if(key==='whistle'){
       var osc=ctx.createOscillator(),gain=ctx.createGain();
@@ -2114,10 +2120,10 @@ function App(){
       // A soft distant stadium rumble accompanies every legal/extra delivery.
       // At a new over, layer the deeper, longer over-start ambience. Boundaries
       // and wickets retain their existing special effects.
-      if(stadiumAudioUnlocked){
-        playSyntheticStadiumClip('ball');
-        if(overStarted)playSyntheticStadiumClip('overStart');
-      }else if(!pendingStadiumKind){pendingStadiumKind=overStarted?'overStart':(isW?'wicket':((isFour||isSix)?(isSix?'six':'four'):'ball'));}
+      // Ambient cues use Web Audio directly and do not depend on the separate
+      // MP3 unlock state used by boundary/wicket effects.
+      playSyntheticStadiumClip('ball');
+      if(overStarted)playSyntheticStadiumClip('overStart');
       var soundKind=isW?'wicket':((isFour||isSix)?(isSix?'six':'four'):null);
       if(soundKind){if(stadiumAudioUnlocked)stadBeep(soundKind);else pendingStadiumKind=soundKind;}
     }
@@ -2281,8 +2287,8 @@ function App(){
       if(document.visibilityState==='visible'){
         // Android may suspend the media pipeline in the background.
         if(stadCtx&&stadCtx.state==='suspended')stadUnlocked=false;
-        Object.keys(stadiumAudioReady).forEach(function(k){stadiumAudioReady[k]=false;});
-        stadiumAudioUnlocked=false;
+        // Do not invalidate already loaded MP3 assets merely because Android
+        // backgrounded the tab; the next real tap resumes AudioContext if needed.
       }
     });
     return function(){
