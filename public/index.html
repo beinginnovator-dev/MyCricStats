@@ -1570,7 +1570,7 @@ function liveReactTtsLine(b, lang, match){
       var rr=runRows.slice().reverse().find(function(r){return !innings||inningsKey(r)===innings;});
       if(rr)scoreNow=scoreText(rr);
     }
-    var sm=String(scoreNow||'').match(/([\\d,]+)(?:\\s*\\/\\s*(\\d+))?(?:\\s*\\(\\s*(\\d+(?:\\.\\d+)?)\\s*\\))?/);
+    var sm=String(scoreNow||'').match(/([\d,]+)(?:\s*\/\s*(\d+))?(?:\s*\(\s*(\d+(?:\.\d+)?)\s*\))?/);
     var summary=[];
     if(sm){
       if(lang==='hi')summary.push(team+' का स्कोर '+Number(sm[1].replace(/,/g,''))+(sm[2]!=null?' विकेट पर '+sm[2]:'')+(sm[3]?' '+sm[3]+' ओवर के बाद':'')+'.');
