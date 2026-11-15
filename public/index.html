@@ -1655,7 +1655,7 @@ function stadNoiseBurst(ctx, now, dur, vol){
 }
 function playSyntheticStadiumClip(key){
   try{
-    var ctx=unlockAudio();if(!ctx)return;
+    var ctx=stadCtx&&stadCtx.state==='running'?stadCtx:unlockAudio();if(!ctx)return;
     var now=ctx.currentTime+0.03;
     if(key==='whistle'){
       var osc=ctx.createOscillator(),gain=ctx.createGain();
@@ -1672,6 +1672,15 @@ function playSyntheticStadiumClip(key){
       source.buffer=buffer;filter.type='lowpass';filter.frequency.setValueAtTime(260,now);
       gain.gain.setValueAtTime(0.001,now);gain.gain.linearRampToValueAtTime(0.028,now+0.22);gain.gain.exponentialRampToValueAtTime(0.001,now+1.35);
       source.connect(filter);filter.connect(gain);gain.connect(ctx.destination);source.start(now);source.stop(now+1.36);
+    }else if(key==='ball'){
+      // A very soft, low-passed stadium bed on every delivery: distant crowd rumble,
+      // deliberately quiet so it never competes with spoken commentary.
+      var ballLen=Math.floor(ctx.sampleRate*0.48),ballBuffer=ctx.createBuffer(1,ballLen,ctx.sampleRate),ballData=ballBuffer.getChannelData(0);
+      for(var bi=0;bi<ballLen;bi++)ballData[bi]=(Math.random()*2-1)*0.55;
+      var ballSource=ctx.createBufferSource(),ballFilter=ctx.createBiquadFilter(),ballGain=ctx.createGain();
+      ballSource.buffer=ballBuffer;ballFilter.type='lowpass';ballFilter.frequency.setValueAtTime(340,now);
+      ballGain.gain.setValueAtTime(0.001,now);ballGain.gain.linearRampToValueAtTime(0.012,now+0.08);ballGain.gain.exponentialRampToValueAtTime(0.001,now+0.48);
+      ballSource.connect(ballFilter);ballFilter.connect(ballGain);ballGain.connect(ctx.destination);ballSource.start(now);ballSource.stop(now+0.49);
     }else{
       stadNoiseBurst(ctx,now,0.85,key==='cheer'?0.075:0.045);
       if(key==='cheer'){
@@ -2102,7 +2111,14 @@ function App(){
       var label=String(meta.name||meta.action||ball.score_name||ball.type||'').toLowerCase();
       var isFour=runs===4||/\\b(four|boundary)\\b/.test(label),isSix=runs===6||/\\b(six|maximum)\\b/.test(label);
       var overStarted=previous.over!=null&&overNo!=null&&(previous.innings!==innings||Number(previous.over)!==Number(overNo));
-      var soundKind=isW?'wicket':((isFour||isSix)?(isSix?'six':'four'):(overStarted?'overStart':null));
+      // A soft distant stadium rumble accompanies every legal/extra delivery.
+      // At a new over, layer the deeper, longer over-start ambience. Boundaries
+      // and wickets retain their existing special effects.
+      if(stadiumAudioUnlocked){
+        playSyntheticStadiumClip('ball');
+        if(overStarted)playSyntheticStadiumClip('overStart');
+      }else if(!pendingStadiumKind){pendingStadiumKind=overStarted?'overStart':(isW?'wicket':((isFour||isSix)?(isSix?'six':'four'):'ball'));}
+      var soundKind=isW?'wicket':((isFour||isSix)?(isSix?'six':'four'):null);
       if(soundKind){if(stadiumAudioUnlocked)stadBeep(soundKind);else pendingStadiumKind=soundKind;}
     }
     checkLatestDelivery();
