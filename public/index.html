@@ -795,6 +795,28 @@ body.theme-india .score-player-name{font-weight:400!important}
 .mcs-scoreboard-audio-toggle[aria-pressed="true"]{background:rgba(5,112,82,.9);border-color:rgba(52,211,153,.7);}
 </style>
 <style id="mcs-player-stats-regular-weight">.live-player-stats b{font-weight:400!important}</style>
+<style id="mcs-live-match-breathe-and-new-viewer-welcome">
+.mcs-same-day-chip.live{border-color:rgba(248,113,113,.8);box-shadow:0 0 0 1px rgba(248,113,113,.18),0 0 14px rgba(248,65,90,.18);animation:mcsLiveChipBreathe 2.4s ease-in-out infinite}
+.mcs-same-day-chip.live .mcs-same-day-chip-title{color:#fff}
+@keyframes mcsLiveChipBreathe{0%,100%{transform:scale(1);box-shadow:0 0 0 1px rgba(248,113,113,.16),0 0 8px rgba(248,65,90,.12)}50%{transform:scale(1.025);box-shadow:0 0 0 2px rgba(248,113,113,.32),0 0 18px rgba(248,65,90,.3)}}
+.mcs-welcome-backdrop{position:fixed;inset:0;z-index:2147483500;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(2,8,23,.72);backdrop-filter:blur(7px)}
+.mcs-welcome-card{width:min(100%,420px);padding:22px;border-radius:22px;background:linear-gradient(155deg,#0b3c82,#0755a5 62%,#073b70);border:1px solid rgba(255,255,255,.25);color:#fff;box-shadow:0 24px 70px rgba(0,0,0,.48);font-family:Montserrat,system-ui,sans-serif}
+.mcs-welcome-kicker{font-size:10px;font-weight:900;letter-spacing:.16em;color:#bfdbfe}
+.mcs-welcome-card h2{margin:9px 0 6px;font-size:23px;line-height:1.2;font-weight:950}
+.mcs-welcome-copy{margin:0 0 16px;color:#dbeafe;font-size:12px;line-height:1.55}
+.mcs-welcome-match{display:flex;flex-direction:column;gap:6px;padding:13px;border:1px solid rgba(255,255,255,.3);border-radius:15px;background:rgba(2,20,54,.35)}
+.mcs-welcome-live{font-size:9px;font-weight:950;letter-spacing:.12em;color:#fecaca}
+.mcs-welcome-match b{font-size:14px;font-weight:900}
+.mcs-welcome-match strong{font-size:24px;font-weight:950;letter-spacing:.02em}
+.mcs-welcome-match span:last-child{font-size:10px;color:#bfdbfe}
+.mcs-welcome-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:15px}
+.mcs-welcome-actions button{min-height:43px;border:1px solid rgba(255,255,255,.32);border-radius:12px;padding:10px 13px;color:#fff;font:850 12px Montserrat,system-ui,sans-serif;text-align:left;cursor:pointer}
+.mcs-welcome-switch{background:rgba(255,255,255,.14)}
+.mcs-welcome-invite{background:rgba(14,165,233,.28)}
+.mcs-welcome-chat{background:rgba(16,185,129,.28)}
+.mcs-welcome-dismiss{display:block;width:100%;margin-top:12px;padding:8px;border:0;background:transparent;color:#dbeafe;font:700 11px Montserrat,system-ui,sans-serif;cursor:pointer}
+@media(prefers-reduced-motion:reduce){.mcs-same-day-chip.live{animation:none}}
+</style>
 </head>
 <body class="theme-dark">
 <div id="root"></div>
@@ -2233,6 +2255,9 @@ function App(){
   var _flipIdx=useState(0);var flipIdx=_flipIdx[0],setFlipIdx=_flipIdx[1];
   var _statsOpen=useState(true);var statsOpen=_statsOpen[0],setStatsOpen=_statsOpen[1];
   var _playersOpen=useState(function(){return viewOnly?false:lsGet('players_open','1')==='1';});var playersOpen=_playersOpen[0],setPlayersOpen=_playersOpen[1];
+  var _viewerWelcome=useState(function(){return viewOnly&&lsGet('mcs_viewer_welcome_seen','')!=='1';});var viewerWelcome=_viewerWelcome[0],setViewerWelcome=_viewerWelcome[1];
+  function closeViewerWelcome(){setViewerWelcome(false);lsSet('mcs_viewer_welcome_seen','1');}
+  function switchMatchFromWelcome(){closeViewerWelcome();setTab('matches');setTimeout(function(){var el=document.querySelector('.mcs-same-day-matches')||document.querySelector('.match-list');if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},120);}
   function setPlayersPanelOpen(open){setPlayersOpen(!!open);lsSet('players_open',open?'1':'0');}
   var _sponsorName=useState(function(){return lsGet('sponsor_name','');});var sponsorName=_sponsorName[0],setSponsorName=_sponsorName[1];
   var _sponsorLogo=useState(function(){return lsGet('sponsor_logo','');});var sponsorLogo=_sponsorLogo[0],setSponsorLogo=_sponsorLogo[1];
@@ -3005,7 +3030,7 @@ function App(){
                 var state=statusOf(m),active=String(m.id)===String(selected.id);
                 var matchDate=new Date(m.starting_at);
                 var dateTime=isFinite(matchDate.getTime())?matchDate.toLocaleDateString(undefined,{day:'numeric',month:'short'})+' · '+matchDate.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}):'Time TBA';
-                return h('button',{type:'button',key:'same-day-'+m.id,className:'mcs-same-day-chip'+(active?' active':''),onClick:function(){if(!active)selectMatch(m);}},
+                return h('button',{type:'button',key:'same-day-'+m.id,className:'mcs-same-day-chip'+(active?' active':'')+(state==='live'?' live':''),onClick:function(){if(!active)selectMatch(m);}},
                   h('span',{className:'mcs-same-day-chip-title'},(state==='live'?'● LIVE · ':state==='finished'?'FULL TIME · ':'')+shortName(teamName(m,'local'))+' vs '+shortName(teamName(m,'visitor'))),
                   h('span',{className:'mcs-same-day-chip-time'},dateTime)
                 );
@@ -3196,6 +3221,25 @@ function App(){
       )
     ),document.body):null,
     (!chatPop)?ReactDOM.createPortal(h('button',{className:'chat-fab',title:'Open match chat',onClick:openChatWindow},h('span',null,'💬'),unread>0?h('span',{className:'chat-unread'},unread>99?'99+':String(unread)):null),document.body):null,
+    (viewerWelcome&&viewOnly&&selected)?ReactDOM.createPortal(h('div',{className:'mcs-welcome-backdrop',role:'dialog','aria-modal':'true','aria-label':'Welcome to MyCricStats'},
+      h('div',{className:'mcs-welcome-card'},
+        h('div',{className:'mcs-welcome-kicker'},'🏏 MYCRICSTATS · LIVE'),
+        h('h2',null,'Welcome to the match!'),
+        h('p',{className:'mcs-welcome-copy'},'Follow the live score, switch between live matches, invite friends and join the fan chat.'),
+        h('div',{className:'mcs-welcome-match'},
+          h('div',{className:'mcs-welcome-live'},statusOf(selected)==='live'?'● LIVE':'MATCH CENTRE'),
+          h('b',null,teamName(selected,'local')+'  vs  '+teamName(selected,'visitor')),
+          h('strong',null,(scoreLine(detail||selected).a||'—')+'  ·  '+(scoreLine(detail||selected).b||'—')),
+          h('span',null,(scoreLine(detail||selected).overs||'Score loading')+'  ·  '+(selected.league&&selected.league.name||selected.type||'Cricket'))
+        ),
+        h('div',{className:'mcs-welcome-actions'},
+          h('button',{type:'button',className:'mcs-welcome-switch',onClick:switchMatchFromWelcome},'⇄  Switch live match'),
+          h('button',{type:'button',className:'mcs-welcome-invite',onClick:function(){closeViewerWelcome();shareMatchInvite();}},'↗  Invite friends'),
+          h('button',{type:'button',className:'mcs-welcome-chat',onClick:function(){closeViewerWelcome();openChatWindow();}},'💬  Join match chat')
+        ),
+        h('button',{type:'button',className:'mcs-welcome-dismiss',onClick:closeViewerWelcome},'Continue to live score')
+      )
+    ),document.body):null,
     toast?h('div',{className:'toast'},toast):null,
 
     
