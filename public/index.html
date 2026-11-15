@@ -1509,54 +1509,11 @@ function colorEvents(text){
 // Live React-style spoken commentary: one energetic broadcast sentence per delivery.
  // Uses only facts present in the SportMonks ball record; never invents shot direction,
  // field placement, or running detail that the feed does not provide.
-function liveReactTtsLine(b, lang, match){
+function liveReactTtsBallLine(b, lang){
   var p=ballParticipants(b),runs=ballRuns(b),wicket=ballIsWicket(b),score=b&&b.score||{};
   var batter=p.batter||'',bowler=p.bowler||'',dismissed=p.dismissed||batter,fielder=p.fielder||'';
   var raw=[score.name,score.out,score.dismissal,b.dismissal,b.wicket_type,b.dismissal_type].filter(Boolean).join(' ').toLowerCase();
   var kind=/caught|catch/.test(raw)||p.isCatch?'caught':/bowled/.test(raw)?'bowled':/lbw/.test(raw)?'lbw':/run.?out/.test(raw)||p.isRunOut?'runout':/stump/.test(raw)?'stumped':/hit.?wicket/.test(raw)?'hitwicket':'';
-  var matchSummary='';
-  if(match){
-    try{
-      var side=currentBattingSide(match), scores=scoreLine(match);
-      var team=teamName(match,side==='away'?'visitor':'local');
-      var scoreNow=side==='away'?scores.b:scores.a;
-      var innings=activeInningsKey(match);
-      var batRows=relationRows(match.batting);
-      var strikerRow=batRows.find(function(r){
-        var rowInnings=inningsKey(r);
-        if(innings&&rowInnings&&rowInnings!==innings)return false;
-        return playerName(r.batsman||r.player||r).toLowerCase()===String(batter||'').toLowerCase();
-      });
-      if(!scoreNow||scoreNow==='—'){
-        var runRows=relationRows(match.runs);
-        var rr=runRows.slice().reverse().find(function(r){return !innings||inningsKey(r)===innings;});
-        if(rr)scoreNow=scoreText(rr);
-      }
-      var scoreMatch=String(scoreNow||'').match(/([\\d,]+)(?:\\s*\\/\\s*(\\d+))?(?:\\s*\\(\\s*(\\d+(?:\\.\\d+)?)\\s*\\))?/);
-      var strikerRuns=strikerRow&&(strikerRow.score!=null?strikerRow.score:strikerRow.runs);
-      var strikerBalls=strikerRow&&(strikerRow.ball!=null?strikerRow.ball:strikerRow.balls);
-      var fours=strikerRow&&(strikerRow.four_x!=null?strikerRow.four_x:strikerRow.fours);
-      var sixes=strikerRow&&(strikerRow.six_x!=null?strikerRow.six_x:strikerRow.sixes);
-      var scoreSentence='';
-      if(scoreMatch){
-        var overText=scoreMatch[3]||'';
-        scoreSentence=team+' are '+Number(scoreMatch[1].replace(/,/g,''))+(scoreMatch[2]!=null?' for '+scoreMatch[2]:'');
-        if(overText)scoreSentence+=' after '+overText+' overs';
-        scoreSentence+='.';
-      }
-      var batterSentence='';
-      if(batter&&strikerRuns!=null&&strikerBalls!=null){
-        batterSentence=batter+' is on '+strikerRuns+' from '+strikerBalls+' balls';
-        if(fours!=null||sixes!=null)batterSentence+=', with '+(fours||0)+' fours and '+(sixes||0)+' sixes';
-        batterSentence+='.';
-      }
-      if(lang==='hi'){
-        if(scoreMatch)scoreSentence=team+' का स्कोर '+Number(scoreMatch[1].replace(/,/g,''))+(scoreMatch[2]!=null?' विकेट पर '+scoreMatch[2]:'')+(scoreMatch[3]?' '+scoreMatch[3]+' ओवर के बाद':'')+'.';
-        if(batter&&strikerRuns!=null&&strikerBalls!=null)batterSentence=batter '+strikerRuns+' रन '+strikerBalls+' गेंदों पर'+(fours!=null||sixes!=null?', '+(fours||0)+' चौके और '+(sixes||0)+' छक्के':'')+'.';
-      }
-      matchSummary=[scoreSentence,batterSentence].filter(Boolean).join(' ');
-    }catch(summaryErr){console.warn('Live TTS score summary unavailable',summaryErr);}
-  }
   var name=(lang==='hi');
   if(name){
     var lead=(bowler&&batter)?(bowler+' की गेंद पर '+batter+' — '):(bowler?bowler+' की गेंद — ':'');
@@ -1592,6 +1549,46 @@ function liveReactTtsLine(b, lang, match){
   if(runs===2)return lead+'They come back for two, good running between the wickets.';
   if(runs===3)return lead+'Three runs taken, excellent running between the wickets.';
   return lead+runs+' runs added to the total.';
+}
+function liveReactTtsLine(b, lang, match){
+  var line=liveReactTtsBallLine(b,lang);
+  if(!match)return line;
+  try{
+    var side=currentBattingSide(match), scores=scoreLine(match);
+    var team=teamName(match,side==='away'?'visitor':'local');
+    var scoreNow=side==='away'?scores.b:scores.a;
+    var innings=activeInningsKey(match);
+    var batter=ballParticipants(b).batter||'';
+    var batRows=relationRows(match.batting);
+    var strikerRow=batRows.find(function(r){
+      var rowInnings=inningsKey(r);
+      if(innings&&rowInnings&&rowInnings!==innings)return false;
+      return playerName(r.batsman||r.player||r).toLowerCase()===String(batter).toLowerCase();
+    });
+    if(!scoreNow||scoreNow==='—'){
+      var runRows=relationRows(match.runs);
+      var rr=runRows.slice().reverse().find(function(r){return !innings||inningsKey(r)===innings;});
+      if(rr)scoreNow=scoreText(rr);
+    }
+    var sm=String(scoreNow||'').match(/([\\d,]+)(?:\\s*\\/\\s*(\\d+))?(?:\\s*\\(\\s*(\\d+(?:\\.\\d+)?)\\s*\\))?/);
+    var summary=[];
+    if(sm){
+      if(lang==='hi')summary.push(team+' का स्कोर '+Number(sm[1].replace(/,/g,''))+(sm[2]!=null?' विकेट पर '+sm[2]:'')+(sm[3]?' '+sm[3]+' ओवर के बाद':'')+'.');
+      else summary.push(team+' are '+Number(sm[1].replace(/,/g,''))+(sm[2]!=null?' for '+sm[2]:'')+(sm[3]?' after '+sm[3]+' overs':'')+'.');
+    }
+    if(strikerRow){
+      var r=strikerRow.score!=null?strikerRow.score:strikerRow.runs;
+      var balls=strikerRow.ball!=null?strikerRow.ball:strikerRow.balls;
+      var fours=strikerRow.four_x!=null?strikerRow.four_x:strikerRow.fours;
+      var sixes=strikerRow.six_x!=null?strikerRow.six_x:strikerRow.sixes;
+      if(r!=null&&balls!=null){
+        if(lang==='hi')summary.push(batter+' '+r+' रन '+balls+' गेंदों पर'+(fours!=null||sixes!=null?', '+(fours||0)+' चौके और '+(sixes||0)+' छक्के':'')+'.');
+        else summary.push(batter+' is on '+r+' from '+balls+' balls'+(fours!=null||sixes!=null?', with '+(fours||0)+' fours and '+(sixes||0)+' sixes':'')+'.');
+      }
+    }
+    if(summary.length)return line+' '+summary.join(' ');
+  }catch(e){console.warn('Live React score summary unavailable',e);}
+  return line;
 }
 function descriptiveLine(b, lang, forceOver){
   var s=b.score||{};
