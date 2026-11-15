@@ -3580,6 +3580,32 @@ tab==='schedule'?h('div',null,
       )):null,
 
 tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(React.Fragment,null,
+        viewOnly?h('div',{className:'card mcs-viewer-voice-card',style:{marginBottom:10,border:'1px solid rgba(34,197,94,.35)',background:'linear-gradient(120deg,rgba(16,185,129,.10),rgba(59,130,246,.08))'}},
+          h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}},
+            h('div',{style:{flex:'1 1 180px'}},
+              h('b',null,ttsOn?'🔊 Live commentary voice is enabled':'🔈 Listen to live commentary'),
+              h('div',{className:'muted',style:{fontSize:11,marginTop:4}},ttsOn?'New ball-by-ball updates will be read aloud.':'Tap once to enable spoken ball-by-ball updates in this browser.')
+            ),
+            h('button',{type:'button',className:'btn primary',style:{minHeight:42,padding:'10px 15px'},onClick:function(){
+              try{
+                setTtsOn(true);lsSet('tts_on','1');
+                var synth=window.speechSynthesis;
+                if(!synth||!window.SpeechSynthesisUtterance){setToast('Speech is not supported by this browser');return;}
+                synth.resume();
+                var voiceTest=new SpeechSynthesisUtterance(ttsLang==='hi'?'लाइव कमेंट्री चालू है।':'Live commentary enabled. New ball updates will be spoken.');
+                voiceTest.lang=ttsLang==='hi'?'hi-IN':'en-IN';
+                voiceTest.rate=ttsLang==='hi'?0.95:1;voiceTest.volume=1;
+                var available=synth.getVoices?synth.getVoices():[];
+                var preferred=available.find(function(v){return ttsLang==='hi'?/^hi(-|$)/i.test(v.lang):/^en(-|$)/i.test(v.lang);});
+                if(preferred)voiceTest.voice=preferred;
+                voiceTest.onerror=function(e){console.warn('Viewer commentary voice test failed',e&&e.error||e);setToast('Voice could not start. Tap Enable again.');};
+                synth.speak(voiceTest);
+                mcsSpeechPrimed=true;
+                setToast('Commentary voice enabled');
+              }catch(e){console.warn('Viewer commentary voice enable failed',e);setToast('Could not enable commentary voice');}
+            }},ttsOn?'Test voice':'Enable voice')
+          )
+        ):null,
         h('div',{className:'card',style:{marginBottom:10,border:'1px solid var(--line)'}},
           h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}},
             h('div',null,h('b',null,'Sportmonks commentary diagnostics'),h('div',{className:'muted',style:{fontSize:11}},'Fixture '+String(selected.id)+' · '+teamName(selected,'local')+' vs '+teamName(selected,'visitor'))),
