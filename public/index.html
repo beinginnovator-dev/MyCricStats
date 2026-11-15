@@ -2700,7 +2700,7 @@ function App(){
     var el=chatBodyRef.current;
     if(el && chatAtBottomRef.current){el.scrollTop=el.scrollHeight;setUnread(0);}
   },[chatMsgs,chatPop,chatSize,chatSub]);
-  function openChatWindow(){setChatJoined(true);setChatPop(true);setChatSize('normal');setUnread(0);chatAtBottomRef.current=true;chatRequest('join').then(applyChatState).catch(function(e){setRoomStatus(e.message);});}
+  function openChatWindow(){setChatJoined(true);setChatSub('room');setChatPop(true);setChatSize('normal');setUnread(0);chatAtBottomRef.current=true;chatRequest('join').then(applyChatState).catch(function(e){setRoomStatus(e.message);});}
   // Shared viewer links always land on the scorecard. Chat opens only
   // when the viewer explicitly taps the chat control.
   function chatRequest(action,extra){
@@ -2743,7 +2743,8 @@ function App(){
   function deleteRoomMessage(m){if(!confirm('Delete this message?'))return;if(isRoomHost&&m.memberId!==memberId){chatRequest('moderate',{moderation:'delete_message',messageId:m.id}).then(chatLoad).catch(function(e){setRoomStatus(e.message);});}else chatDelete(m.id);}
   function chatSend(text,type){
     type=type||'chat';var action=type==='join'?'join':type==='leave'?'leave':'send';
-    return chatRequest(action,{text:text,type:type}).then(function(j){applyChatState(j);return j;}).catch(function(e){setRoomStatus((e&&e.message)||'Message not sent');throw e;});
+    if(action==='send')setChatSub('room');
+    return chatRequest(action,{text:text,type:type}).then(function(j){applyChatState(j);setChatSub('room');return j;}).catch(function(e){setRoomStatus((e&&e.message)||'Message not sent');throw e;});
   }
   useEffect(function(){
     if(!selected||!selected.id||!roomId||roomId==='lobby')return;
@@ -3231,8 +3232,17 @@ function App(){
           h('button',{className:'btn cp-head-btn',type:'button',title:'Close chat','aria-label':'Close chat',onClick:function(){setChatPop(false);setChatSize('normal');}},'✕')
         )
       ),
+      chatSize==='minimized'?null:h('div',{className:'mcs-chat-roster-strip', 'aria-label':'Match room members'},
+        h('span',{className:'mcs-chat-roster-count'},'FANS '+chatViewers.length),
+        chatViewers.slice().sort(function(a,b){return Number(!!b.online)-Number(!!a.online);}).map(function(v,i){
+          return h('span',{key:v.memberId||i,className:'mcs-chat-fan-chip','title':(v.online?'Online':'Offline')+(v.role==='host'?' · Host':'')},
+            h('i',{className:'mcs-chat-presence '+(v.online?'is-online':'is-offline')}),
+            h('b',null,v.name||'Fan')
+          );
+        }),
+        !chatViewers.length?h('span',{className:'mcs-chat-no-fans'},'Waiting for fans'):null
+      ),
       chatSize==='minimized'?null:h('div',{className:'cp-body',ref:chatBodyRef,onScroll:function(e){var el=e.currentTarget;chatAtBottomRef.current=(el.scrollHeight-el.scrollTop-el.clientHeight)<70;if(chatAtBottomRef.current)setUnread(0);}},
-        chatSub==='viewers'?h('div',{className:'room-roster'},chatViewers.map(function(v,i){return h('div',{key:v.memberId||i,className:'room-user'},h('div',{className:'room-user-main'},h('span',{className:'presence-dot '+(v.online?'online':'')},'●'),h('b',null,v.name||'Fan'),v.role==='host'?h('span',{className:'host-tag'},'HOST'):null),renderFanMeta(v),isRoomHost&&v.memberId!==memberId?h('div',{className:'room-actions'},h('button',{className:'btn',onClick:function(){moderateRoom(v.memberId,v.muted?'unmute':'mute');}},v.muted?'Unmute':'Mute'),h('button',{className:'btn danger',onClick:function(){moderateRoom(v.memberId,'remove');}},'Remove'),h('button',{className:'btn',onClick:function(){moderateRoom(v.memberId,v.blocked?'unblock':'block');}},v.blocked?'Unblock':'Block')):null);}),!chatViewers.length?h('div',{className:'room-empty'},'No room members yet.'):null):
         (chatMsgs.length?chatMsgs:[]).map(function(m,i){
           var me=(m.memberId===memberId)||(m.name===chatName&&!m.memberId);
           var canEdit=me;var canDelete=me||isRoomHost;
@@ -3241,11 +3251,7 @@ function App(){
             chatEditMode&&(canEdit||canDelete)?h('div',{className:'mcs-chat-actions'},canEdit?h('button',{type:'button',title:'Edit message','aria-label':'Edit message',onClick:function(){editOwnChatMessage(m);}},'✎'):null,canDelete?h('button',{type:'button',className:'danger',title:'Delete message','aria-label':'Delete message',onClick:function(){deleteRoomMessage(m);}},'🗑'):null):null
           );
         }),
-        chatSub!=='viewers'&&!chatMsgs.length?h('div',{className:'room-empty'},roomStatus==='Connected'?'No messages yet. Say hello!':roomStatus):null,
-        chatSub==='viewers'&&isRoomHost?h('div',{className:'room-activity',style:{padding:'10px',borderTop:'1px solid rgba(255,255,255,.12)'}},
-          h('b',null,'Recent room activity'),
-          chatActivity.length?chatActivity.slice(0,30).map(function(a,i){return h('div',{key:a.id||i,style:{fontSize:11,padding:'5px 0',color:'#cbd5e1'}},(a.event==='join'?'🟢 Joined':a.event==='leave'?'⚪ Left':a.event==='message'?'💬 Message':a.event==='remove'?'⛔ Removed':a.event==='block'?'🚫 Blocked':a.event==='unblock'?'✅ Unblocked':a.event)+' · '+(a.name||'Fan')+' · '+new Date(Number(a.createdAt||a.t||Date.now())).toLocaleString())}):h('div',{className:'room-empty'},'No activity recorded yet.')
-        ):null
+        !chatMsgs.length?h('div',{className:'room-empty'},roomStatus==='Connected'?'No messages yet. Say hello!':roomStatus):null
       ),
       chatEmojiOpen?h('div',{className:'mcs-emoji-picker'},
         ['😀','😃','😄','😁','😆','😂','🤣','😊','😍','🥰','😘','😎','🤩','😮','😢','👏','🙌','👍','👎','🙏','❤️','💙','💚','🔥','⭐','🎉','🏏','🏆','⚡','💯'].map(function(em){
@@ -4481,4 +4487,18 @@ body.theme-india .mcs-same-day-chip{background:#082f6b;border-color:rgba(255,255
 .chat-pop.skin-MT .cp-foot .btn.primary{background:#6264a7!important;border-color:#6264a7!important;color:#fff!important}
 .chat-pop.skin-MT .mcs-emoji-picker{background:#fff!important;color:#242424!important;border:1px solid #ddd!important}
 @media(max-width:430px){.chat-pop .mcs-chat-skins{gap:1px;padding:2px}.chat-pop .mcs-chat-skins button{min-width:25px;height:23px}}
+</style>
+<style id="mcs-chat-live-roster">
+.mcs-chat-roster-strip{display:flex;align-items:center;gap:7px;min-height:42px;padding:7px 10px;overflow-x:auto;overscroll-behavior-x:contain;white-space:nowrap;background:#0c2036;border-bottom:1px solid rgba(255,255,255,.1);scrollbar-width:thin}
+.mcs-chat-roster-count{flex:0 0 auto;font-size:9px;font-weight:950;letter-spacing:.08em;color:#9fb6cc;margin-right:2px}
+.mcs-chat-fan-chip{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;padding:5px 8px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);color:#e7eff8;font-size:10px}
+.mcs-chat-fan-chip b{font-weight:800}
+.mcs-chat-presence{display:inline-block;width:8px;height:8px;border-radius:50%;background:#111827;border:1px solid #64748b;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
+.mcs-chat-presence.is-online{background:#22c55e;border-color:#86efac;box-shadow:0 0 7px rgba(34,197,94,.65)}
+.mcs-chat-presence.is-offline{background:#111827;border-color:#64748b}
+.mcs-chat-no-fans{font-size:10px;color:#9fb6cc}
+.chat-pop.skin-MT .mcs-chat-roster-strip{background:#eeeeF8;border-bottom-color:#ddddec}
+.chat-pop.skin-MT .mcs-chat-roster-count{color:#6264a7}
+.chat-pop.skin-MT .mcs-chat-fan-chip{background:#fff;border-color:#ddddec;color:#292944}
+.chat-pop.skin-MT .mcs-chat-presence.is-offline{background:#111827}
 </style>
