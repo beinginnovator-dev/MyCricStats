@@ -857,7 +857,7 @@ var h=React.createElement,useState=React.useState,useEffect=React.useEffect,useC
 var THEMES=['dark','light','pitch','night','bw','india'];
 var CACHE_MS=45000;
 var LIVE_CACHE_MS=3000;
-var DETAIL_CACHE_MS=4000;
+var DETAIL_CACHE_MS=2000;
 var FIXTURE_CACHE_MS=600000;
 var memCache={};
 // Throttle secondary recovery requests so missing optional relations do not trigger
@@ -2529,12 +2529,13 @@ function App(){
       window.removeEventListener('focus',refreshOnReturn);
     };
   },[token,loadList,selected&&selected.id]);
-  // Refresh the selected live fixture more frequently than the general fixture list.
+  // Refresh the selected live fixture frequently; edge cache is kept shorter
+  // than this interval so each poll can observe a newer SportMonks response.
   useEffect(function(){
     if(!selected||!selected.id||statusOf(selected)!=='live')return;
     var id=setInterval(function(){
       if(document.visibilityState==='visible')loadDetail(selected,token,true);
-    },5000);
+    },3000);
     return function(){clearInterval(id);};
   },[selected&&selected.id,selected&&statusOf(selected),token]);
   useEffect(function(){
@@ -2667,7 +2668,9 @@ function App(){
       // not the players selected for this match. Scorecard uses fixture XI only.
       return Promise.all(jobs).then(function(){return normaliseMatchDetail(best,m);});
     }
-    smGet(ckUrl('fixtures/'+m.id,tok,INCLUDE_LIST),{force:true,noStale:forceFresh}).then(function(r){
+    // A live refresh must not silently substitute a cached response when the
+    // upstream request fails. Keep the already-rendered score on screen instead.
+    smGet(ckUrl('fixtures/'+m.id,tok,INCLUDE_LIST),{force:true,noStale:true}).then(function(r){
       mergeData(r.data||m);
       return recoverMissingRows();
     }).then(function(data){
