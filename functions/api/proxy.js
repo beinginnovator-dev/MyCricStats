@@ -60,8 +60,11 @@ export async function onRequest(context) {
     try {
       cache = caches.default;
       const requestPath = path.toLowerCase();
-      cacheTtl = requestPath === 'livescores' ? 5
-        : (requestPath.startsWith('fixtures/') ? 5
+      // Live fixture detail is polled every 3 seconds by the scoreboard.
+      // Keep edge caching to 1 second so viewers share requests without
+      // repeatedly receiving a full-over-old score response.
+      cacheTtl = requestPath === 'livescores' ? 2
+        : (requestPath.startsWith('fixtures/') ? 1
         : (requestPath === 'fixtures' ? 15 : 0));
       if (cache && cacheTtl > 0) {
         const keyUrl = new URL(request.url);
