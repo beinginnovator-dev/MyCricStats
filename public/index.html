@@ -2266,6 +2266,8 @@ function App(){
   
   var _openRooms=useState([]);var openRooms=_openRooms[0],setOpenRooms=_openRooms[1];
   var _chatSub=useState('room');var chatSub=_chatSub[0],setChatSub=_chatSub[1];
+  var _chatSkin=useState(function(){return lsGet('mcs_chat_skin','WA')==='MT'?'MT':'WA';});var chatSkin=_chatSkin[0],setChatSkin=_chatSkin[1];
+  function chooseChatSkin(skin){var next=skin==='MT'?'MT':'WA';setChatSkin(next);lsSet('mcs_chat_skin',next);}
   var _chatName=useState(function(){var n=lsGet('chat_name','');if(!n){n='Fan'+Math.floor(Math.random()*90+10);lsSet('chat_name',n);}return n;});
   var chatName=_chatName[0],setChatName=_chatName[1];
   var _chatInput=useState('');var chatInput=_chatInput[0],setChatInput=_chatInput[1];
@@ -3176,13 +3178,17 @@ function App(){
     evBanner?h('div',{className:'ev-banner show '+evBanner.kind},evBanner.label):null,
     null,
     floatMsg?h('div',{className:'float-praise'},floatMsg):null,
-    chatPop?ReactDOM.createPortal(h('div',{className:'chat-pop '+chatSize,style:(chatSize==='maximized'||chatSize==='minimized')?{}:{top:chatTop}}, 
+    chatPop?ReactDOM.createPortal(h('div',{className:'chat-pop '+chatSize+' skin-'+chatSkin,style:(chatSize==='maximized'||chatSize==='minimized')?{}:{top:chatTop}}, 
       h('div',{className:'cp-head'},
         h('div',{className:'t'},
           h('div',{className:'cp-title-main'},'💬 '+(roomId||'Match room')+' · '+(homeName||'Home')+' vs '+(awayName||'Away')),
           h('div',{className:'cp-live-score'},(homeName||'Home')+' '+(sc.a||'—')+'  ·  '+(awayName||'Away')+' '+(sc.b||'—')+(st==='live'?'  • LIVE':''))
         ),
         h('span',{className:'cp-room-tag'},'LIVE ROOM'),
+        h('div',{className:'mcs-chat-skins','aria-label':'Chat appearance'},
+          h('button',{type:'button',className:chatSkin==='WA'?'selected':'',title:'WhatsApp skin',onClick:function(){chooseChatSkin('WA');}},'WA'),
+          h('button',{type:'button',className:chatSkin==='MT'?'selected':'',title:'Microsoft Teams skin',onClick:function(){chooseChatSkin('MT');}},'MT')
+        ),
         h('div',{className:'cp-head-actions'},
           h('button',{className:'btn cp-head-btn',type:'button',title:chatEditMode?'Hide message actions':'Edit / delete messages','aria-label':chatEditMode?'Hide message actions':'Edit / delete messages',onClick:function(){setChatEditMode(!chatEditMode);}},chatEditMode?'✓':'✎'),
           h('button',{className:'btn cp-head-btn',title:'Invite to this match','aria-label':'Invite',onClick:inviteChat},'↗'),
@@ -4422,4 +4428,24 @@ body.theme-india .mcs-same-day-chip{background:#082f6b;border-color:rgba(255,255
 .mcs-scorecard-table{table-layout:auto}
 .mcs-scorecard-table th:last-child,.mcs-scorecard-table td.mcs-how-out{min-width:155px;max-width:230px;white-space:normal!important;overflow-wrap:anywhere;word-break:normal;line-height:1.35}
 .mcs-scorecard-table td.mcs-how-out{font-size:11px!important;padding:8px 7px}
+</style>
+
+<style id="mcs-chat-wa-mt-skins">
+.mcs-chat-skins{display:flex;align-items:center;gap:3px;flex:0 0 auto;padding:3px;border-radius:9px;background:rgba(0,0,0,.2)}
+.mcs-chat-skins button{min-width:29px;height:25px;padding:0 5px;border:1px solid transparent;border-radius:6px;background:transparent;color:#dbeafe;font:900 9px/1 Montserrat,system-ui;cursor:pointer}
+.mcs-chat-skins button.selected{background:#fff;color:#123b70;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.chat-pop.skin-MT{background:#f5f5fb!important;color:#242424!important;border:1px solid #d8d8e5!important;box-shadow:0 14px 42px rgba(22,25,65,.32)!important}
+.chat-pop.skin-MT .cp-head{background:#464775!important;color:#fff!important;border-bottom:1px solid #393a65!important}
+.chat-pop.skin-MT .cp-head .t,.chat-pop.skin-MT .cp-head .cp-title-main,.chat-pop.skin-MT .cp-head .cp-live-score{color:#fff!important}
+.chat-pop.skin-MT .cp-room-tag{color:#e4e4ff!important}
+.chat-pop.skin-MT .cp-head .btn{color:#fff!important;border-color:rgba(255,255,255,.24)!important;background:rgba(255,255,255,.12)!important}
+.chat-pop.skin-MT .cp-body{background:#f5f5fb!important;color:#242424!important}
+.chat-pop.skin-MT .cp-msg{max-width:88%;margin:7px 9px;padding:9px 12px!important;border-radius:12px!important;background:#fff!important;color:#242424!important;border:1px solid #e3e3ed!important;box-shadow:0 1px 2px rgba(30,30,60,.06)}
+.chat-pop.skin-MT .cp-msg.me{margin-left:auto!important;background:#e8e8fa!important;border-color:#d8d8f0!important}
+.chat-pop.skin-MT .cp-msg b{color:#464775!important}
+.chat-pop.skin-MT .cp-foot{background:#fff!important;border-top:1px solid #e1e1eb!important}
+.chat-pop.skin-MT .cp-foot input{background:#f5f5fb!important;color:#242424!important;border:1px solid #d8d8e5!important;border-radius:9px!important}
+.chat-pop.skin-MT .cp-foot .btn.primary{background:#6264a7!important;border-color:#6264a7!important;color:#fff!important}
+.chat-pop.skin-MT .mcs-emoji-picker{background:#fff!important;color:#242424!important;border:1px solid #ddd!important}
+@media(max-width:430px){.chat-pop .mcs-chat-skins{gap:1px;padding:2px}.chat-pop .mcs-chat-skins button{min-width:25px;height:23px}}
 </style>
