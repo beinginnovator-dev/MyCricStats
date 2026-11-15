@@ -836,9 +836,8 @@ if(!window.ReactDOM){
 <script>
 (function(){
 'use strict';
-['pointerdown','touchstart','click'].forEach(function(ev){
-  document.addEventListener(ev,function once(){try{unlockAudio();}catch(e){};},{once:false,passive:true});
-});
+// Audio is unlocked once by the app's gesture handler below.
+
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
     navigator.serviceWorker.register('/sw.js').then(function(reg){
@@ -1689,61 +1688,83 @@ function playSyntheticStadiumClip(key){
 }
 var stadiumAudioUnlocked=false;
 var stadiumAudioPlayers={};
+var stadiumAudioReady={};
+var stadiumUnlockPromise=null;
 var stadiumAudioSources={chant:'/audio/crowd_chant.mp3',cheer:'/audio/crowd_cheer.mp3',whistle:'/audio/crowd_whistle.mp3'};
+function stadiumKeyForKind(kind){
+  return kind==='wicket'?'whistle':(kind==='four'||kind==='six'||kind==='boundary'?'cheer':'chant');
+}
 function unlockStadiumAudio(){
+  // Avoid overlapping play()/pause() races when pointer, touch and click
+  // events are generated for the same physical tap.
+  if(stadiumUnlockPromise)return stadiumUnlockPromise;
   try{
-    var keys=Object.keys(stadiumAudioSources),ready=0,failed=0;
-    if(!keys.length){stadiumAudioUnlocked=false;console.warn('No stadium audio files configured');return;}
-    keys.forEach(function(key){
+    var keys=Object.keys(stadiumAudioSources);
+    if(!keys.length){stadiumAudioUnlocked=false;return Promise.resolve(false);}
+    var attempts=keys.map(function(key){
       if(!stadiumAudioPlayers[key]){
-        var a=new Audio();
-        a.preload='auto';a.playsInline=true;a.src=stadiumAudioSources[key];
-        a.addEventListener('error',function(){console.warn('Stadium audio file failed to load',key,a.currentSrc,a.error);});
-        stadiumAudioPlayers[key]=a;
+        var audio=new Audio();
+        audio.preload='auto';audio.playsInline=true;audio.src=stadiumAudioSources[key];
+        audio.addEventListener('error',function(){stadiumAudioReady[key]=false;console.warn('Stadium audio file failed to load',key,audio.currentSrc,audio.error);});
+        stadiumAudioPlayers[key]=audio;
       }
       var a=stadiumAudioPlayers[key];
-      a.load();
-      // Start each media element UNMUTED at near-silent volume inside the
-      // user's actual tap. Muted autoplay does not reliably unlock later
-      // unmuted playback on Android Chrome/WebView.
-      a.pause();a.currentTime=0;a.muted=false;a.volume=0.01;
-      var p=a.play();
-      if(p&&p.then){
-        p.then(function(){
-          ready++;a.pause();a.currentTime=0;a.volume=0.82;
-          if(ready+failed===keys.length){
-            stadiumAudioUnlocked=ready>0;
-            if(pendingStadiumKind&&stadOn){
-              var pending=pendingStadiumKind;pendingStadiumKind=null;
-              setTimeout(function(){playStadiumClip(pending);},120);
-            }
-          }
-        }).catch(function(err){
-          failed++;a.pause();a.volume=0.82;
-          console.warn('Stadium audio unlock failed',key,err);
-          if(ready+failed===keys.length)stadiumAudioUnlocked=ready>0;
-        });
-      }else{
-        ready++;a.pause();a.currentTime=0;a.volume=0.82;
-        if(ready+failed===keys.length)stadiumAudioUnlocked=ready>0;
-      }
+      // Do not call load() repeatedly; it can interrupt an in-progress fetch.
+      a.pause();a.muted=false;a.volume=0.01;
+      try{a.currentTime=0;}catch(e){}
+      var p;
+      try{p=a.play();}catch(e){p=Promise.reject(e);}
+      return Promise.resolve(p).then(function(){
+        stadiumAudioReady[key]=true;
+        a.pause();try{a.currentTime=0;}catch(e){}
+        a.volume=0.82;
+        return true;
+      }).catch(function(err){
+        stadiumAudioReady[key]=false;
+        a.pause();a.volume=0.82;
+        console.warn('Stadium audio unlock failed',key,err);
+        return false;
+      });
     });
-    if(stadCtx&&stadCtx.state==='suspended')stadCtx.resume();
-  }catch(e){stadiumAudioUnlocked=false;console.warn('Stadium audio unlock failed',e);}
+    stadiumUnlockPromise=Promise.all(attempts).then(function(results){
+      stadiumAudioUnlocked=keys.some(function(key){return stadiumAudioReady[key]===true;});
+      if(stadCtx&&stadCtx.state==='suspended')return stadCtx.resume().catch(function(){});
+    }).then(function(){
+      var pending=pendingStadiumKind;
+      if(pending&&stadOn&&stadiumAudioReady[stadiumKeyForKind(pending)]){
+        pendingStadiumKind=null;
+        playStadiumClip(pending);
+      }
+      return stadiumAudioUnlocked;
+    }).finally(function(){stadiumUnlockPromise=null;});
+    return stadiumUnlockPromise;
+  }catch(e){
+    stadiumUnlockPromise=null;stadiumAudioUnlocked=false;
+    console.warn('Stadium audio unlock failed',e);
+    return Promise.resolve(false);
+  }
 }
 function playStadiumClip(kind){
   try{
-    var key=kind==='wicket'?'whistle':(kind==='four'||kind==='six'||kind==='boundary'?'cheer':'chant');
-    if(!stadiumAudioUnlocked){pendingStadiumKind=kind;return;}
-    var a=stadiumAudioPlayers[key];if(!a){pendingStadiumKind=kind;return;}
-    a.pause();a.currentTime=0;a.muted=false;a.volume=kind==='overStart'?.22:(key==='whistle'?.88:.82);
+    var key=stadiumKeyForKind(kind),a=stadiumAudioPlayers[key];
+    if(!a||!stadiumAudioReady[key]){
+      pendingStadiumKind=kind;
+      return;
+    }
+    a.pause();try{a.currentTime=0;}catch(e){}
+    a.muted=false;a.volume=kind==='overStart'?.22:(key==='whistle'?.88:.82);
     a.playbackRate=kind==='overStart'?.78:1;
     var p=a.play();
     if(p&&p.catch)p.catch(function(err){
-      stadiumAudioUnlocked=false;pendingStadiumKind=kind;
-      console.warn('Stadium playback blocked',key,'URL:',a.currentSrc,'error:',err);
+      stadiumAudioReady[key]=false;
+      stadiumAudioUnlocked=Object.keys(stadiumAudioReady).some(function(k){return stadiumAudioReady[k]===true;});
+      pendingStadiumKind=kind;
+      console.warn('Stadium playback blocked; retry on next user gesture',key,'URL:',a.currentSrc,'error:',err);
     });
-  }catch(e){console.warn('Stadium sound playback failed',e);}
+  }catch(e){
+    pendingStadiumKind=kind;
+    console.warn('Stadium sound playback failed',e);
+  }
 }
 function stadBeep(kind){playStadiumClip(kind);}
 
@@ -2231,13 +2252,27 @@ function App(){
         window.setTimeout(function(){speakText(pending.text,pending.lang);},450);
       }
     }
-    document.addEventListener('pointerdown',onFirstGesture,{passive:true});
-    document.addEventListener('touchstart',onFirstGesture,{passive:true});
-    document.addEventListener('keydown',onFirstGesture);
+    var lastGestureAt=0;
+    function dedupedGesture(){
+      var now=Date.now();if(now-lastGestureAt<450)return;lastGestureAt=now;
+      onFirstGesture();
+    }
+    document.addEventListener('pointerdown',dedupedGesture,{passive:true});
+    // Older browsers without Pointer Events need the touch fallback.
+    if(!window.PointerEvent)document.addEventListener('touchstart',dedupedGesture,{passive:true});
+    document.addEventListener('keydown',dedupedGesture);
+    document.addEventListener('visibilitychange',function(){
+      if(document.visibilityState==='visible'){
+        // Android may suspend the media pipeline in the background.
+        if(stadCtx&&stadCtx.state==='suspended')stadUnlocked=false;
+        Object.keys(stadiumAudioReady).forEach(function(k){stadiumAudioReady[k]=false;});
+        stadiumAudioUnlocked=false;
+      }
+    });
     return function(){
-      document.removeEventListener('pointerdown',onFirstGesture);
-      document.removeEventListener('touchstart',onFirstGesture);
-      document.removeEventListener('keydown',onFirstGesture);
+      document.removeEventListener('pointerdown',dedupedGesture);
+      if(!window.PointerEvent)document.removeEventListener('touchstart',dedupedGesture);
+      document.removeEventListener('keydown',dedupedGesture);
     };
   },[]);
   var _evBanner=useState(null);var evBanner=_evBanner[0],setEvBanner=_evBanner[1];
