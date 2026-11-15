@@ -2387,8 +2387,8 @@ function App(){
         if(rank[sa]!==rank[sb])return rank[sa]-rank[sb];
         return sa==='upcoming'?String(a.starting_at||'').localeCompare(String(b.starting_at||'')):String(b.starting_at||'').localeCompare(String(a.starting_at||''));
       });
-      var inviteId=qs().get('match');
-      if(viewOnly&&inviteId){list=list.filter(function(x){return String(x.id)===String(inviteId);});}
+      // Shared viewers still need the full fixture list for the live/upcoming match switcher.
+      // Keep the invited fixture selected, but never filter other fixtures out of the feed.
       setMatches(list);
       var restoreId=shareId||(viewOnly?'':lsGet('last_match',''));
       // Restore once only; a periodic list refresh must not steal user selection.
@@ -2441,8 +2441,7 @@ function App(){
   function loadDomestic(){
     fetch('/api/domestic?ts='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('Domestic feed HTTP '+r.status);return r.json();}).then(function(j){
       var rows=Array.isArray(j.matches)?j.matches:[];
-      var inviteId=qs().get('match');
-      if(viewOnly&&inviteId)rows=rows.filter(function(x){return String(x.id)===String(inviteId);});
+      // Do not hide other domestic fixtures from an invited viewer.
       var mapped=rows.map(function(x){
         var a=x.teamA||x.localteam&&x.localteam.name||'Team A',b=x.teamB||x.visitorteam&&x.visitorteam.name||'Team B';
         var aid=x.teamAId||x.localteam_id||('domA-'+x.id),bid=x.teamBId||x.visitorteam_id||('domB-'+x.id);
@@ -2478,6 +2477,9 @@ function App(){
       setSelected(inviteMatch);setDetail(inviteMatch);setTab(qs().get('tab')||'scorecard');
       activateMatchRoom(inviteMatch);
       loadDetail(inviteMatch,token,false);
+      // Load the rest of today's live and upcoming fixtures in parallel with the
+      // directly shared match, without changing the invite's selected match.
+      loadList(false);
       return;
     }
     if(token||isGuest)loadList(false);
@@ -3049,15 +3051,28 @@ function App(){
           })())
         ),
         selected&&selected.starting_at?(function(){
-          // Show every live fixture returned by the feed, regardless of date,
-          // plus the selected match so the active scoreboard always has context.
-          var liveMatches=matches.filter(function(m){return m&&m.id&&statusOf(m)==='live';});
-          var switchMatches=liveMatches.slice();
+          // Shared viewers receive the same match discovery as the main app:
+          // all live fixtures plus the nearest five upcoming fixtures.
+          var todayKey=ymd(new Date());
+          var switchPool=matches.concat(domestic||[]).filter(function(m){
+            if(!m||!m.id)return false;
+            var st=statusOf(m);
+            return st==='live'||st==='upcoming';
+          });
+          var liveMatches=switchPool.filter(function(m){return statusOf(m)==='live';});
+          var upcomingMatches=switchPool.filter(function(m){return statusOf(m)==='upcoming';}).sort(function(a,b){
+            var ad=String(a.starting_at||'').slice(0,10),bd=String(b.starting_at||'').slice(0,10);
+            if((ad===todayKey)!==(bd===todayKey))return ad===todayKey?-1:1;
+            return (Date.parse(a.starting_at||'')||0)-(Date.parse(b.starting_at||'')||0);
+          }).slice(0,5);
+          var switchMatches=liveMatches.concat(upcomingMatches);
           if(selected&&selected.id&&!switchMatches.some(function(m){return String(m.id)===String(selected.id);}))switchMatches.unshift(selected);
           if(switchMatches.length<2)return null;
           switchMatches.sort(function(a,b){
             if(String(a.id)===String(selected.id))return -1;
             if(String(b.id)===String(selected.id))return 1;
+            var ar=statusOf(a)==='live'?0:1,br=statusOf(b)==='live'?0:1;
+            if(ar!==br)return ar-br;
             return (Date.parse(a.starting_at||'')||0)-(Date.parse(b.starting_at||'')||0);
           });
           return h('div',{className:'mcs-same-day-matches'},
@@ -3067,7 +3082,7 @@ function App(){
                 var matchDate=new Date(m.starting_at);
                 var dateTime=isFinite(matchDate.getTime())?matchDate.toLocaleDateString(undefined,{day:'numeric',month:'short'})+' · '+matchDate.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}):'Time TBA';
                 return h('button',{type:'button',key:'live-switch-'+m.id,className:'mcs-same-day-chip'+(active?' active':'')+(state==='live'?' live':''),onClick:function(){if(!active)selectMatch(m);}},
-                  h('span',{className:'mcs-same-day-chip-title'},(state==='live'?'● LIVE · ':state==='finished'?'FULL TIME · ':'')+shortName(teamName(m,'local'))+' vs '+shortName(teamName(m,'visitor'))),
+                  h('span',{className:'mcs-same-day-chip-title'},(state==='live'?'● LIVE · ':'UPCOMING · ')+shortName(teamName(m,'local'))+' vs '+shortName(teamName(m,'visitor'))),
                   h('span',{className:'mcs-same-day-chip-time'},dateTime)
                 );
               })
