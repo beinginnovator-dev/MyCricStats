@@ -1506,6 +1506,50 @@ function colorEvents(text){
   out=out.replace(/\b(\d+)\s*run[s]?\b/gi,'<b style="font-weight:800">$&</b>');
   return out;
 }
+// Live React-style spoken commentary: one energetic broadcast sentence per delivery.
+ // Uses only facts present in the SportMonks ball record; never invents shot direction,
+ // field placement, or running detail that the feed does not provide.
+function liveReactTtsLine(b, lang){
+  var p=ballParticipants(b),runs=ballRuns(b),wicket=ballIsWicket(b),score=b&&b.score||{};
+  var batter=p.batter||'',bowler=p.bowler||'',dismissed=p.dismissed||batter,fielder=p.fielder||'';
+  var raw=[score.name,score.out,score.dismissal,b.dismissal,b.wicket_type,b.dismissal_type].filter(Boolean).join(' ').toLowerCase();
+  var kind=/caught|catch/.test(raw)||p.isCatch?'caught':/bowled/.test(raw)?'bowled':/lbw/.test(raw)?'lbw':/run.?out/.test(raw)||p.isRunOut?'runout':/stump/.test(raw)?'stumped':/hit.?wicket/.test(raw)?'hitwicket':'';
+  var name=(lang==='hi');
+  if(name){
+    var lead=(bowler&&batter)?(bowler+' की गेंद पर '+batter+' — '):(bowler?bowler+' की गेंद — ':'');
+    if(wicket){
+      var how=kind==='caught'?('कैच आउट'+(fielder?'! '+fielder+' ने कैच पकड़ा':'!')):kind==='bowled'?'बोल्ड! गिल्लियां बिखर गईं।':kind==='lbw'?'एलबीडब्ल्यू! अंपायर की उंगली ऊपर।':kind==='runout'?('रन आउट'+(fielder?'! '+fielder+' की शानदार फील्डिंग':'!')):kind==='stumped'?'स्टंप आउट!':kind==='hitwicket'?'हिट विकेट!':'विकेट! बल्लेबाज़ पवेलियन लौटे।';
+      return lead+'विकेट! '+(dismissed?dismissed+' आउट — ':'')+how;
+    }
+    if(runs===6)return lead+'छक्का! शानदार प्रहार, गेंद सीधे सीमा रेखा के पार!';
+    if(runs===4)return lead+'चौका! बेहतरीन शॉट, गेंद तेजी से बाउंड्री तक!';
+    if(/wide/.test(raw))return lead+'वाइड गेंद, बल्लेबाज़ी टीम को अतिरिक्त रन मिले।';
+    if(/no.?ball/.test(raw))return lead+'नो-बॉल! गेंदबाज़ से गलती, बल्लेबाज़ी टीम को अतिरिक्त मौका।';
+    if(/leg.?bye/.test(raw))return lead+'लेग बाय के रन, गेंद शरीर से लगकर निकल गई।';
+    if(/\bbye\b/.test(raw))return lead+'बाय के रन, बल्लेबाज़ों ने मौका भुनाया।';
+    if(runs===0)return lead+'कोई रन नहीं। गेंदबाज़ ने दबाव बनाए रखा।';
+    if(runs===1)return lead+'एक रन लिया, स्ट्राइक बदल गई।';
+    if(runs===2)return lead+'दो रन पूरे, बल्लेबाज़ों ने अच्छी दौड़ लगाई।';
+    if(runs===3)return lead+'तीन रन पूरे, शानदार रनिंग!';
+    return lead+runs+' रन मिले।';
+  }
+  var lead=bowler&&batter?bowler+' to '+batter+' — ':bowler?bowler+' — ':'';
+  if(wicket){
+    var howEn=kind==='caught'?('caught'+(fielder?' by '+fielder:'')+'!'):kind==='bowled'?'bowled! The stumps are disturbed.':kind==='lbw'?'LBW! The umpire raises the finger.':kind==='runout'?('run out'+(fielder?' by '+fielder:'')+'!'):kind==='stumped'?'stumped!':kind==='hitwicket'?'hit wicket!':'is out!';
+    return lead+'WICKET! '+(dismissed?dismissed+' is ':'')+howEn+(bowler?' A breakthrough for '+bowler+'.':'');
+  }
+  if(runs===6)return lead+'SIX! A towering hit, sailing clean over the boundary!';
+  if(runs===4)return lead+'FOUR! Beautifully struck, racing away to the boundary rope!';
+  if(/wide/.test(raw))return lead+'Wide ball! Extra runs conceded and the delivery does not count.';
+  if(/no.?ball/.test(raw))return lead+'No-ball! An extra run and a free hit opportunity may follow.';
+  if(/leg.?bye/.test(raw))return lead+'Leg byes taken, the ball has deflected away for extra runs.';
+  if(/\bbye\b/.test(raw))return lead+'Byes taken, the batters collect extra runs.';
+  if(runs===0)return lead+'No run off the delivery. The bowler keeps the pressure on.';
+  if(runs===1)return lead+'They take a single and rotate the strike.';
+  if(runs===2)return lead+'They come back for two, good running between the wickets.';
+  if(runs===3)return lead+'Three runs taken, excellent running between the wickets.';
+  return lead+runs+' runs added to the total.';
+}
 function descriptiveLine(b, lang, forceOver){
   var s=b.score||{};
   var runs=ballRuns(b);
@@ -2162,7 +2206,7 @@ function App(){
         lastCommentaryBallKey.current=key;
         var settings=commentarySettingsRef.current;
         if(settings.on){
-          var line=descriptiveLine(ball,settings.lang);
+          var line=liveReactTtsLine(ball,settings.lang);
           if(mcsSpeechPrimed)speakText(line,settings.lang);
           else pendingAutoCommentary={text:line,lang:settings.lang};
         }
@@ -2238,7 +2282,7 @@ function App(){
     if(key===lastCommentaryBallKey.current)return;
     lastCommentaryBallKey.current=key;
     lastCommentaryOrder.current=Math.max(lastCommentaryOrder.current,order);
-    var line=descriptiveLine(ball,ttsLang);
+    var line=liveReactTtsLine(ball,ttsLang);
     if(ttsOn){if(mcsSpeechPrimed)speakText(line,ttsLang);else pendingAutoCommentary={text:line,lang:ttsLang};}
     var runs=ballRuns(ball),isW=ballIsWicket(ball);
     if(isW){
@@ -3713,7 +3757,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
               ov.balls.map(function(b,bi){
                 var line=descriptiveLine(b,ttsLang,ov.displayOver!=null?ov.displayOver:ov.overNo);
                 var cls=ballIsWicket(b)?'hi-w':(ballRuns(b)===4?'hi-4':(ballRuns(b)===6?'hi-6':(ballRuns(b)>0?'hi-run':'')));
-                return h('div',{key:'d'+bi,className:'ball-detail',ref:oi===0&&bi===0?commentaryLatestRef:null,style:{cursor:'pointer',display:'flex',alignItems:'flex-start',gap:8},onClick:function(){if(ttsOn)speakText(line,ttsLang);}},
+                return h('div',{key:'d'+bi,className:'ball-detail',ref:oi===0&&bi===0?commentaryLatestRef:null,style:{cursor:'pointer',display:'flex',alignItems:'flex-start',gap:8},onClick:function(){if(ttsOn)speakText(liveReactTtsLine(b,ttsLang),ttsLang);}},
                   h('span',{className:'ball-chip '+chipClass(b),style:{flexShrink:0,marginTop:2}},chipLabel(b)),
                   h('span',{dangerouslySetInnerHTML:{__html:colorEvents(line)}})
                 );
