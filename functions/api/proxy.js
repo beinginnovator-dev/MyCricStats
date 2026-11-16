@@ -16,7 +16,8 @@ export async function onRequest(context) {
 
   try {
     const url = new URL(request.url);
-    const sport = (url.searchParams.get('sport') || 'cricket').toLowerCase();
+    // MyCricStats is Cricket-only. Ignore legacy sport selectors and never route
+    // requests to the Football API from this proxy.
     const path = (url.searchParams.get('path') || '').replace(/^\/+/, '');
     let token = url.searchParams.get('api_token') || url.searchParams.get('token') || '';
     const guest = url.searchParams.get('guest') === '1' || url.searchParams.get('view') === '1';
@@ -41,11 +42,13 @@ export async function onRequest(context) {
       }), { status: 401, headers });
     }
 
-    const base = sport === 'football'
-      ? 'https://soccer.sportmonks.com/api/v2.0/'
-      : 'https://cricket.sportmonks.com/api/v2.0/';
+    // Restrict the proxy to the Cricket API v2 resources currently used by MCS.
+    // This prevents accidental Football API calls and unexpected upstream paths.
+    if (!/^(livescores|fixtures(?:\/\d+)?|leagues|teams|players)$/.test(path)) {
+      return new Response(JSON.stringify({ message: 'Unsupported Cricket API path: ' + path }), { status: 400, headers });
+    }
 
-    const dest = new URL(base + path);
+    const dest = new URL('https://cricket.sportmonks.com/api/v2.0/' + path);
     dest.searchParams.set('api_token', token);
     url.searchParams.forEach((v, k) => {
       if (['sport', 'path', 'api_token', 'token', 'guest', 'view'].includes(k)) return;
