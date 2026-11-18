@@ -50,7 +50,7 @@ class _MCSHomeState extends State<MCSHome> {
   try{final rows=await MCSApi.domestic();if(!mounted)return;setState((){
    matches=rows;if(selected==null&&rows.isNotEmpty)selected=rows.firstWhere((m)=>m.isLive,orElse:()=>rows.first);
    loading=false;error=null;});}
-  catch(e){if(!mounted)return;setState(()=>{loading=false,error=e.toString().replaceFirst('Exception: ','')});}
+  catch(e){if(!mounted)return;setState(() { loading=false; error=e.toString().replaceFirst('Exception: ',''); });}
  }
  @override Widget build(BuildContext context){
   final pages=[_home(),_matches(),_scorecard(),_commentary(),_more()];
@@ -118,7 +118,7 @@ class _MCSHomeState extends State<MCSHome> {
   Text(name.toUpperCase(),textAlign:TextAlign.center,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:10,fontWeight:FontWeight.w900)),
   const SizedBox(height:4),Text(score,style:const TextStyle(fontSize:25,fontWeight:FontWeight.w900)),
   if(overs.isNotEmpty)Text('OV '+overs,style:const TextStyle(color:gold,fontSize:10,fontWeight:FontWeight.w800))]);
- Widget _matchTile(MCSMatch m)=>InkWell(onTap:()=>setState(()=>{selected=m,tab=0}),borderRadius:BorderRadius.circular(14),
+ Widget _matchTile(MCSMatch m)=>InkWell(onTap:()=>setState(() { selected=m; tab=0; }),borderRadius:BorderRadius.circular(14),
   child:Container(margin:const EdgeInsets.only(top:8),padding:const EdgeInsets.all(13),
    decoration:BoxDecoration(color:panel,borderRadius:BorderRadius.circular(14),border:Border.all(color:Colors.white.withOpacity(.09))),
    child:Column(children:[Row(children:[_pill(m.isLive?'LIVE':m.status.toUpperCase(),m.isLive?red:gold),const Spacer(),Text(m.type,style:const TextStyle(color:muted,fontSize:9))]),
