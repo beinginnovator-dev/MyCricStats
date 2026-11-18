@@ -4,21 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 void main() => runApp(const MyCricStatsApp());
-const navy = Color(0xFFF4F6FA), panel = Color(0xFFFFFFFF), red = Color(0xFFE11D48), gold = Color(0xFFB7791F), muted = Color(0xFF667085), blue = Color(0xFF2563EB);
+const navy = Color(0xFF08090D), panel = Color(0xFF15171E), red = Color(0xFFFF304F), gold = Color(0xFFFFC857), muted = Color(0xFFB5BAC6), blue = Color(0xFF4B8DFF);
 final ValueNotifier<int> mcsTheme = ValueNotifier<int>(0);
-const List<Color> mcsThemeSeeds = [Color(0xFFE11D48), Color(0xFF2563EB), Color(0xFF0F9D78), Color(0xFF334155)];
-const List<String> mcsThemeNames = ['Crimson','Blue','Emerald','Night'];
-const List<List<double>> mcsThemeFilters = [
- [1,0,0,0,0, 0,1,0,0,0, 0,0,1,0,0, 0,0,0,1,0],
- [0.82,0,0.08,0,0, 0,0.9,0.08,0,0, 0.08,0.12,1,0,0, 0,0,0,1,0],
- [0.78,0.12,0,0,0, 0.08,0.95,0.05,0,0, 0.02,0.18,0.82,0,0, 0,0,0,1,0],
- [0.42,0,0,0,12, 0,0.48,0,0,12, 0,0,0.62,0,18, 0,0,0,1,0],
-];
+const List<String> mcsThemeNames = ['Pro Black / Red','Midnight Red','Graphite Red'];
+const List<Color> mcsThemeAccents = [Color(0xFFFF304F),Color(0xFFE11D48),Color(0xFFFF5A36)];
 const apiBase = String.fromEnvironment('MCS_API_BASE', defaultValue: 'https://mycricstats.pages.dev');
 class MyCricStatsApp extends StatelessWidget {
  const MyCricStatsApp({super.key});
- @override Widget build(BuildContext context) => ValueListenableBuilder<int>(valueListenable:mcsTheme,builder:(context,index,_) { final seed=mcsThemeSeeds[index.clamp(0,3).toInt()]; return MaterialApp(title:'MyCricStats',debugShowCheckedModeBanner:false,
-  theme:ThemeData(useMaterial3:true,brightness:Brightness.light,scaffoldBackgroundColor:navy,colorScheme:ColorScheme.fromSeed(seedColor:seed,brightness:Brightness.light,surface:panel),appBarTheme:const AppBarTheme(backgroundColor:Colors.white,foregroundColor:Color(0xFF101828),elevation:0)),home:const MCSHome()); });
+ @override Widget build(BuildContext context) => ValueListenableBuilder<int>(valueListenable:mcsTheme,builder:(context,index,_) { final accent=mcsThemeAccents[index.clamp(0,2).toInt()]; return MaterialApp(title:'MyCricStats',debugShowCheckedModeBanner:false,
+  theme:ThemeData(useMaterial3:true,brightness:Brightness.dark,scaffoldBackgroundColor:navy,cardColor:panel,canvasColor:navy,colorScheme:ColorScheme.dark(primary:accent,secondary:gold,surface:panel,onSurface:Colors.white),appBarTheme:const AppBarTheme(backgroundColor:navy,foregroundColor:Colors.white,elevation:0),navigationBarTheme:NavigationBarThemeData(backgroundColor:panel,indicatorColor:accent.withOpacity(.22),labelTextStyle:WidgetStateProperty.all(const TextStyle(color:Colors.white))),inputDecorationTheme:InputDecorationTheme(filled:true,fillColor:panel,labelStyle:const TextStyle(color:muted),border:OutlineInputBorder(borderRadius:BorderRadius.all(Radius.circular(10)),borderSide:BorderSide(color:muted)))),home:const MCSHome()); });
 }
 class MCSMatch {
  final String id,name,teamA,teamB,status,venue,type;
@@ -84,7 +78,7 @@ class _MCSHomeState extends State<MCSHome> {
  ];
 
  @override void initState(){super.initState();_loadTheme();refresh();timer=Timer.periodic(const Duration(seconds:12),(_)=>refresh(silent:true));}
- Future<void> _loadTheme() async { final p=await SharedPreferences.getInstance(); mcsTheme.value=(p.getInt('mcs_theme')??0).clamp(0,3).toInt(); }
+ Future<void> _loadTheme() async { final p=await SharedPreferences.getInstance(); mcsTheme.value=(p.getInt('mcs_theme')??0).clamp(0,2).toInt(); }
  Future<void> _saveTheme(int v) async { mcsTheme.value=v; final p=await SharedPreferences.getInstance(); await p.setInt('mcs_theme',v); }
  @override void dispose(){timer?.cancel();playbackTimer?.cancel();super.dispose();}
  static List<Map<String,dynamic>> _records(dynamic value){if(value is Map&&value['data'] is List)value=value['data'];if(value is! List)return <Map<String,dynamic>>[];return value.whereType<Map>().map((e)=>Map<String,dynamic>.from(e)).toList();}
@@ -114,18 +108,19 @@ class _MCSHomeState extends State<MCSHome> {
  }
  @override Widget build(BuildContext context){
   final pages=[_home(),_matches(),_scorecard(),_commentary(),_more()];
-  return ValueListenableBuilder<int>(valueListenable:mcsTheme,builder:(context,themeIndex,_)=>ColorFiltered(colorFilter:ColorFilter.matrix(mcsThemeFilters[themeIndex.clamp(0,3).toInt()]),child:Scaffold(appBar:AppBar(toolbarHeight:64,titleSpacing:14,title:Row(children:[
+  return ValueListenableBuilder<int>(valueListenable:mcsTheme,builder:(context,themeIndex,_)=>Scaffold(appBar:AppBar(toolbarHeight:64,titleSpacing:14,title:Row(children:[
    Container(width:38,height:38,decoration:BoxDecoration(color:red,borderRadius:BorderRadius.circular(12)),child:const Icon(Icons.sports_cricket,color:Colors.white)),
    const SizedBox(width:10),const Column(crossAxisAlignment:CrossAxisAlignment.start,mainAxisAlignment:MainAxisAlignment.center,children:[
     Text('MYCRICSTATS',style:TextStyle(fontSize:15,fontWeight:FontWeight.w900,letterSpacing:1)),
     Text('CRICKET MATCH CENTRE',style:TextStyle(fontSize:9,color:muted,letterSpacing:1.2,fontWeight:FontWeight.w700))])]),
    actions:[IconButton(onPressed:refresh,icon:const Icon(Icons.refresh)),const SizedBox(width:5)]),
    body:SafeArea(top:false,child:IndexedStack(index:tab,children:pages)),
-   bottomNavigationBar:NavigationBar(backgroundColor:Colors.white,indicatorColor:red.withOpacity(.18),selectedIndex:tab,onDestinationSelected:(v)=>setState(()=>tab=v),
+   bottomNavigationBar:NavigationBar(backgroundColor:panel,indicatorColor:red.withOpacity(.18),selectedIndex:tab,onDestinationSelected:(v)=>setState(()=>tab=v),
     destinations:const [NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'Home'),
      NavigationDestination(icon:Icon(Icons.sports_cricket_outlined),label:'Matches'),NavigationDestination(icon:Icon(Icons.scoreboard_outlined),label:'Scorecard'),
      NavigationDestination(icon:Icon(Icons.mic_none),label:'Commentary'),NavigationDestination(icon:Icon(Icons.grid_view_rounded),label:'More')]))));
  }
+ String _flagFor(String team){final t=team.toLowerCase();if(t.contains('india'))return '🇮🇳';if(t.contains('new zealand')||t=='nz')return '🇳🇿';if(t.contains('australia'))return '🇦🇺';if(t.contains('england'))return '🏴';if(t.contains('pakistan'))return '🇵🇰';if(t.contains('south africa'))return '🇿🇦';if(t.contains('sri lanka'))return '🇱🇰';if(t.contains('bangladesh'))return '🇧🇩';if(t.contains('afghanistan'))return '🇦🇫';if(t.contains('west indies'))return '🏝️';if(t.contains('ireland'))return '🇮🇪';if(t.contains('zimbabwe'))return '🇿🇼';if(t.contains('nepal'))return '🇳🇵';return '🏏';}
  Widget _home()=>RefreshIndicator(onRefresh:refresh,child:ListView(padding:const EdgeInsets.all(14),children:[
   _heading('MATCH CENTRE','CRICKET ONLY'),if(selected!=null)_featured(selected!)else _empty(),
   const SizedBox(height:17),_heading('MATCHES',matches.length.toString()+' LISTED'),
@@ -205,7 +200,7 @@ class _MCSHomeState extends State<MCSHome> {
    _demoPlaybackPanel(),_note('Demo scorecard: final totals are shown for visual testing. Playback deliveries are simulated and are not verified historical ball-by-ball records.')
   ]);
  }
- Widget _inningsSummary(String team,int runs,int wickets,String overs)=>Row(children:[Expanded(child:Text(team,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w900))),Text('$runs/$wickets',style:const TextStyle(fontSize:20,fontWeight:FontWeight.w900,color:Color(0xFF101828))),const SizedBox(width:8),Text('$overs overs',style:const TextStyle(color:muted,fontSize:10))]);
+ Widget _inningsSummary(String team,int runs,int wickets,String overs)=>Row(children:[Expanded(child:Text(_flagFor(team)+'  '+team,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w900))),Text('$runs/$wickets',style:const TextStyle(fontSize:20,fontWeight:FontWeight.w900,color:Color(0xFF101828))),const SizedBox(width:8),Text('$overs overs',style:const TextStyle(color:muted,fontSize:10))]);
  Widget _scorecard()=>ListView(padding:const EdgeInsets.all(14),children:[
   _title('SCORECARD',selected?.name??'Select a cricket match'),
   if(selected==null)_empty()else if(selected!.id.startsWith('demo-'))_demoScorecard()else _card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
@@ -218,8 +213,8 @@ class _MCSHomeState extends State<MCSHome> {
   _note(selected?.id.startsWith('demo-')==true?'Historical final scores are demo fixtures for layout testing. Detailed batting, bowling and ball-by-ball data are not included.':'Scorecard figures are shown only when returned by the selected Sportmonks fixture.')]);
  Widget _commentary()=>ListView(padding:const EdgeInsets.all(14),children:[_title('BALL-BY-BALL',selected?.name??'Match commentary'),if(selected!=null)_card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[const Icon(Icons.graphic_eq,color:gold),const SizedBox(width:8),const Text('LATEST CONFIRMED EVENTS',style:TextStyle(fontWeight:FontWeight.w900,letterSpacing:1)),const Spacer(),IconButton(onPressed:()=>loadFixture(),icon:const Icon(Icons.refresh,size:18))]),if(fixtureLoading)const LinearProgressIndicator(minHeight:2),if(fixtureError!=null)Text(fixtureError!,style:const TextStyle(color:red,fontSize:10)),if(_deliveries.isEmpty)const Padding(padding:EdgeInsets.symmetric(vertical:12),child:Text('No ball-by-ball records returned for this fixture yet.',style:TextStyle(color:muted,fontSize:11))),..._deliveries.map((ball){final label=_deliveryText(ball);final special=['FOUR','SIX','WICKET'].contains(label);final over=(ball['ball']??ball['overs']??ball['over']??'').toString();final batter=_player(ball['batsman']);final bowler=_player(ball['bowler']);return Container(margin:const EdgeInsets.only(top:8),padding:const EdgeInsets.all(11),decoration:BoxDecoration(color:const Color(0xFFF8FAFC),borderRadius:BorderRadius.circular(11)),child:Row(children:[Container(width:54,height:38,alignment:Alignment.center,decoration:BoxDecoration(color:special?red.withOpacity(.12):Colors.white,borderRadius:BorderRadius.circular(9)),child:Text(label,style:TextStyle(color:special?red:blue,fontSize:9,fontWeight:FontWeight.w900))),const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(over.isEmpty?'Delivery':'Ball '+over,style:const TextStyle(fontSize:10,fontWeight:FontWeight.w900)),Text(batter+' vs '+bowler,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:9))]))]));})]))else _empty()]);
  Widget _more()=>ListView(padding:const EdgeInsets.all(14),children:[
-  _title('APP THEMES','Choose a theme applied across every screen'),
-  _card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('SELECT A THEME',style:TextStyle(fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1)),const SizedBox(height:10),Wrap(spacing:8,runSpacing:8,children:[for(var i=0;i<4;i++)_themeChoice(i,mcsThemeNames[i],mcsThemeSeeds[i])])])),
+  _title('PRO THEMES','True black backgrounds with red broadcast accents'),
+  _card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('SELECT A THEME',style:TextStyle(fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1)),const SizedBox(height:10),Wrap(spacing:8,runSpacing:8,children:[for(var i=0;i<3;i++)_themeChoice(i,mcsThemeNames[i],mcsThemeAccents[i])])])),
   _title('SCORING','Manual scoring controls'),\n  _manualScorer(),\n  _title('TOURNAMENT & TOOLS','MyCricStats cricket features'),
   _feature(Icons.groups_2_outlined,'Squads','Playing XI and player list'),
   _feature(Icons.casino_outlined,'Toss setup','Toss winner and bat / bowl decision'),
@@ -262,9 +257,9 @@ class _MCSHomeState extends State<MCSHome> {
  Widget _title(String a,String b)=>Padding(padding:const EdgeInsets.only(bottom:13),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
   Text(a,style:const TextStyle(fontSize:20,fontWeight:FontWeight.w900)),const SizedBox(height:4),Text(b,style:const TextStyle(color:muted,fontSize:11))]));
  Widget _heading(String a,String? b)=>Row(children:[Text(a,style:const TextStyle(color:muted,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.2)),const Spacer(),if(b!=null)Text(b,style:const TextStyle(color:gold,fontSize:9,fontWeight:FontWeight.w800))]);
- Widget _card(Widget child)=>Container(margin:const EdgeInsets.only(top:10),padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:panel,borderRadius:BorderRadius.circular(15),border:Border.all(color:Colors.white.withOpacity(.09))),child:child);
+ Widget _card(Widget child)=>Container(margin:const EdgeInsets.only(top:10),padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:Theme.of(context).cardColor,borderRadius:BorderRadius.circular(15),border:Border.all(color:Colors.white.withOpacity(.09))),child:child);
  Widget _pill(String t,Color c)=>Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:5),decoration:BoxDecoration(color:c.withOpacity(.14),borderRadius:BorderRadius.circular(30),border:Border.all(color:c.withOpacity(.45))),child:Text(t.isEmpty?'MATCH':t,style:TextStyle(color:c,fontSize:8,fontWeight:FontWeight.w900,letterSpacing:.7)));
- Widget _quick(IconData i,String s,VoidCallback f)=>InkWell(onTap:f,borderRadius:BorderRadius.circular(12),child:Container(padding:const EdgeInsets.symmetric(vertical:14),decoration:BoxDecoration(color:panel,borderRadius:BorderRadius.circular(12)),child:Column(children:[Icon(i,color:gold),const SizedBox(height:6),Text(s,style:const TextStyle(fontSize:10,fontWeight:FontWeight.w800))])));
+ Widget _quick(IconData i,String s,VoidCallback f)=>InkWell(onTap:f,borderRadius:BorderRadius.circular(12),child:Container(padding:const EdgeInsets.symmetric(vertical:14),decoration:BoxDecoration(color:Theme.of(context).cardColor,borderRadius:BorderRadius.circular(12)),child:Column(children:[Icon(i,color:gold),const SizedBox(height:6),Text(s,style:const TextStyle(fontSize:10,fontWeight:FontWeight.w800))])));
  
  void _addScore(String label,int runs,{bool wicket=false,bool legal=true}) {
   if(scorerClosed)return;
@@ -279,7 +274,7 @@ class _MCSHomeState extends State<MCSHome> {
  Widget _manualScorer()=>_card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
   const Text('MANUAL MATCH SCORER',style:TextStyle(fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1)),
   const SizedBox(height:10),
-  Row(children:[Expanded(child:Text('INDIA  '+scorerRuns.toString()+'/'+scorerWickets.toString(),style:const TextStyle(fontSize:21,fontWeight:FontWeight.w900))),Text((scorerBalls~/6).toString()+'.'+(scorerBalls%6).toString()+' OV',style:const TextStyle(color:gold,fontWeight:FontWeight.w900))]),
+  Row(children:[Expanded(child:Text('🇮🇳 INDIA  '+scorerRuns.toString()+'/'+scorerWickets.toString(),style:const TextStyle(fontSize:21,fontWeight:FontWeight.w900))),Text((scorerBalls~/6).toString()+'.'+(scorerBalls%6).toString()+' OV',style:const TextStyle(color:gold,fontWeight:FontWeight.w900))]),
   Text('Extras '+scorerExtras.toString()+'  •  CRR '+(scorerBalls==0?'0.00':(scorerRuns/(scorerBalls/6)).toStringAsFixed(2)),style:const TextStyle(color:muted,fontSize:10)),
   const SizedBox(height:10),
   Row(children:[Expanded(child:TextFormField(initialValue:striker,onChanged:(v)=>striker=v,decoration:const InputDecoration(labelText:'Striker',isDense:true))),const SizedBox(width:8),Expanded(child:TextFormField(initialValue:nonStriker,onChanged:(v)=>nonStriker=v,decoration:const InputDecoration(labelText:'Non-striker',isDense:true)))]),
@@ -296,7 +291,7 @@ class _MCSHomeState extends State<MCSHome> {
   if(scorerLog.isNotEmpty)Text('Recent: '+scorerLog.reversed.take(8).map((e)=>e['label'].toString()).join('  •  '),style:const TextStyle(color:muted,fontSize:9)),
   const Text('This is a local test scorer. Match saving, innings handover, partnerships and tournament totals are not connected yet.',style:TextStyle(color:muted,fontSize:9,height:1.4))
  ]));
-\n Widget _themeChoice(int value,String label,Color color)=>ChoiceChip(label:Text(label),selected:mcsTheme.value==value,avatar:CircleAvatar(radius:7,backgroundColor:color),onSelected:(_)=>_saveTheme(value));
+\n Widget _themeChoice(int value,String label,Color color)=>ChoiceChip(label:Text(label,style:TextStyle(color:mcsTheme.value==value?Colors.white:muted)),selected:mcsTheme.value==value,selectedColor:Color(0xFF3A111B),avatar:CircleAvatar(radius:7,backgroundColor:color),onSelected:(_)=>_saveTheme(value));
  Widget _feature(IconData i,String a,String b)=>_card(Row(children:[Icon(i,color:gold,size:21),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(a,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w900)),const SizedBox(height:3),Text(b,style:const TextStyle(color:muted,fontSize:10))])),const Icon(Icons.chevron_right,color:muted)]));
  Widget _note(String s)=>Padding(padding:const EdgeInsets.only(top:12),child:Text(s,style:const TextStyle(color:muted,fontSize:10,height:1.5)));
 }
