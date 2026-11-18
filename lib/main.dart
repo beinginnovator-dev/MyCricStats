@@ -144,7 +144,7 @@ class _MCSHomeState extends State<MCSHome> {
   }
   innings(1,m.teamA,m.scoreA??0,m.wicketsA??0,m.oversA);
   innings(2,m.teamB,m.scoreB??0,m.wicketsB??0,m.oversB);
-  if(mounted)setState(()=>{demoEvents=out;playbackIndex=-1;playbackRunning=false;});
+  if(mounted)setState(() { demoEvents=out; playbackIndex=-1; playbackRunning=false; });
  }
  void _startPlayback(){
   if(demoEvents.isEmpty||playbackRunning)return;
