@@ -1,243 +1,56 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'tournament_engine.dart';
 
-void main() => runApp(const SportzFlutterApp());
+void main()=>runApp(const SportzFlutterApp());
 
-const bg = Color(0xFF080B12);
-const surface = Color(0xFF111827);
-const surface2 = Color(0xFF192235);
-const accent = Color(0xFFFF304F);
-const gold = Color(0xFFFFC857);
-const muted = Color(0xFF91A0B7);
-
-class SportzFlutterApp extends StatefulWidget {
-  const SportzFlutterApp({super.key});
-  @override State<SportzFlutterApp> createState() => _SportzFlutterAppState();
-}
-class _SportzFlutterAppState extends State<SportzFlutterApp> {
-  int themeIndex = 0;
-  @override void initState() { super.initState(); _loadTheme(); }
-  Future<void> _loadTheme() async { final p = await SharedPreferences.getInstance(); if (mounted) setState(() => themeIndex = p.getInt('sportz_theme') ?? 0); }
-  Future<void> _setTheme(int value) async { final p = await SharedPreferences.getInstance(); await p.setInt('sportz_theme', value); if (mounted) setState(() => themeIndex = value); }
-  @override Widget build(BuildContext context) {
-    final colors = [accent, const Color(0xFFE11D48), const Color(0xFFFF653D)];
-    final primary = colors[themeIndex.clamp(0, 2)];
-    return MaterialApp(
-      title: 'MySportzStats',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true, brightness: Brightness.dark,
-        scaffoldBackgroundColor: bg, colorScheme: ColorScheme.dark(primary: primary, secondary: gold, surface: surface),
-        appBarTheme: const AppBarTheme(backgroundColor: bg, foregroundColor: Colors.white, elevation: 0),
-        navigationBarTheme: NavigationBarThemeData(backgroundColor: surface, indicatorColor: primary.withOpacity(.18)),
-        cardTheme: CardThemeData(color: surface, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
-        textTheme: ThemeData.dark().textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white),
-      ),
-      home: SportzShell(primary: primary, themeIndex: themeIndex, onThemeChanged: _setTheme),
-    );
-  }
+class SportzFlutterApp extends StatefulWidget { const SportzFlutterApp({super.key}); @override State<SportzFlutterApp> createState()=>_SportzFlutterAppState(); }
+class _SportzFlutterAppState extends State<SportzFlutterApp>{
+  ThemeMode mode=ThemeMode.dark;
+  @override void initState(){super.initState();SharedPreferences.getInstance().then((p){if(mounted)setState(()=>mode=p.getBool('light_theme')??false?ThemeMode.light:ThemeMode.dark);});}
+  void setMode(ThemeMode m)async{final p=await SharedPreferences.getInstance();await p.setBool('light_theme',m==ThemeMode.light);if(mounted)setState(()=>mode=m);}
+  @override Widget build(BuildContext c)=>MaterialApp(debugShowCheckedModeBanner:false,title:'MySportzStats Flutter',themeMode:mode,theme:ThemeData(useMaterial3:true,colorScheme:ColorScheme.fromSeed(seedColor:const Color(0xff087f68),brightness:Brightness.light),scaffoldBackgroundColor:const Color(0xfff3f6fa),cardTheme:CardThemeData(color:Colors.white,elevation:0,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16)))),darkTheme:ThemeData(useMaterial3:true,brightness:Brightness.dark,colorScheme:ColorScheme.fromSeed(seedColor:const Color(0xffff304f),brightness:Brightness.dark),scaffoldBackgroundColor:const Color(0xff080b12),cardTheme:CardThemeData(color:const Color(0xff141b29),elevation:0,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16)))),home:SportzHome(mode:mode,onMode:setMode));
 }
 
-class SportzShell extends StatefulWidget {
-  final Color primary; final int themeIndex; final ValueChanged<int> onThemeChanged;
-  const SportzShell({super.key, required this.primary, required this.themeIndex, required this.onThemeChanged});
-  @override State<SportzShell> createState() => _SportzShellState();
-}
-class _SportzShellState extends State<SportzShell> {
-  int tab = 0;
-  int runs = 0, wickets = 0, legalBalls = 0, extras = 0, innings = 1;
-  int maxOvers = 8;
-  String teamA = 'TEAM RED', teamB = 'TEAM BLUE';
-  String striker = 'Batter 01', nonStriker = 'Batter 02', bowler = 'Bowler 01';
-  final List<String> thisOver = [];
-  final List<Map<String, dynamic>> history = [];
-  bool matchLive = false, matchEnded = false;
-  String matchTitle = 'MATCH DAY 01';
-  double get overs => legalBalls / 6;
-  String get overText => '${legalBalls ~/ 6}.${legalBalls % 6}';
-  double get crr => legalBalls == 0 ? 0 : runs / (legalBalls / 6);
-  String get battingTeam => innings == 1 ? teamA : teamB;
-  String get bowlingTeam => innings == 1 ? teamB : teamA;
-
-  void score(String label, {int add = 0, bool legal = true, bool wicket = false, bool extra = false}) {
-    if (!matchLive || matchEnded) return;
-    setState(() {
-      final before = {'runs': runs, 'wickets': wickets, 'balls': legalBalls, 'extras': extras, 'over': List<String>.from(thisOver), 'striker': striker, 'nonStriker': nonStriker};
-      history.add(before);
-      runs += add; if (wicket) wickets++; if (extra) extras += add;
-      if (legal) { legalBalls++; thisOver.add(label); }
-      else { thisOver.add(label); }
-      if (legalBalls > 0 && legalBalls % 6 == 0) { final old = striker; striker = nonStriker; nonStriker = old; }
-      if (wickets >= 10 || legalBalls >= maxOvers * 6) matchEnded = true;
-    });
-  }
-  void undo() { if (history.isEmpty) return; final s = history.removeLast(); setState(() { runs=s['runs']; wickets=s['wickets']; legalBalls=s['balls']; extras=s['extras']; thisOver..clear()..addAll((s['over'] as List).cast<String>()); striker=s['striker']; nonStriker=s['nonStriker']; matchEnded=false; }); }
-  void startMatch() { setState(() { matchLive=true; matchEnded=false; runs=0; wickets=0; legalBalls=0; extras=0; innings=1; history.clear(); thisOver.clear(); tab=2; }); }
-  void resetMatch() { setState(() { matchLive=false; matchEnded=false; runs=0; wickets=0; legalBalls=0; extras=0; innings=1; history.clear(); thisOver.clear(); }); }
-  void swapStrike() { setState(() { final s=striker; striker=nonStriker; nonStriker=s; }); }
-
-  @override Widget build(BuildContext context) {
-    final pages = [_dashboard(), _matches(), _scorer(), _stats(), _more()];
-    return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 16,
-        title: Row(children: [
-          Container(width: 38, height: 38, decoration: BoxDecoration(color: widget.primary, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.sports_cricket, color: Colors.white)),
-          const SizedBox(width: 10),
-          const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('MYSPORTZSTATS', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.1)),
-            Text('LIVE SPORTS SCORING', style: TextStyle(fontSize: 9, color: muted, letterSpacing: 1.3, fontWeight: FontWeight.w800)),
-          ]),
-        ]),
-        actions: [IconButton(onPressed: () => setState(() {}), icon: const Icon(Icons.refresh)), const SizedBox(width: 4)],
-      ),
-      body: SafeArea(top: false, child: IndexedStack(index: tab, children: pages)),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: tab, onDestinationSelected: (v) => setState(() => tab=v),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.sports_score), label: 'Matches'),
-          NavigationDestination(icon: Icon(Icons.scoreboard_outlined), selectedIcon: Icon(Icons.scoreboard), label: 'Scorer'),
-          NavigationDestination(icon: Icon(Icons.query_stats), label: 'Stats'),
-          NavigationDestination(icon: Icon(Icons.grid_view_rounded), label: 'More'),
-        ],
-      ),
-    );
-  }
-
-  Widget _dashboard() => ListView(padding: const EdgeInsets.all(16), children: [
-    Row(children: [const Expanded(child: Text('MATCH CENTRE', style: TextStyle(fontSize: 12, color: muted, fontWeight: FontWeight.w900, letterSpacing: 1.5))), _chip(matchLive ? 'LIVE' : 'READY', matchLive ? accent : muted)]),
-    const SizedBox(height: 14),
-    _heroMatch(),
-    const SizedBox(height: 20),
-    _section('QUICK ACCESS', 'MATCH OPERATIONS'),
-    Row(children: [
-      Expanded(child: _quick(Icons.sports_cricket, 'Start scoring', () => setState(() => tab=2))),
-      const SizedBox(width: 10),
-      Expanded(child: _quick(Icons.groups_2_outlined, 'Squads', () => setState(() => tab=1))),
-      const SizedBox(width: 10),
-      Expanded(child: _quick(Icons.leaderboard_outlined, 'Statistics', () => setState(() => tab=3))),
-    ]),
-    const SizedBox(height: 20),
-    _section('MATCH SERVICES', 'LIVE CONTROL'),
-    _serviceTile(Icons.cast_connected, 'Live viewer & sharing', 'Publish a synchronized match feed', () => _info('Live viewer connection will be wired to the original MySportzStats live service.')),
-    _serviceTile(Icons.forum_outlined, 'Live chat & reactions', 'Match-room interaction', () => _info('Chat interface is planned for the next integration stage.')),
-    _serviceTile(Icons.history, 'Match history', 'Saved scorecards and results', () => setState(() => tab=3)),
-  ]);
-
-  Widget _heroMatch() => Container(
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF202D46), Color(0xFF111827), Color(0xFF251722)]),
-      borderRadius: BorderRadius.circular(22), border: Border.all(color: Colors.white.withOpacity(.07)),
-    ),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [_chip('CRICKET', gold), const Spacer(), Text(matchTitle, style: const TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800))]),
-      const SizedBox(height: 22),
-      Row(children: [
-        Expanded(child: _teamBlock('🇮🇳', teamA)),
-        const Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('VS', style: TextStyle(color: gold, fontWeight: FontWeight.w900, fontSize: 13))),
-        Expanded(child: _teamBlock('🇳🇿', teamB)),
-      ]),
-      const SizedBox(height: 20),
-      if (matchLive) Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Text('$runs/$wickets', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900)),
-        const SizedBox(width: 12), Text('($overText ov)', style: const TextStyle(color: muted, fontWeight: FontWeight.w700)),
-      ]) else const Center(child: Text('READY FOR THE NEXT MATCH', style: TextStyle(color: muted, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.1))),
-      const SizedBox(height: 16),
-      SizedBox(width: double.infinity, child: FilledButton.icon(
-        onPressed: matchLive ? () => setState(() => tab=2) : startMatch,
-        icon: Icon(matchLive ? Icons.open_in_new : Icons.play_arrow),
-        label: Text(matchLive ? 'OPEN LIVE SCORER' : 'START MATCH'),
-        style: FilledButton.styleFrom(backgroundColor: widget.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 15)),
-      )),
-    ]),
-  );
-
-  Widget _teamBlock(String flag, String name) => Column(children: [
-    Text(flag, style: const TextStyle(fontSize: 34)),
-    const SizedBox(height: 7),
-    Text(name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: .7)),
-  ]);
-
-  Widget _matches() => ListView(padding: const EdgeInsets.all(16), children: [
-    _section('MATCHES', 'FIXTURES • SQUADS • TOSS'),
-    _serviceTile(Icons.add_circle_outline, 'Create a match', 'Set teams, match title and overs', _createMatch),
-    _serviceTile(Icons.groups_outlined, 'Team squads', 'Manage playing XI and substitutes', () => _info('Squad management screen is in the build plan.')),
-    _serviceTile(Icons.toll, 'Toss setup', 'Choose toss winner and decision', () => _info('Toss setup will be connected to match creation.')),
-    _serviceTile(Icons.event_available, 'Upcoming matches', 'Your scheduled fixtures', () => _info('No scheduled fixtures have been added yet.')),
-    _serviceTile(Icons.history, 'Completed matches', 'Open past scorecards', () => setState(() => tab=3)),
-  ]);
-
-  Widget _scorer() => ListView(padding: const EdgeInsets.all(14), children: [
-    Row(children: [const Expanded(child: Text('LIVE SCORER', style: TextStyle(fontSize: 12, color: muted, fontWeight: FontWeight.w900, letterSpacing: 1.4))), _chip(matchLive ? (matchEnded ? 'COMPLETED' : 'LIVE') : 'NOT STARTED', matchLive ? accent : muted)]),
-    const SizedBox(height: 12),
-    Container(padding: const EdgeInsets.all(18), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF202D46), Color(0xFF111827)]), borderRadius: BorderRadius.circular(20)), child: Column(children: [
-      Text('$teamA  vs  $teamB', style: const TextStyle(color: muted, fontSize: 11, fontWeight: FontWeight.w800)),
-      const SizedBox(height: 8),
-      Text('$runs/$wickets', style: const TextStyle(fontSize: 46, fontWeight: FontWeight.w900, letterSpacing: -1.5)),
-      Text('$overText OV  •  CRR ${crr.toStringAsFixed(2)}  •  EXTRAS $extras', style: const TextStyle(color: gold, fontSize: 11, fontWeight: FontWeight.w800)),
-      const SizedBox(height: 12),
-      Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text('STRIKER  $striker', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800)), const SizedBox(width: 14), Text('NON-STRIKER  $nonStriker', style: const TextStyle(fontSize: 10, color: muted))]),
-      const SizedBox(height: 12),
-      Wrap(spacing: 6, children: thisOver.map((e) => _chip(e, e=='W' ? accent : (e=='4'||e=='6' ? gold : muted))).toList()),
-    ])),
-    const SizedBox(height: 14),
-    if (!matchLive) SizedBox(width: double.infinity, child: FilledButton(onPressed: startMatch, child: const Text('START MATCH'))),
-    if (matchLive && !matchEnded) ...[
-      _section('RUNS', 'LEGAL DELIVERIES'),
-      GridView.count(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisCount: 3, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 2.0, children: [
-        _runButton('0', () => score('0')), _runButton('1', () { score('1', add:1); swapStrike(); }), _runButton('2', () { score('2', add:2); if (legalBalls.isOdd) swapStrike(); }),
-        _runButton('3', () { score('3', add:3); swapStrike(); }), _runButton('4', () => score('4', add:4)), _runButton('6', () => score('6', add:6)),
-      ]),
-      const SizedBox(height: 12),
-      _section('EXTRAS & WICKETS', 'MATCH EVENTS'),
-      GridView.count(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisCount: 3, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 2.0, children: [
-        _runButton('WIDE', () => score('Wd', add:1, legal:false, extra:true)),
-        _runButton('NO BALL', () => score('Nb', add:1, legal:false, extra:true)),
-        _runButton('WICKET', () => score('W', wicket:true)),
-      ]),
-      const SizedBox(height: 12),
-      Row(children: [Expanded(child: OutlinedButton.icon(onPressed: undo, icon: const Icon(Icons.undo), label: const Text('UNDO'))), const SizedBox(width: 8), Expanded(child: OutlinedButton.icon(onPressed: swapStrike, icon: const Icon(Icons.swap_horiz), label: const Text('SWAP STRIKE')))]),
-      const SizedBox(height: 8),
-      SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: _changeBowler, icon: const Icon(Icons.sports), label: Text('BOWLER: $bowler'))),
-    ],
-    if (matchEnded) _serviceTile(Icons.flag, 'Innings complete', 'Start the second innings from match controls', () => _info('Second-innings workflow will be added with toss and innings management.')),
-    const SizedBox(height: 8),
-    SizedBox(width: double.infinity, child: TextButton.icon(onPressed: resetMatch, icon: const Icon(Icons.restart_alt), label: const Text('RESET LOCAL TEST MATCH'))),
-    const Text('Local scoring prototype. Live server sync, persistent history and tournament aggregation are integration tasks.', style: TextStyle(color: muted, fontSize: 10, height: 1.5)),
-  ]);
-
-  Widget _stats() => ListView(padding: const EdgeInsets.all(16), children: [
-    _section('MATCH STATISTICS', 'SCORE SUMMARY'),
-    Row(children: [Expanded(child: _metric('RUNS', '$runs')), const SizedBox(width: 8), Expanded(child: _metric('WICKETS', '$wickets')), const SizedBox(width: 8), Expanded(child: _metric('OVERS', overText))]),
-    const SizedBox(height: 14),
-    _serviceTile(Icons.scoreboard, 'Full scorecard', 'Batting, bowling and fall of wickets', () => _info('Full scorecard will be linked to saved match data.')),
-    _serviceTile(Icons.emoji_events_outlined, 'Tournament standings', 'Points table and net run rate', () => _info('Standings and NRR aggregation are planned.')),
-    _serviceTile(Icons.military_tech_outlined, 'Player leaderboards', 'Orange Cap, Purple Cap and awards', () => _info('Player award tables will be populated from match history.')),
-    _serviceTile(Icons.bar_chart, 'Match analytics', 'Run rate, partnerships and over summary', () => _info('Advanced analytics will follow persistent scorecard integration.')),
-  ]);
-
-  Widget _more() => ListView(padding: const EdgeInsets.all(16), children: [
-    _section('MORE', 'APP SETTINGS & SERVICES'),
-    _serviceTile(Icons.palette_outlined, 'App themes', 'Choose a professional scoreboard palette', _chooseTheme),
-    _serviceTile(Icons.share_outlined, 'Share live match', 'Viewer link and match room', () => _info('Live sharing will use the existing MySportzStats live room service.')),
-    _serviceTile(Icons.campaign_outlined, 'Advertisement placement', 'Dedicated match-page ad area', () => _info('Advertisement slot layout will be added to the match viewer and scorer.')),
-    _serviceTile(Icons.settings_outlined, 'Match settings', 'Overs, match title and team names', _createMatch),
-    _serviceTile(Icons.info_outline, 'About', 'Flutter rebuild of MySportzStats', () => _info('This is the separate Flutter rebuild. The original scorer app is not modified.')),
-  ]);
-
-  Widget _section(String title, String subtitle) => Padding(padding: const EdgeInsets.only(bottom: 10), child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1.2))), Text(subtitle, style: const TextStyle(color: muted, fontSize: 9, fontWeight: FontWeight.w800))]));
-  Widget _chip(String label, Color color) => Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6), decoration: BoxDecoration(color: color.withOpacity(.14), borderRadius: BorderRadius.circular(30), border: Border.all(color: color.withOpacity(.3))), child: Text(label, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: .6)));
-  Widget _quick(IconData icon, String label, VoidCallback action) => InkWell(onTap: action, borderRadius: BorderRadius.circular(16), child: Container(padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8), decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(16)), child: Column(children: [Icon(icon, color: widget.primary, size: 22), const SizedBox(height: 8), Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800))])));
-  Widget _serviceTile(IconData icon, String title, String subtitle, VoidCallback action) => Card(child: ListTile(onTap: action, leading: Container(width: 40, height: 40, decoration: BoxDecoration(color: widget.primary.withOpacity(.12), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: widget.primary)), title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)), subtitle: Text(subtitle, style: const TextStyle(color: muted, fontSize: 10)), trailing: const Icon(Icons.chevron_right, color: muted)));
-  Widget _metric(String label, String value) => Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(15)), child: Column(children: [Text(label, style: const TextStyle(color: muted, fontSize: 9, fontWeight: FontWeight.w900)), const SizedBox(height: 7), Text(value, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900))]));
-  Widget _runButton(String text, VoidCallback action) => FilledButton(onPressed: action, style: FilledButton.styleFrom(backgroundColor: surface2, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13))), child: Text(text, style: const TextStyle(fontWeight: FontWeight.w900)));
-  Future<void> _info(String message) async { if (!mounted) return; showDialog<void>(context: context, builder: (c) => AlertDialog(backgroundColor: surface, content: Text(message), actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('OK'))])); }
-  Future<void> _changeBowler() async { final c=TextEditingController(text:bowler); await showDialog<void>(context:context,builder:(d)=>AlertDialog(backgroundColor:surface,title:const Text('Change bowler'),content:TextField(controller:c,decoration:const InputDecoration(labelText:'Bowler name')),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('CANCEL')),FilledButton(onPressed:(){setState(()=>bowler=c.text.trim().isEmpty?'Bowler':c.text.trim());Navigator.pop(d);},child:const Text('SAVE'))])); }
-  Future<void> _createMatch() async {
-    final a=TextEditingController(text:teamA), b=TextEditingController(text:teamB), title=TextEditingController(text:matchTitle), oversC=TextEditingController(text:maxOvers.toString());
-    await showDialog<void>(context:context,builder:(d)=>AlertDialog(backgroundColor:surface,title:const Text('Match setup'),content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[TextField(controller:title,decoration:const InputDecoration(labelText:'Match title')),TextField(controller:a,decoration:const InputDecoration(labelText:'Team A')),TextField(controller:b,decoration:const InputDecoration(labelText:'Team B')),TextField(controller:oversC,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'Overs'))])),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('CANCEL')),FilledButton(onPressed:(){setState((){matchTitle=title.text;teamA=a.text;teamB=b.text;maxOvers=(int.tryParse(oversC.text)??8).clamp(1,50);resetMatch();});Navigator.pop(d);},child:const Text('SAVE'))]));
-  }
-  Future<void> _chooseTheme() async { await showModalBottomSheet<void>(context:context,backgroundColor:surface,builder:(c)=>SafeArea(child:Column(mainAxisSize:MainAxisSize.min,children:[const Padding(padding:EdgeInsets.all(16),child:Text('CHOOSE THEME',style:TextStyle(fontWeight:FontWeight.w900,letterSpacing:1))),...['Pro Black / Red','Midnight Red','Graphite Red'].asMap().entries.map((e)=>ListTile(title:Text(e.value),trailing:widget.themeIndex==e.key?const Icon(Icons.check_circle,color:accent):null,onTap:(){widget.onThemeChanged(e.key);Navigator.pop(c);})),const SizedBox(height:12)]))); }
+class SportzHome extends StatefulWidget{const SportzHome({super.key,required this.mode,required this.onMode});final ThemeMode mode;final ValueChanged<ThemeMode> onMode;@override State<SportzHome> createState()=>_SportzHomeState();}
+class _SportzHomeState extends State<SportzHome>{
+  int tab=0;bool loading=true;
+  final teams=<TeamRecord>[];final history=<Map<String,dynamic>>[];
+  MatchSettings settings=MatchSettings();
+  MatchRecord? match;TournamentEngine? engine;
+  String tossWinner='',tossDecision='Bat';
+  final titleC=TextEditingController(),venueC=TextEditingController(),adTextC=TextEditingController(),adImageC=TextEditingController(),adLinkC=TextEditingController();
+  final teamNameC=TextEditingController(),playerNameC=TextEditingController();
+  String teamCountry='India',teamFlag='🇮🇳',playerRole='All-rounder';
+  @override void initState(){super.initState();_load();}
+  Future<void> _load()async{final p=await SharedPreferences.getInstance();try{final t=jsonDecode(p.getString('sportz_teams')??'[]') as List;teams..clear()..addAll(t.map((e)=>TeamRecord.fromJson(Map<String,dynamic>.from(e))));history..clear()..addAll((jsonDecode(p.getString('sportz_history')??'[]') as List).map((e)=>Map<String,dynamic>.from(e)));settings=MatchSettings.fromJson(Map<String,dynamic>.from(jsonDecode(p.getString('sportz_settings')??'{}')));}catch(_){}if(mounted)setState(()=>loading=false);}
+  Future<void> _save()async{final p=await SharedPreferences.getInstance();await p.setString('sportz_teams',jsonEncode(teams.map((e)=>e.toJson()).toList()));await p.setString('sportz_history',jsonEncode(history));await p.setString('sportz_settings',jsonEncode(settings.toJson()));}
+  TeamRecord? get a=>teams.isNotEmpty?teams[0]:null;TeamRecord? get b=>teams.length>1?teams[1]:null;
+  List<PlayerRecord> get allPlayers=>teams.expand((t)=>t.players).toList();
+  void msg(String s)=>ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(s)));
+  Future<String?> textDialog(String title,String initial)async{final c=TextEditingController(text:initial);return showDialog<String>(context:context,builder:(d)=>AlertDialog(title:Text(title),content:TextField(controller:c,autofocus:true),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(d,c.text.trim()),child:const Text('Save'))]));}
+  Future<void> addTeam()async{final n=await textDialog('Create team name','');if(n==null||n.isEmpty)return;setState(()=>teams.add(TeamRecord(id:'t${DateTime.now().microsecondsSinceEpoch}',name:n,country:teamCountry,flag:teamFlag)));await _save();}
+  Future<void> addPlayer(TeamRecord team)async{final n=await textDialog('Player name','');if(n==null||n.isEmpty)return;setState(()=>team.players.add(PlayerRecord(id:'p${DateTime.now().microsecondsSinceEpoch}',name:n,role:playerRole,teamId:team.id)));await _save();}
+  Future<void> configureMatch()async{titleC.text=settings.title;venueC.text=settings.venue;adTextC.text=settings.adText;adImageC.text=settings.adImageUrl;adLinkC.text=settings.adLink;await showDialog<void>(context:context,builder:(d)=>StatefulBuilder(builder:(d,setD)=>AlertDialog(title:const Text('Match & advertisement settings'),content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[TextField(controller:titleC,decoration:const InputDecoration(labelText:'Match title')),TextField(controller:venueC,decoration:const InputDecoration(labelText:'Venue')),DropdownButtonFormField<int>(value:settings.overs,decoration:const InputDecoration(labelText:'Overs per innings'),items:[5,6,8,10,12,15,20,25,50].map((x)=>DropdownMenuItem(value:x,child:Text('$x overs'))).toList(),onChanged:(v)=>setD(()=>settings.overs=v??8)),DropdownButtonFormField<int>(value:settings.playersPerSide,decoration:const InputDecoration(labelText:'Players per side'),items:[5,6,7,8,9,10,11].map((x)=>DropdownMenuItem(value:x,child:Text('$x players'))).toList(),onChanged:(v)=>setD(()=>settings.playersPerSide=v??11)),DropdownButtonFormField<String>(value:settings.matchType,decoration:const InputDecoration(labelText:'Match format'),items:['Limited Overs','T10','T20','ODI','Custom'].map((x)=>DropdownMenuItem(value:x,child:Text(x))).toList(),onChanged:(v)=>setD(()=>settings.matchType=v??'Limited Overs')),SwitchListTile(title:const Text('Enable super-over option'),value:settings.superOvers,onChanged:(v)=>setD(()=>settings.superOvers=v)),SwitchListTile(title:const Text('Dual batting mode'),subtitle:const Text('Track striker and non-striker'),value:settings.dualBatting,onChanged:(v)=>setD(()=>settings.dualBatting=v)),const Divider(),SwitchListTile(title:const Text('Enable advertisement'),value:settings.adEnabled,onChanged:(v)=>setD(()=>settings.adEnabled=v)),SwitchListTile(title:const Text('Popup advertisement'),value:settings.adPopup,onChanged:(v)=>setD(()=>settings.adPopup=v)),DropdownButtonFormField<String>(value:settings.adPosition,decoration:const InputDecoration(labelText:'Advertisement position'),items:['Below scoreboard','Above scoreboard','Between innings','Match result'].map((x)=>DropdownMenuItem(value:x,child:Text(x))).toList(),onChanged:(v)=>setD(()=>settings.adPosition=v??'Below scoreboard')),TextField(controller:adTextC,decoration:const InputDecoration(labelText:'Ad text / sponsor')),TextField(controller:adImageC,decoration:const InputDecoration(labelText:'Image URL')),TextField(controller:adLinkC,decoration:const InputDecoration(labelText:'Click-through URL'))])),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('Cancel')),FilledButton(onPressed:(){settings.title=titleC.text;settings.venue=venueC.text;settings.adText=adTextC.text;settings.adImageUrl=adImageC.text;settings.adLink=adLinkC.text;setState((){});_save();Navigator.pop(d);},child:const Text('Save settings'))])));}
+  void createMatch(){if(a==null||b==null){msg('Create at least two teams first');return;}if(a!.players.length<2||b!.players.length<1){msg('Add at least two players to batting team and one bowler to opposition');return;}settings.title=settings.title.trim().isEmpty?'MATCH DAY':settings.title;match=MatchRecord(id:'m${DateTime.now().millisecondsSinceEpoch}',teamAId:a!.id,teamBId:b!.id,teamA:a!.name,teamB:b!.name,settings:settings,firstBattingTeamId:a!.id);engine=TournamentEngine(match!,allPlayers);tossWinner='';tossDecision='Bat';setState(()=>tab=1);}
+  Future<void> completeToss()async{if(match==null||engine==null)return;final winner=await showDialog<String>(context:context,builder:(d)=>AlertDialog(title:const Text('Toss winner'),content:Column(mainAxisSize:MainAxisSize.min,children:[ListTile(title:Text(a!.name),onTap:()=>Navigator.pop(d,a!.id)),ListTile(title:Text(b!.name),onTap:()=>Navigator.pop(d,b!.id))])));if(winner==null)return;final decision=await showDialog<String>(context:context,builder:(d)=>AlertDialog(title:const Text('Elected to'),content:Column(mainAxisSize:MainAxisSize.min,children:[ListTile(title:const Text('Bat'),onTap:()=>Navigator.pop(d,'Bat')),ListTile(title:const Text('Bowl'),onTap:()=>Navigator.pop(d,'Bowl'))])));if(decision==null)return;try{engine!.startToss(winnerTeamId:winner,decision:decision);setState(()=>tab=2);msg('Toss saved. Select opening players.');}catch(e){msg(e.toString());}}
+  Future<String?> choosePlayer(String title,List<PlayerRecord> options)async=>showDialog<String>(context:context,builder:(d)=>AlertDialog(title:Text(title),content:SizedBox(width:320,child:ListView(shrinkWrap:true,children:options.map((p)=>ListTile(title:Text(p.name),subtitle:Text(p.role),onTap:()=>Navigator.pop(d,p.id))).toList()))));
+  Future<void> pickOpeners()async{final e=engine!;final bat=e.battingSquad,bowl=e.bowlingSquad;if(bat.length<2||bowl.isEmpty){msg('Squad players are missing');return;}final st=await choosePlayer('Select striker',bat.where((p)=>!p.isOut).toList());if(st==null)return;final ns=await choosePlayer('Select non-striker',bat.where((p)=>!p.isOut&&p.id!=st).toList());if(ns==null)return;final bw=await choosePlayer('Select opening bowler',bowl);if(bw==null)return;try{if(match!.innings==1)e.selectOpeners(strikerId:st,nonStrikerId:ns,bowlerId:bw);else e.startSecondInnings(strikerId:st,nonStrikerId:ns,bowlerId:bw);setState((){});}catch(x){msg(x.toString());}}
+  Future<void> nextBatter()async{final e=engine!,inn=e.match.current;final p=await choosePlayer('Select next batter',e.battingSquad.where((x)=>!x.isOut&&x.id!=inn.striker&&x.id!=inn.nonStriker).toList());if(p==null)return;try{e.selectNextBatter(p);setState((){});}catch(x){msg(x.toString());}}
+  Future<void> nextBowler()async{final e=engine!;final p=await choosePlayer('Select next bowler',e.bowlingSquad.where((x)=>x.id!=e.match.current.bowler&&x.id!=e.lastOverBowler).toList());if(p==null)return;try{e.selectNextBowler(p);setState((){});}catch(x){msg(x.toString());}}
+  Future<void> score(int runs,{DeliveryType type=DeliveryType.legal})async{final e=engine!;try{e.record(runs:runs,type:type);setState((){});if(e.match.status=='Innings Break'){msg('Innings complete. Select openers for the chase.');}if(e.match.status=='Completed'){await saveCompletedMatch();msg('Match completed and saved to history.');}}catch(x){msg(x.toString());}}
+  Future<void> wicket()async{final e=engine!;final d=await showDialog<DismissalType>(context:context,builder:(c)=>AlertDialog(title:const Text('Dismissal type'),content:Column(mainAxisSize:MainAxisSize.min,children:DismissalType.values.map((v)=>ListTile(title:Text(v.name),onTap:()=>Navigator.pop(c,v))).toList())));if(d==null)return;String? fielder;if(d==DismissalType.caught||d==DismissalType.runOut){final f=await choosePlayer('Select fielder',e.bowlingSquad);if(f==null)return;fielder=e.players[f]!.name;}String? out;if(d==DismissalType.runOut){final inn=e.match.current;out=await showDialog<String>(context:context,builder:(c)=>AlertDialog(title:const Text('Who was run out?'),content:Column(mainAxisSize:MainAxisSize.min,children:[ListTile(title:Text(e.players[inn.striker]?.name??'Striker'),onTap:()=>Navigator.pop(c,inn.striker)),ListTile(title:Text(e.players[inn.nonStriker]?.name??'Non-striker'),onTap:()=>Navigator.pop(c,inn.nonStriker))])));if(out==null)return;}try{e.record(runs:0,wicket:true,dismissal:d,fielder:fielder,runOutBatterId:out);setState((){});if(e.match.status=='Completed'){await saveCompletedMatch();}else if(e.requireBatterChange){await nextBatter();}}catch(x){msg(x.toString());}}
+  Future<void> saveCompletedMatch()async{final m=match!,e=engine!;final playerRows=allPlayers.map((p)=>p.toJson()).toList();final first=m.inningsList.first;final second=m.inningsList.length>1?m.inningsList[1]:null;history.add({'id':m.id,'title':m.settings.title,'teamA':m.teamA,'teamB':m.teamB,'result':m.result,'firstRuns':first.runs,'firstWickets':first.wickets,'firstOvers':first.overs,'secondRuns':second?.runs??0,'secondWickets':second?.wickets??0,'secondOvers':second?.overs??'0.0','players':playerRows,'completedAt':DateTime.now().toIso8601String(),'deliveries':m.allDeliveries.map((d)=>d.toJson()).toList()});await _save();match=null;engine=null;setState(()=>tab=4);}
+  Widget teamCard(TeamRecord t)=>Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[Text(t.flag,style:const TextStyle(fontSize:26)),const SizedBox(width:10),Expanded(child:Text(t.name,style:const TextStyle(fontWeight:FontWeight.w900,fontSize:16))),IconButton(onPressed:()=>addPlayer(t),icon:const Icon(Icons.person_add_alt_1))]),Text('${t.country} · ${t.players.length} players',style:TextStyle(color:Theme.of(context).colorScheme.secondary)),const Divider(),...t.players.map((p)=>ListTile(dense:true,title:Text(p.name),subtitle:Text(p.role),trailing:IconButton(icon:const Icon(Icons.delete_outline),onPressed:(){setState(()=>t.players.remove(p));_save();}))) ])));
+  Widget home()=>ListView(padding:const EdgeInsets.all(16),children:[Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(gradient:LinearGradient(colors:[Theme.of(context).colorScheme.primary,Theme.of(context).colorScheme.secondary]),borderRadius:BorderRadius.circular(22)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('MYSPORTZSTATS',style:TextStyle(fontWeight:FontWeight.w900,letterSpacing:1.5)),const SizedBox(height:8),const Text('CRICKET TOURNAMENT CENTRE',style:TextStyle(fontSize:11)),const SizedBox(height:22),Text('${history.length}',style:const TextStyle(fontSize:36,fontWeight:FontWeight.w900)),const Text('Completed matches saved'),const SizedBox(height:14),FilledButton.icon(onPressed:createMatch,icon:const Icon(Icons.play_arrow),label:const Text('CREATE NEW MATCH'))]),),const SizedBox(height:18),section('TOURNAMENT SETUP','TEAMS & SQUADS'),OutlinedButton.icon(onPressed:addTeam,icon:const Icon(Icons.add),label:const Text('Create team')),...teams.map(teamCard),if(teams.length<2)const Padding(padding:EdgeInsets.all(16),child:Text('Create two teams and add players to begin a match.'))]);
+  Widget section(String title,String sub)=>Padding(padding:const EdgeInsets.only(bottom:10),child:Row(children:[Expanded(child:Text(title,style:const TextStyle(fontWeight:FontWeight.w900,letterSpacing:1.1))),Text(sub,style:const TextStyle(fontSize:9,fontWeight:FontWeight.w800,color:Colors.grey))]));
+  Widget matchFlow()=>ListView(padding:const EdgeInsets.all(16),children:[section('MATCH FLOW','SETUP → TOSS → SCORING'),if(match==null)Card(child:ListTile(title:const Text('No active match'),subtitle:const Text('Create a match from Home'),trailing:const Icon(Icons.chevron_right),onTap:()=>setState(()=>tab=0)))else ...[Card(child:ListTile(title:Text('${match!.teamA} vs ${match!.teamB}'),subtitle:Text('${settings.title} · ${settings.overs} overs · ${settings.venue}'),trailing:Chip(label:Text(match!.status)))),ListTile(title:const Text('1. Match settings'),subtitle:Text('${settings.matchType} · ${settings.playersPerSide} players'),trailing:const Icon(Icons.tune),onTap:configureMatch),ListTile(title:const Text('2. Toss'),subtitle:Text(match!.tossWinner.isEmpty?'Pending': '${teams.firstWhere((t)=>t.id==match!.tossWinner).name} elected to $tossDecision'),trailing:const Icon(Icons.monetization_on),onTap:completeToss),if(match!.tossWinner.isNotEmpty)FilledButton(onPressed:pickOpeners,child:Text(match!.status=='Innings Break'?'SELECT CHASE OPENERS':'SELECT OPENERS')),if(match!.status=='Live')FilledButton(onPressed:()=>setState(()=>tab=2),child:const Text('OPEN LIVE SCOREBOARD'))]]);
+  Widget scoreboard()=>engine==null?const Center(child:Text('Create a match and complete the toss first.')):Builder(builder:(c){final e=engine!,m=e.match,inn=m.current;final aScore=m.inningsList[0];return ListView(padding:const EdgeInsets.all(14),children:[Card(child:Padding(padding:const EdgeInsets.all(18),child:Column(children:[Text('${m.teamA}  VS  ${m.teamB}',style:const TextStyle(fontWeight:FontWeight.w900)),const SizedBox(height:12),Text('${inn.runs}/${inn.wickets}',style:const TextStyle(fontSize:46,fontWeight:FontWeight.w900)),Text('${inn.overs} OV  ·  CRR ${inn.crr.toStringAsFixed(2)}  ·  EXTRAS ${inn.extras}'),if(m.innings==2)Text('TARGET ${inn.target??(aScore.runs+1)}'),const SizedBox(height:12),Text('STRIKER: ${e.players[inn.striker]?.name??'—'}'),Text('NON-STRIKER: ${e.players[inn.nonStriker]?.name??'—'}'),Text('BOWLER: ${e.players[inn.bowler]?.name??'—'}'),Wrap(spacing:5,children:inn.overBalls.map((b)=>Chip(label:Text(b))).toList())]))),if(m.status=='Ready'||m.status=='Innings Break')FilledButton(onPressed:pickOpeners,child:const Text('SELECT PLAYERS')),if(e.requireBatterChange)FilledButton(onPressed:nextBatter,child:const Text('SELECT NEXT BATTER')),if(e.requireBowlerChange)FilledButton(onPressed:nextBowler,child:const Text('CHANGE BOWLER')),if(m.status=='Live')... [section('SCORING PAD','BALL BY BALL'),GridView.count(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),crossAxisCount:3,childAspectRatio:2,children:[for(final n in [0,1,2,3,4,6])Padding(padding:const EdgeInsets.all(4),child:FilledButton(onPressed:()=>score(n),child:Text('$n')))]),Wrap(spacing:8,runSpacing:8,children:[OutlinedButton(onPressed:()=>score(1,type:DeliveryType.wide),child:const Text('WIDE')),OutlinedButton(onPressed:()=>score(1,type:DeliveryType.noBall),child:const Text('NO BALL')),OutlinedButton(onPressed:()=>score(1,type:DeliveryType.legBye),child:const Text('LEG BYE')),FilledButton.tonal(onPressed:wicket,child:const Text('WICKET'))]),const SizedBox(height:8),Text('Original scorer rule: wide/no-ball are not legal balls; leg-bye is legal. New bowler required after 6 legal balls.',style:Theme.of(context).textTheme.bodySmall)] ,if(settings.adEnabled&&settings.adPosition=='Below scoreboard')Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(children:[const Text('ADVERTISEMENT',style:TextStyle(fontSize:10,fontWeight:FontWeight.w900)),Text(settings.adText.isEmpty?'Sponsor placement':settings.adText),if(settings.adImageUrl.isNotEmpty)Text(settings.adImageUrl,style:const TextStyle(fontSize:10))]))),if(m.status=='Completed')FilledButton(onPressed:saveCompletedMatch,child:const Text('SAVE MATCH TO HISTORY'))]);});
+  Widget stats()=>ListView(padding:const EdgeInsets.all(16),children:[section('CUMULATIVE TOURNAMENT','ALL COMPLETED MATCHES'),metric('Matches',history.length.toString()),metric('Total runs',history.fold<int>(0,(s,m)=>s+(m['firstRuns'] as int? ??0)+(m['secondRuns'] as int? ??0)).toString()),metric('Total legal balls',history.fold<int>(0,(s,m)=>s+((m['deliveries'] as List? ??[]).where((d)=>(d['legal']??false)==true).length)).toString()),const SizedBox(height:12),const Text('Player leaderboard from saved match snapshots',style:TextStyle(fontWeight:FontWeight.w900)),..._leaderboard()]);
+  List<Widget> _leaderboard(){final map=<String,Map<String,int>>{};for(final m in history){for(final p in (m['players'] as List? ??[])){final n=p['name']?.toString()??'';if(n.isEmpty)continue;final s=map.putIfAbsent(n,()=>{'runs':0,'wickets':0,'balls':0,'bowlRuns':0});s['runs']=(s['runs']??0)+(p['runs'] as int? ??0);s['wickets']=(s['wickets']??0)+(p['wickets'] as int? ??0);s['balls']=(s['balls']??0)+(p['balls'] as int? ??0);s['bowlRuns']=(s['bowlRuns']??0)+(p['bowlRuns'] as int? ??0);}}final sorted=map.entries.toList()..sort((x,y)=>y.value['runs']!.compareTo(x.value['runs']!));return sorted.take(20).map((e)=>ListTile(title:Text(e.key),subtitle:Text('${e.value['runs']} runs · ${e.value['balls']} balls · ${e.value['wickets']} wickets'),trailing:Text('SR ${e.value['balls']==0?'0':(e.value['runs']!*100/e.value['balls']!).toStringAsFixed(1)}'))).toList();}
+  Widget metric(String a,String b)=>Card(child:ListTile(title:Text(a),trailing:Text(b,style:const TextStyle(fontSize:20,fontWeight:FontWeight.w900))));
+  Widget historyPage()=>ListView(padding:const EdgeInsets.all(16),children:[section('MATCH HISTORY','LOCAL ARCHIVE'),if(history.isEmpty)const Text('No completed matches yet.'),...history.reversed.map((m)=>Card(child:ListTile(title:Text('${m['teamA']} vs ${m['teamB']}'),subtitle:Text('${m['firstRuns']}/${m['firstWickets']} (${m['firstOvers']}) · ${m['secondRuns']}/${m['secondWickets']} (${m['secondOvers']})'),trailing:const Icon(Icons.emoji_events_outlined),onTap:()=>showDialog(context:context,builder:(d)=>AlertDialog(title:Text(m['title']??'Match'),content:Text('${m['result']}\n${(m['deliveries'] as List? ??[]).length} deliveries'),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('Close'))])))))]);
+  Widget more()=>ListView(padding:const EdgeInsets.all(16),children:[section('APP SETTINGS','PREFERENCES'),SwitchListTile(title:const Text('Light theme'),value:widget.mode==ThemeMode.light,onChanged:(v)=>widget.onMode(v?ThemeMode.light:ThemeMode.dark)),ListTile(title:const Text('Match & advertisement settings'),subtitle:const Text('Overs, players, venue, popup and ad slot'),trailing:const Icon(Icons.chevron_right),onTap:configureMatch),ListTile(title:const Text('Super overs'),subtitle:Text(settings.superOvers?'Enabled':'Disabled')),ListTile(title:const Text('Original scorer features checklist'),subtitle:const Text('Toss gating · legal ball rules · wicket flow · bowler rotation · undo/redo · full analytics · cloud sync and live viewer integration are being completed in phases.'))]);
+  @override Widget build(BuildContext c){if(loading)return const Scaffold(body:Center(child:CircularProgressIndicator()));final pages=[home(),matchFlow(),scoreboard(),stats(),historyPage(),more()];return Scaffold(appBar:AppBar(title:const Text('MYSPORTZSTATS',style:TextStyle(fontWeight:FontWeight.w900,letterSpacing:1.1)),actions:[IconButton(onPressed:()=>widget.onMode(widget.mode==ThemeMode.dark?ThemeMode.light:ThemeMode.dark),icon:Icon(widget.mode==ThemeMode.dark?Icons.light_mode:Icons.dark_mode)),IconButton(onPressed:configureMatch,icon:const Icon(Icons.tune))]),body:SafeArea(child:IndexedStack(index:tab,children:pages)),bottomNavigationBar:NavigationBar(selectedIndex:tab,onDestinationSelected:(v)=>setState(()=>tab=v),destinations:const [NavigationDestination(icon:Icon(Icons.home_outlined),label:'Home'),NavigationDestination(icon:Icon(Icons.event_note),label:'Match'),NavigationDestination(icon:Icon(Icons.scoreboard),label:'Scorer'),NavigationDestination(icon:Icon(Icons.query_stats),label:'Stats'),NavigationDestination(icon:Icon(Icons.history),label:'History'),NavigationDestination(icon:Icon(Icons.settings),label:'More')]);}
 }
