@@ -140,7 +140,7 @@ class _MCSHomeState extends State<MCSHome> {
    for(var i=0;i<count&&remaining>0;i++){final cap=pattern[i%pattern.length];final take=remaining<cap?remaining:cap;values[i]=take;remaining-=take;}
    for(var i=0;i<count&&remaining>0;i++){final take=remaining>6?6:remaining;values[i]=take;remaining-=take;}
    final wicketAt=<int>{};for(var w=0;w<wickets;w++){final pos=((w+1)*count/(wickets+1)).floor().clamp(0,count-1);wicketAt.add(pos);}
-   for(var i=0;i<count;i++){out.add({'innings':n,'team':team,'runs':values[i],'wicket':wicketAt.contains(i),'over':i~/6+1,'ball':i%6+1,'text':wicketAt.contains(i)?'WICKET':values[i]==6?'SIX':values[i]==4?'FOUR':values[i]==0?'DOT BALL':'\${values[i]} RUN\${values[i]==1?'':'S'}'});}
+   for(var i=0;i<count;i++){final label=wicketAt.contains(i)?'WICKET':values[i]==6?'SIX':values[i]==4?'FOUR':values[i]==0?'DOT BALL':values[i].toString()+' RUNS';out.add({'innings':n,'team':team,'runs':values[i],'wicket':wicketAt.contains(i),'over':i~/6+1,'ball':i%6+1,'text':label});}
   }
   innings(1,m.teamA,m.scoreA??0,m.wicketsA??0,m.oversA);
   innings(2,m.teamB,m.scoreB??0,m.wicketsB??0,m.oversB);
@@ -172,7 +172,7 @@ class _MCSHomeState extends State<MCSHome> {
    const SizedBox(height:12),Container(width:double.infinity,padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:const Color(0xFF101044),borderRadius:BorderRadius.circular(14)),child:Column(children:[
     Text('INNINGS $inning • $team',style:const TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1)),
     const SizedBox(height:7),Text('$runs/$wkts',style:const TextStyle(color:Colors.white,fontSize:34,fontWeight:FontWeight.w900)),
-    Text('OVER $overText  •  \${current==null?'READY':current['text']}',style:const TextStyle(color:Color(0xFFF3C66A),fontSize:11,fontWeight:FontWeight.w800)),
+    Text('OVER $overText  •  '+(current==null?'READY':current["text"].toString()),style:const TextStyle(color:Color(0xFFF3C66A),fontSize:11,fontWeight:FontWeight.w800)),
     const SizedBox(height:10),LinearProgressIndicator(value:totalBalls==0?0:balls/totalBalls,backgroundColor:Colors.white24,color:const Color(0xFFF3C66A),minHeight:5),
     const SizedBox(height:5),Align(alignment:Alignment.centerRight,child:Text('$balls / $totalBalls balls',style:const TextStyle(color:Colors.white60,fontSize:9)))
    ])),
@@ -180,7 +180,7 @@ class _MCSHomeState extends State<MCSHome> {
     Expanded(child:ElevatedButton.icon(onPressed:playbackRunning?(){_stopPlayback();setState((){});}:_startPlayback,icon:Icon(playbackRunning?Icons.pause:Icons.play_arrow),label:Text(playbackRunning?'PAUSE':'START'),style:ElevatedButton.styleFrom(backgroundColor:red,foregroundColor:Colors.white))),
     const SizedBox(width:8),OutlinedButton.icon(onPressed:_restartPlayback,icon:const Icon(Icons.restart_alt),label:const Text('RESTART'))
    ]),
-   const SizedBox(height:8),Text('Final target: $targetRuns/$targetWkts • \${inning==1?m.oversA:m.oversB} overs',style:const TextStyle(color:muted,fontSize:10)),
+   const SizedBox(height:8),Text('Final target: $targetRuns/$targetWkts • '+(inning==1?m.oversA:m.oversB)+' overs',style:const TextStyle(color:muted,fontSize:10)),
    const SizedBox(height:6),const Text('Simulated delivery sequence for UI testing — not official historical ball-by-ball data.',style:TextStyle(color:gold,fontSize:9,height:1.4))
   ]));
  }
