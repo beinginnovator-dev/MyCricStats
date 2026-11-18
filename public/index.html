@@ -2948,7 +2948,7 @@ function App(){
     if(snapshot&&navigator.canShare){
       try{
         if(navigator.canShare({files:[snapshot]})){
-          launchShare({title:shareTitle,text:inviteIntro+'\\n\\n'+link,files:[snapshot]},inviteText,'Match invitation copied');
+          launchShare({title:shareTitle,text:inviteIntro+'\n\n'+link,files:[snapshot]},inviteText,'Match invitation copied');
           return;
         }
       }catch(e){}
