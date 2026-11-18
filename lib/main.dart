@@ -215,7 +215,9 @@ class _MCSHomeState extends State<MCSHome> {
  Widget _more()=>ListView(padding:const EdgeInsets.all(14),children:[
   _title('PRO THEMES','True black backgrounds with red broadcast accents'),
   _card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('SELECT A THEME',style:TextStyle(fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1)),const SizedBox(height:10),Wrap(spacing:8,runSpacing:8,children:[for(var i=0;i<3;i++)_themeChoice(i,mcsThemeNames[i],mcsThemeAccents[i])])])),
-  _title('SCORING','Manual scoring controls'),\n  _manualScorer(),\n  _title('TOURNAMENT & TOOLS','MyCricStats cricket features'),
+  _title('SCORING','Manual scoring controls'),
+  _manualScorer(),
+  _title('TOURNAMENT & TOOLS','MyCricStats cricket features'),
   _feature(Icons.groups_2_outlined,'Squads','Playing XI and player list'),
   _feature(Icons.casino_outlined,'Toss setup','Toss winner and bat / bowl decision'),
   _feature(Icons.leaderboard_outlined,'Tournament stats','Orange Cap, Purple Cap and leaderboards'),
@@ -291,7 +293,8 @@ class _MCSHomeState extends State<MCSHome> {
   if(scorerLog.isNotEmpty)Text('Recent: '+scorerLog.reversed.take(8).map((e)=>e['label'].toString()).join('  •  '),style:const TextStyle(color:muted,fontSize:9)),
   const Text('This is a local test scorer. Match saving, innings handover, partnerships and tournament totals are not connected yet.',style:TextStyle(color:muted,fontSize:9,height:1.4))
  ]));
-\n Widget _themeChoice(int value,String label,Color color)=>ChoiceChip(label:Text(label,style:TextStyle(color:mcsTheme.value==value?Colors.white:muted)),selected:mcsTheme.value==value,selectedColor:Color(0xFF3A111B),avatar:CircleAvatar(radius:7,backgroundColor:color),onSelected:(_)=>_saveTheme(value));
+
+ Widget _themeChoice(int value,String label,Color color)=>ChoiceChip(label:Text(label,style:TextStyle(color:mcsTheme.value==value?Colors.white:muted)),selected:mcsTheme.value==value,selectedColor:Color(0xFF3A111B),avatar:CircleAvatar(radius:7,backgroundColor:color),onSelected:(_)=>_saveTheme(value));
  Widget _feature(IconData i,String a,String b)=>_card(Row(children:[Icon(i,color:gold,size:21),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(a,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w900)),const SizedBox(height:3),Text(b,style:const TextStyle(color:muted,fontSize:10))])),const Icon(Icons.chevron_right,color:muted)]));
  Widget _note(String s)=>Padding(padding:const EdgeInsets.only(top:12),child:Text(s,style:const TextStyle(color:muted,fontSize:10,height:1.5)));
 }
