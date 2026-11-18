@@ -59,7 +59,7 @@ class MCSApi {
 }
 class MCSHome extends StatefulWidget { const MCSHome({super.key}); @override State<MCSHome> createState()=>_MCSHomeState(); }
 class _MCSHomeState extends State<MCSHome> {
- int tab=0; bool loading=true; String? error; List<MCSMatch> matches=[]; MCSMatch? selected; Timer? timer;
+ int tab=0; bool loading=true; String? error; List<MCSMatch> matches=[]; MCSMatch? selected; Timer? timer; Timer? playbackTimer; List<Map<String,dynamic>> demoEvents=[]; int playbackIndex=-1; bool playbackRunning=false;
  Map<String,dynamic>? fixtureData; bool fixtureLoading=false; String? fixtureError; String eventKey=''; int eventVersion=0;
  List<Map<String,dynamic>> get _batting => _records(fixtureData?['batting'] ?? fixtureData?['scoreboards']);
  List<Map<String,dynamic>> get _bowling => _records(fixtureData?['bowling']);
@@ -74,11 +74,11 @@ class _MCSHomeState extends State<MCSHome> {
  ];
 
  @override void initState(){super.initState();refresh();timer=Timer.periodic(const Duration(seconds:12),(_)=>refresh(silent:true));}
- @override void dispose(){timer?.cancel();super.dispose();}
+ @override void dispose(){timer?.cancel();playbackTimer?.cancel();super.dispose();}
  static List<Map<String,dynamic>> _records(dynamic value){if(value is Map&&value['data'] is List)value=value['data'];if(value is! List)return <Map<String,dynamic>>[];return value.whereType<Map>().map((e)=>Map<String,dynamic>.from(e)).toList();}
  String _player(dynamic value){if(value is Map)return (value['fullname']??value['name']??value['display_name']??'Player').toString();return value?.toString()??'—';}
  String _deliveryText(Map<String,dynamic> ball){final score=ball['score'] is Map?Map<String,dynamic>.from(ball['score']):<String,dynamic>{};final runs=_toInt(score['runs']??ball['score'])??0;final wicket=score['is_wicket']==true||ball['is_wicket']==true||ball['wicket']!=null;final name=(score['name']??ball['name']??'').toString().toLowerCase();if(wicket||name.contains('wicket'))return 'WICKET';if(runs==6||name.contains('six'))return 'SIX';if(runs==4||name.contains('four'))return 'FOUR';if(name.isNotEmpty)return name.toUpperCase();return runs.toString()+' RUN'+(runs==1?'':'S');}
- Future<void> loadFixture({bool silent=false}) async {final match=selected;if(match==null||match.id.isEmpty)return;if(match.id.startsWith('demo-')){if(mounted)setState((){fixtureData=null;fixtureError=null;fixtureLoading=false;});return;}if(!silent&&mounted)setState(()=>fixtureLoading=true);try{final body=await MCSApi.fixture(match.id);final raw=body['data'];if(!mounted||selected?.id!=match.id)return;final data=raw is Map?Map<String,dynamic>.from(raw):body;final balls=_records(data['balls']);final latest=balls.isEmpty?null:balls.last;final key=latest==null?'':(latest['id']??latest['ball']??latest['overs']??jsonEncode(latest)).toString();setState((){fixtureData=data;fixtureError=null;fixtureLoading=false;if(key.isNotEmpty&&key!=eventKey){eventKey=key;eventVersion++;}});}catch(e){if(!mounted)return;setState((){fixtureLoading=false;fixtureError=e.toString().replaceFirst('Exception: ','');});}}
+ Future<void> loadFixture({bool silent=false}) async {final match=selected;if(match==null||match.id.isEmpty)return;if(match.id.startsWith('demo-')){_stopPlayback();_prepareDemoPlayback(match);if(mounted)setState((){fixtureData=null;fixtureError=null;fixtureLoading=false;});return;}if(!silent&&mounted)setState(()=>fixtureLoading=true);try{final body=await MCSApi.fixture(match.id);final raw=body['data'];if(!mounted||selected?.id!=match.id)return;final data=raw is Map?Map<String,dynamic>.from(raw):body;final balls=_records(data['balls']);final latest=balls.isEmpty?null:balls.last;final key=latest==null?'':(latest['id']??latest['ball']??latest['overs']??jsonEncode(latest)).toString();setState((){fixtureData=data;fixtureError=null;fixtureLoading=false;if(key.isNotEmpty&&key!=eventKey){eventKey=key;eventVersion++;}});}catch(e){if(!mounted)return;setState((){fixtureLoading=false;fixtureError=e.toString().replaceFirst('Exception: ','');});}}
  Future<void> refresh({bool silent=false}) async {
   if(!silent&&mounted)setState(()=>loading=true);
   try{
@@ -96,7 +96,7 @@ class _MCSHomeState extends State<MCSHome> {
     if(selected==null&&rows.isNotEmpty)selected=rows.firstWhere((m)=>m.isLive,orElse:()=>rows.first);
     else if(selected!=null){final fresh=rows.where((m)=>m.id==selected!.id);if(fresh.isNotEmpty)selected=fresh.first;}
     loading=false;error=null;});
-   if(selected!=null)await loadFixture(silent:true);
+   if(selected!=null){if(selected!.id.startsWith('demo-'))_prepareDemoPlayback(selected!);await loadFixture(silent:true);}
   }
   catch(e){if(!mounted)return;setState(() { loading=false; error=e.toString().replaceFirst('Exception: ',''); });}
  }
@@ -126,9 +126,67 @@ class _MCSHomeState extends State<MCSHome> {
  Widget _matches()=>RefreshIndicator(onRefresh:refresh,child:ListView(padding:const EdgeInsets.all(14),children:[
   _title('MATCHES','Historical IND vs NZ demo results + connected feeds'),if(error!=null)_error(error!),
   if(loading&&matches.isEmpty)const _Loading(),if(matches.isEmpty&&!loading)_empty(),...matches.map(_matchTile)]));
+
+ void _stopPlayback(){playbackTimer?.cancel();playbackTimer=null;playbackRunning=false;}
+ int _ballsFor(String overs){final p=overs.split('.');final o=int.tryParse(p.first)??0;final b=p.length>1?(int.tryParse(p[1])??0):0;return o*6+b;}
+ void _prepareDemoPlayback(MCSMatch m){
+  if(!m.id.startsWith('demo-'))return;
+  _stopPlayback();final out=<Map<String,dynamic>>[];
+  void innings(int n,String team,int runs,int wickets,String overs){
+   final count=_ballsFor(overs);if(count<=0)return;
+   final values=List<int>.filled(count,0);var remaining=runs;
+   const pattern=[1,2,0,4,1,0,3,1,6,0,2,1];
+   for(var i=0;i<count&&remaining>0;i++){final cap=pattern[i%pattern.length];final take=remaining<cap?remaining:cap;values[i]=take;remaining-=take;}
+   for(var i=0;i<count&&remaining>0;i++){final take=remaining>6?6:remaining;values[i]=take;remaining-=take;}
+   final wicketAt=<int>{};for(var w=0;w<wickets;w++){final pos=((w+1)*count/(wickets+1)).floor().clamp(0,count-1);wicketAt.add(pos);}
+   for(var i=0;i<count;i++){out.add({'innings':n,'team':team,'runs':values[i],'wicket':wicketAt.contains(i),'over':i~/6+1,'ball':i%6+1,'text':wicketAt.contains(i)?'WICKET':values[i]==6?'SIX':values[i]==4?'FOUR':values[i]==0?'DOT BALL':'\${values[i]} RUN\${values[i]==1?'':'S'}'});}
+  }
+  innings(1,m.teamA,m.scoreA??0,m.wicketsA??0,m.oversA);
+  innings(2,m.teamB,m.scoreB??0,m.wicketsB??0,m.oversB);
+  if(mounted)setState(()=>{demoEvents=out;playbackIndex=-1;playbackRunning=false;});
+ }
+ void _startPlayback(){
+  if(demoEvents.isEmpty||playbackRunning)return;
+  if(playbackIndex>=demoEvents.length-1)playbackIndex=-1;
+  setState(()=>playbackRunning=true);
+  playbackTimer=Timer.periodic(const Duration(milliseconds:650),(t){
+   if(!mounted){t.cancel();return;}
+   if(playbackIndex>=demoEvents.length-1){t.cancel();setState(()=>playbackRunning=false);return;}
+   setState(()=>playbackIndex++);
+   if(playbackIndex>=demoEvents.length-1){t.cancel();setState(()=>playbackRunning=false);}
+  });
+ }
+ void _restartPlayback(){_stopPlayback();setState(()=>playbackIndex=-1);_startPlayback();}
+ Widget _demoPlaybackPanel(){
+  final m=selected!;final current=playbackIndex>=0&&playbackIndex<demoEvents.length?demoEvents[playbackIndex]:null;
+  final inning=current==null?1:current['innings'] as int;
+  var runs=0,wkts=0,balls=0;
+  for(var i=0;i<=playbackIndex&&i<demoEvents.length;i++){final e=demoEvents[i];if(e['innings']==inning){runs+=e['runs'] as int;if(e['wicket']==true)wkts++;balls++;}}
+  final team=inning==1?m.teamA:m.teamB;final targetRuns=inning==1?(m.scoreA??0):(m.scoreB??0);final targetWkts=inning==1?(m.wicketsA??0):(m.wicketsB??0);
+  final totalBalls=_ballsFor(inning==1?m.oversA:m.oversB);
+  final overText='\${balls~/6}.\${balls%6}';
+  return _card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+   Row(children:[_pill('DEMO PLAYBACK',gold),const Spacer(),Text(m.type,style:const TextStyle(color:muted,fontSize:10,fontWeight:FontWeight.w800))]),
+   const SizedBox(height:12),Text(m.name,style:const TextStyle(fontSize:13,fontWeight:FontWeight.w900)),
+   const SizedBox(height:12),Container(width:double.infinity,padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:const Color(0xFF101044),borderRadius:BorderRadius.circular(14)),child:Column(children:[
+    Text('INNINGS $inning • $team',style:const TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1)),
+    const SizedBox(height:7),Text('$runs/$wkts',style:const TextStyle(color:Colors.white,fontSize:34,fontWeight:FontWeight.w900)),
+    Text('OVER $overText  •  \${current==null?'READY':current['text']}',style:const TextStyle(color:Color(0xFFF3C66A),fontSize:11,fontWeight:FontWeight.w800)),
+    const SizedBox(height:10),LinearProgressIndicator(value:totalBalls==0?0:balls/totalBalls,backgroundColor:Colors.white24,color:const Color(0xFFF3C66A),minHeight:5),
+    const SizedBox(height:5),Align(alignment:Alignment.centerRight,child:Text('$balls / $totalBalls balls',style:const TextStyle(color:Colors.white60,fontSize:9)))
+   ])),
+   const SizedBox(height:12),Row(children:[
+    Expanded(child:ElevatedButton.icon(onPressed:playbackRunning?(){_stopPlayback();setState((){});}:_startPlayback,icon:Icon(playbackRunning?Icons.pause:Icons.play_arrow),label:Text(playbackRunning?'PAUSE':'START'),style:ElevatedButton.styleFrom(backgroundColor:red,foregroundColor:Colors.white))),
+    const SizedBox(width:8),OutlinedButton.icon(onPressed:_restartPlayback,icon:const Icon(Icons.restart_alt),label:const Text('RESTART'))
+   ]),
+   const SizedBox(height:8),Text('Final target: $targetRuns/$targetWkts • \${inning==1?m.oversA:m.oversB} overs',style:const TextStyle(color:muted,fontSize:10)),
+   const SizedBox(height:6),const Text('Simulated delivery sequence for UI testing — not official historical ball-by-ball data.',style:TextStyle(color:gold,fontSize:9,height:1.4))
+  ]));
+ }
+
  Widget _scorecard()=>ListView(padding:const EdgeInsets.all(14),children:[
   _title('SCORECARD',selected?.name??'Select a cricket match'),
-  if(selected==null)_empty()else _card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+  if(selected==null)_empty()else if(selected!.id.startsWith('demo-'))_demoPlaybackPanel()else _card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
    Row(children:[_pill(selected!.status.toUpperCase(),selected!.isLive?red:gold),const Spacer(),Text(selected!.type,style:const TextStyle(color:muted,fontSize:10))]),
    const SizedBox(height:14),_scoreRow(selected!.teamA,_score(selected!.scoreA,selected!.wicketsA),selected!.oversA),
    const Divider(color:Color(0x33444466),height:22),_scoreRow(selected!.teamB,_score(selected!.scoreB,selected!.wicketsB),selected!.oversB),
