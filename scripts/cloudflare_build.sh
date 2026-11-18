@@ -8,5 +8,7 @@ fi
 export PATH="$FLUTTER_DIR/bin:$PATH"
 flutter --version
 flutter config --enable-web
+# Generate Android platform files as well as web scaffolding when first building.
+flutter create --platforms=android,web --project-name mycricstats --org com.beinginnovator .
 flutter pub get
 flutter build web --release --base-href /
