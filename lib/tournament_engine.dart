@@ -122,7 +122,7 @@ class TournamentEngine {
     if(dismissal==DismissalType.runOut&&(runOutBatterId==null||!{inn.striker,inn.nonStriker}.contains(runOutBatterId))) throw StateError('Select which batter was run out');
     final before=match.toJson();
     undoStack.add(before);
-    final legal=type==DeliveryType.legal||type==DeliveryType.legBye||wicket;
+    final legal=type==DeliveryType.legal||type==DeliveryType.legBye;
     final label=wicket?'W':type==DeliveryType.wide?'WD':type==DeliveryType.noBall?'NB':type==DeliveryType.legBye?'LB$runs':'$runs';
     final batter=players[inn.striker]!,bowler=players[inn.bowler]!;
     if(type==DeliveryType.noBall){
@@ -161,21 +161,21 @@ class TournamentEngine {
       if((type==DeliveryType.legal||type==DeliveryType.legBye)&&runs.isOdd&&!wicket){final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;}
       if(inn.legalBalls>0&&inn.legalBalls%6==0){final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;requireBowlerChange=true;lastOverBowler=inn.bowler;inn.overBalls=[];}
     }
-    final maxWickets=match.settings.playersPerSide-1;
+    final maxWickets=(battingSquad.length-1).clamp(0,10);
     final chaseDone=match.innings==2&&inn.target!=null&&inn.runs>=inn.target!;
     if(inn.wickets>=maxWickets||inn.legalBalls>=match.settings.overs*6||chaseDone){inn.complete=true;_finishInnings();}
   }
 
   void selectNextBatter(String playerId) {
     final inn=match.current;final p=players[playerId];
-    if(!requireBatterChange||p==null||p.teamId!=battingTeamId||p.isOut) throw StateError('Select an available batter from the batting team');
+    if(match.status!='Live'||!requireBatterChange||p==null||p.teamId!=battingTeamId||p.isOut) throw StateError('Select an available batter from the batting team');
     if(playerId==inn.striker||playerId==inn.nonStriker) throw StateError('Player is already at the crease');
     if(lastDismissedAtStriker||inn.striker.isEmpty)inn.striker=playerId;else inn.nonStriker=playerId;
     requireBatterChange=false;lastDismissedBatter='';
   }
   void selectNextBowler(String playerId) {
     final inn=match.current;final p=players[playerId];
-    if(!requireBowlerChange||p==null||p.teamId!=bowlingTeamId||playerId==lastOverBowler) throw StateError('Choose a different bowler from the fielding team');
+    if(match.status!='Live'||!requireBowlerChange||p==null||p.teamId!=bowlingTeamId||playerId==lastOverBowler) throw StateError('Choose a different bowler from the fielding team');
     inn.bowler=playerId;requireBowlerChange=false;lastOverBowler='';
   }
   void _finishInnings(){
