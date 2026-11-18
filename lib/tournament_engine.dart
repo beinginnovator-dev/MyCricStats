@@ -63,7 +63,8 @@ class MatchRecord {
   int innings=1;
   List<InningsRecord> inningsList=[InningsRecord()];
   List<BallRecord> allDeliveries=[];
-  DateTime createdAt=DateTime.now(),?completedAt;
+  DateTime createdAt=DateTime.now();
+  DateTime? completedAt;
   InningsRecord get current => inningsList.last;
   Map<String,dynamic> toJson()=>{'id':id,'teamAId':teamAId,'teamBId':teamBId,'teamA':teamA,'teamB':teamB,'settings':settings.toJson(),'firstBattingTeamId':firstBattingTeamId,'tossWinner':tossWinner,'tossDecision':tossDecision,'status':status,'result':result,'manOfMatch':manOfMatch,'innings':innings,'inningsList':inningsList.map((x)=>x.toJson()).toList(),'createdAt':createdAt.toIso8601String(),'completedAt':completedAt?.toIso8601String()};
 }
@@ -77,7 +78,7 @@ class TournamentEngine {
   String lastDismissedBatter='',lastOverBowler='';
   TournamentEngine(this.match, List<PlayerRecord> allPlayers):players={for(final p in allPlayers)p.id:p};
 
-  String get battingTeamId => match.innings==1?match.firstBattingTeamId:(match.firstBattingTeamId==match.teamAId?match.teamBId:match.teamAId);
+  String get battingTeamId => match.innings==1?actualFirstBattingTeamId:(actualFirstBattingTeamId==match.teamAId?match.teamBId:match.teamAId);
   String get bowlingTeamId => battingTeamId==match.teamAId?match.teamBId:match.teamAId;
   List<PlayerRecord> get battingSquad=>players.values.where((p)=>p.teamId==battingTeamId).toList();
   List<PlayerRecord> get bowlingSquad=>players.values.where((p)=>p.teamId==bowlingTeamId).toList();
@@ -155,7 +156,7 @@ class TournamentEngine {
     final d=BallRecord(innings:match.innings,label:label,type:type,runs:runs,legal:legal,batter:batter.name,bowler:bowler.name,dismissal:dismissal,fielder:fielder);
     inn.deliveries.add(d);match.allDeliveries.add(d);inn.overBalls.add(label);
     if(legal){
-      if(runs.isOdd&&!wicket){final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;}
+      if((type==DeliveryType.legal||type==DeliveryType.legBye)&&runs.isOdd&&!wicket){final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;}
       if(inn.legalBalls>0&&inn.legalBalls%6==0){final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;requireBowlerChange=true;lastOverBowler=inn.bowler;inn.overBalls=[];}
     }
     final maxWickets=match.settings.playersPerSide-1;
