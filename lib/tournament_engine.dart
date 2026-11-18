@@ -76,6 +76,7 @@ class TournamentEngine {
   final List<Map<String,dynamic>> undoStack=[];
   bool requireBatterChange=false, requireBowlerChange=false;
   String lastDismissedBatter='',lastOverBowler='';
+  bool lastDismissedAtStriker=true;
   TournamentEngine(this.match, List<PlayerRecord> allPlayers):players={for(final p in allPlayers)p.id:p};
 
   String get battingTeamId => match.innings==1?actualFirstBattingTeamId:(actualFirstBattingTeamId==match.teamAId?match.teamBId:match.teamAId);
@@ -150,8 +151,8 @@ class TournamentEngine {
       if(bowlerCredited)bowler.wickets++;
       inn.fallOfWickets.add({'score':inn.runs,'over':inn.overs,'batter':outPlayer.name,'dismissal':dismissal!.name,'bowler':bowlerCredited?bowler.name:'—','fielder':fielder??''});
       requireBatterChange=true;lastDismissedBatter=outId;
-      if(outId==inn.striker){inn.striker=inn.nonStriker;inn.nonStriker='';}
-      else {inn.nonStriker='';}
+      if(outId==inn.striker){inn.striker='';lastDismissedAtStriker=true;}
+      else {inn.nonStriker='';lastDismissedAtStriker=false;}
     }
     final d=BallRecord(innings:match.innings,label:label,type:type,runs:runs,legal:legal,batter:batter.name,bowler:bowler.name,dismissal:dismissal,fielder:fielder);
     inn.deliveries.add(d);match.allDeliveries.add(d);inn.overBalls.add(label);
@@ -168,7 +169,7 @@ class TournamentEngine {
     final inn=match.current;final p=players[playerId];
     if(!requireBatterChange||p==null||p.teamId!=battingTeamId||p.isOut) throw StateError('Select an available batter from the batting team');
     if(playerId==inn.striker||playerId==inn.nonStriker) throw StateError('Player is already at the crease');
-    if(inn.striker.isEmpty)inn.striker=playerId;else if(inn.nonStriker.isEmpty)inn.nonStriker=playerId;else inn.striker=playerId;
+    if(lastDismissedAtStriker||inn.striker.isEmpty)inn.striker=playerId;else inn.nonStriker=playerId;
     requireBatterChange=false;lastDismissedBatter='';
   }
   void selectNextBowler(String playerId) {
@@ -181,7 +182,6 @@ class TournamentEngine {
     if(match.innings==1){
       inn.complete=true;match.innings=2;
       final next=InningsRecord();next.target=inn.runs+1;match.inningsList.add(next);
-      _firstBattingOverride=battingTeamId==match.teamAId?match.teamBId:match.teamAId;
       requireBatterChange=false;requireBowlerChange=false;lastDismissedBatter='';lastOverBowler='';
       match.status='Innings Break';
     } else {
