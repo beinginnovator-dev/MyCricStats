@@ -2075,6 +2075,20 @@ function teamFlagUrl(team){
   if(!code)return'';
   return 'https://flagcdn.com/w40/'+code+'.png';
 }
+function winnerSideForMatch(m){
+  if(!m)return'';
+  var winner=m.winner_team_id;
+  if(winner!=null){
+    if(String(winner)===String(m.localteam_id))return'home';
+    if(String(winner)===String(m.visitorteam_id))return'away';
+  }
+  var result=String(m.result||m.note||statusTextOf(m)||'').toLowerCase();
+  if(/\b(tie|tied|draw|no result|abandoned)\b/.test(result))return'';
+  var home=teamName(m,'local').toLowerCase(),away=teamName(m,'visitor').toLowerCase();
+  if(home&&result.indexOf(home)>=0&&/won|win/.test(result))return'home';
+  if(away&&result.indexOf(away)>=0&&/won|win/.test(result))return'away';
+  return'';
+}
 function loadNewsRss(home,away){
   var matchQuery=home&&away?String(home)+' vs '+String(away)+' cricket':'';
   if(matchQuery){return fetch('/api/news?q='+encodeURIComponent(matchQuery+' when:7d'),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('news api');return r.json();}).then(function(j){return Array.isArray(j.data)?j.data:[];}).catch(function(e){console.warn('Match news unavailable',e);return [];});}
@@ -2462,27 +2476,25 @@ function App(){
     if(!token&&!isGuest){setError('Add Sportmonks token in Settings ⚙');return;}
     if(!silent){setLoading(true);setError(null);}
     if(force)cacheClear();
-    var past=ymd(addDays(new Date(),-365));
-    var future=ymd(addDays(new Date(),365));
-    // Fetch a rolling 60-day fixture window and follow SportMonks pagination.
+    // Fast first paint: a short recent/upcoming window is enough for the match centre.
+    // Team and league names are already included in fixture rows; skip the extra
+    // all-leagues request and avoid paging through a year of fixtures at startup.
+    var past=ymd(addDays(new Date(),-14));
+    var future=ymd(addDays(new Date(),30));
     var fixUrl=ckUrl('fixtures',token,INCLUDE_LIST_LIGHT)+'&filter[starts_between]='+encodeURIComponent(past+','+future);
     var apiErrors=[];
     var tasks=[
       smGet(ckUrl('livescores',token,INCLUDE_LIST_LIGHT)).catch(function(e){apiErrors.push('Livescores: '+(e.message||e));console.warn('livescores',e);return{data:[]};}),
-      smGetFixturePages(fixUrl,100).catch(function(e){
+      smGetFixturePages(fixUrl,4).catch(function(e){
         apiErrors.push('Fixtures: '+(e.message||e));
         console.warn('fixtures range',e);
-        return smGetFixturePages(ckUrl('fixtures',token,INCLUDE_LIST_LIGHT)+'&sort=-starting_at',100).catch(function(e2){apiErrors.push('Fixture fallback: '+(e2.message||e2));console.warn(e2);return[];});
-      }),
-      smGet(ckUrl('leagues',token)).catch(function(e){apiErrors.push('Leagues: '+(e.message||e));console.warn('leagues',e);return{data:[]};})
+        return [];
+      })
     ];
     Promise.all(tasks).then(function(results){
       var map={};
       var liveRows=results[0]&&results[0].data,fixtureRows=results[1];
-      var leagueRows=results[2]&&results[2].data;
-      var leagueList=Array.isArray(leagueRows)?leagueRows:(leagueRows?[leagueRows]:[]);
-      setAvailableLeagues(leagueList);
-      var leagueById={};leagueList.forEach(function(l){if(l&&l.id!=null)leagueById[String(l.id)]=l;});
+      setAvailableLeagues([]);
       [liveRows,fixtureRows].forEach(function(arr){
         (Array.isArray(arr)?arr:(arr?[arr]:[])).forEach(function(m){if(m&&m.id!=null)map[m.id]=Object.assign({},map[m.id]||{},m);});
       });
@@ -2583,9 +2595,8 @@ function App(){
       setSelected(inviteMatch);setDetail(inviteMatch);setTab(qs().get('tab')||'scorecard');
       activateMatchRoom(inviteMatch);
       loadDetail(inviteMatch,token,false);
-      // Load the rest of today's live and upcoming fixtures in parallel with the
-      // directly shared match, without changing the invite's selected match.
-      loadList(false);
+      // Shared viewers only need the requested fixture; do not download the
+      // complete fixture catalogue before showing the scoreboard.
       return;
     }
     if(token||isGuest)loadList(false);
@@ -2594,11 +2605,11 @@ function App(){
   useEffect(function(){
     if(!token && !isViewMode())return;
     var id=setInterval(function(){
-      if(document.visibilityState==='visible')loadList(false,true);
+      if(document.visibilityState==='visible'&&!(viewOnly&&shareId))loadList(false,true);
     },20000);
     var refreshOnReturn=function(){
       if(document.visibilityState&&document.visibilityState!=='visible')return;
-      loadList(false,true);
+      if(!(viewOnly&&shareId))loadList(false,true);
       // Refresh the selected fixture immediately when returning from minimize,
       // app switching, browser tab suspension or BFCache restoration.
       if(selected&&selected.id)loadDetail(selected,token,true);
@@ -2990,7 +3001,7 @@ function App(){
   var scoreboardOver=scoreboardOverIndex>=0?overs[scoreboardOverIndex]:null;
   var latestBallList=normalizeBalls(d&&d.balls||[]);
   var latestCommentaryBall=latestBallList.length?latestBallList[latestBallList.length-1]:null;
-  var latestCommentaryText=latestCommentaryBall?descriptiveLine(latestCommentaryBall,'en'):'';
+  var latestCommentaryText=latestCommentaryBall?liveReactTtsLine(latestCommentaryBall,'en',detail||selected):'';
 
   var filtered=matches.filter(function(m){
     if(filter==='all')return true;
@@ -3644,6 +3655,18 @@ tab==='schedule'?h('div',null,
       ):null,
 
       tab==='scorecard'?(!selected?h('div',{className:'empty'},'Select a match'):h('div',{className:'card'},
+        (statusOf(detail||selected)==='finished'?function(){
+          var rm=detail||selected,side=winnerSideForMatch(rm);
+          var wt=side==='home'?rm.localteam:side==='away'?rm.visitorteam:null;
+          var flag=wt?teamFlagUrl(wt):'';
+          return h('div',{className:'mcs-match-result-banner',style:{marginBottom:10}},
+            h('div',{className:'mcs-result-kicker'},'🏆 FULL TIME · MATCH RESULT'),
+            flag?h('img',{src:flag,alt:(wt.name||'Winning team')+' flag',style:{width:76,height:50,objectFit:'cover',borderRadius:7,display:'block',margin:'5px auto 9px',border:'2px solid #fde68a',boxShadow:'0 0 24px rgba(250,204,21,.8)'}}):null,
+            side?h('div',{className:'mcs-result-line'},(wt.name||'Winning team')+' WON'):null,
+            h('div',{className:'mcs-result-score'},teamName(rm,'local')+'  '+scoreLine(rm).a+'  ·  '+teamName(rm,'visitor')+'  '+scoreLine(rm).b),
+            h('div',{className:'mcs-result-line'},rm.result||rm.note||rm.status||'Match completed')
+          );
+        }():null),
         h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}},
           h('h3',null,'Scorecard'),
           h('button',{className:'btn',style:{fontSize:11,padding:'5px 9px'},onClick:function(){if(selected)loadDetail(selected,token,false);}},loading?'Loading…':'↻ Refresh')
@@ -3776,6 +3799,12 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
         })(),
         st==='finished'?h('div',{className:'mcs-match-result-banner'},
           h('div',{className:'mcs-result-kicker'},'🏆 FULL TIME · MATCH RESULT'),
+          (function(){
+            var rm=d||selected,side=winnerSideForMatch(rm);
+            var wt=side==='home'?rm.localteam:side==='away'?rm.visitorteam:null;
+            var flag=wt?teamFlagUrl(wt):'';
+            return flag?h('img',{src:flag,alt:(wt.name||'Winning team')+' flag',style:{width:76,height:50,objectFit:'cover',borderRadius:7,display:'block',margin:'5px auto 9px',border:'2px solid #fde68a',boxShadow:'0 0 24px rgba(250,204,21,.8)'}}):null;
+          })(),
           h('div',{className:'mcs-result-score'},homeName+'  '+sc.a+'  ·  '+awayName+'  '+sc.b),
           h('div',{className:'mcs-result-line'},status||d.note||d.result||'Match completed'),
           (function(){
