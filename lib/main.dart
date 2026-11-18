@@ -17,7 +17,7 @@ const List<List<double>> mcsThemeFilters = [
 const apiBase = String.fromEnvironment('MCS_API_BASE', defaultValue: 'https://mycricstats.pages.dev');
 class MyCricStatsApp extends StatelessWidget {
  const MyCricStatsApp({super.key});
- @override Widget build(BuildContext context) => ValueListenableBuilder<int>(valueListenable:mcsTheme,builder:(context,index,_) { final seed=mcsThemeSeeds[index.clamp(0,2)]; return MaterialApp(title:'MyCricStats',debugShowCheckedModeBanner:false,
+ @override Widget build(BuildContext context) => ValueListenableBuilder<int>(valueListenable:mcsTheme,builder:(context,index,_) { final seed=mcsThemeSeeds[index.clamp(0,3).toInt()]; return MaterialApp(title:'MyCricStats',debugShowCheckedModeBanner:false,
   theme:ThemeData(useMaterial3:true,brightness:Brightness.light,scaffoldBackgroundColor:navy,colorScheme:ColorScheme.fromSeed(seedColor:seed,brightness:Brightness.light,surface:panel),appBarTheme:const AppBarTheme(backgroundColor:Colors.white,foregroundColor:Color(0xFF101828),elevation:0)),home:const MCSHome()); });
 }
 class MCSMatch {
@@ -84,7 +84,7 @@ class _MCSHomeState extends State<MCSHome> {
  ];
 
  @override void initState(){super.initState();_loadTheme();refresh();timer=Timer.periodic(const Duration(seconds:12),(_)=>refresh(silent:true));}
- Future<void> _loadTheme() async { final p=await SharedPreferences.getInstance(); mcsTheme.value=(p.getInt('mcs_theme')??0).clamp(0,3); }
+ Future<void> _loadTheme() async { final p=await SharedPreferences.getInstance(); mcsTheme.value=(p.getInt('mcs_theme')??0).clamp(0,3).toInt(); }
  Future<void> _saveTheme(int v) async { mcsTheme.value=v; final p=await SharedPreferences.getInstance(); await p.setInt('mcs_theme',v); }
  @override void dispose(){timer?.cancel();playbackTimer?.cancel();super.dispose();}
  static List<Map<String,dynamic>> _records(dynamic value){if(value is Map&&value['data'] is List)value=value['data'];if(value is! List)return <Map<String,dynamic>>[];return value.whereType<Map>().map((e)=>Map<String,dynamic>.from(e)).toList();}
@@ -114,7 +114,7 @@ class _MCSHomeState extends State<MCSHome> {
  }
  @override Widget build(BuildContext context){
   final pages=[_home(),_matches(),_scorecard(),_commentary(),_more()];
-  return ValueListenableBuilder<int>(valueListenable:mcsTheme,builder:(context,themeIndex,_)=>ColorFiltered(colorFilter:ColorFilter.matrix(mcsThemeFilters[themeIndex.clamp(0,3)]),child:Scaffold(appBar:AppBar(toolbarHeight:64,titleSpacing:14,title:Row(children:[
+  return ValueListenableBuilder<int>(valueListenable:mcsTheme,builder:(context,themeIndex,_)=>ColorFiltered(colorFilter:ColorFilter.matrix(mcsThemeFilters[themeIndex.clamp(0,3).toInt()]),child:Scaffold(appBar:AppBar(toolbarHeight:64,titleSpacing:14,title:Row(children:[
    Container(width:38,height:38,decoration:BoxDecoration(color:red,borderRadius:BorderRadius.circular(12)),child:const Icon(Icons.sports_cricket,color:Colors.white)),
    const SizedBox(width:10),const Column(crossAxisAlignment:CrossAxisAlignment.start,mainAxisAlignment:MainAxisAlignment.center,children:[
     Text('MYCRICSTATS',style:TextStyle(fontSize:15,fontWeight:FontWeight.w900,letterSpacing:1)),
