@@ -69,7 +69,7 @@ class MCSApi {
 }
 class MCSHome extends StatefulWidget { const MCSHome({super.key}); @override State<MCSHome> createState()=>_MCSHomeState(); }
 class _MCSHomeState extends State<MCSHome> {
- int tab=0; bool loading=true; String? error; List<MCSMatch> matches=[]; MCSMatch? selected; Timer? timer; Timer? playbackTimer; List<Map<String,dynamic>> demoEvents=[]; int playbackIndex=-1; bool playbackRunning=false; String? demoMatchId;
+ int tab=0; bool loading=true; int scorerRuns=0,scorerWickets=0,scorerBalls=0,scorerExtras=0; bool scorerClosed=false; final List<Map<String,dynamic>> scorerLog=[]; String striker='Batter 1',nonStriker='Batter 2',bowler='Bowler 1'; String? error; List<MCSMatch> matches=[]; MCSMatch? selected; Timer? timer; Timer? playbackTimer; List<Map<String,dynamic>> demoEvents=[]; int playbackIndex=-1; bool playbackRunning=false; String? demoMatchId;
  Map<String,dynamic>? fixtureData; bool fixtureLoading=false; String? fixtureError; String eventKey=''; int eventVersion=0;
  List<Map<String,dynamic>> get _batting => _records(fixtureData?['batting'] ?? fixtureData?['scoreboards']);
  List<Map<String,dynamic>> get _bowling => _records(fixtureData?['bowling']);
@@ -220,7 +220,7 @@ class _MCSHomeState extends State<MCSHome> {
  Widget _more()=>ListView(padding:const EdgeInsets.all(14),children:[
   _title('APP THEMES','Choose a theme applied across every screen'),
   _card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('SELECT A THEME',style:TextStyle(fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1)),const SizedBox(height:10),Wrap(spacing:8,runSpacing:8,children:[for(var i=0;i<4;i++)_themeChoice(i,mcsThemeNames[i],mcsThemeSeeds[i])])])),
-  _title('TOURNAMENT & TOOLS','MyCricStats cricket features'),
+  _title('SCORING','Manual scoring controls'),\n  _manualScorer(),\n  _title('TOURNAMENT & TOOLS','MyCricStats cricket features'),
   _feature(Icons.groups_2_outlined,'Squads','Playing XI and player list'),
   _feature(Icons.casino_outlined,'Toss setup','Toss winner and bat / bowl decision'),
   _feature(Icons.leaderboard_outlined,'Tournament stats','Orange Cap, Purple Cap and leaderboards'),
@@ -265,7 +265,38 @@ class _MCSHomeState extends State<MCSHome> {
  Widget _card(Widget child)=>Container(margin:const EdgeInsets.only(top:10),padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:panel,borderRadius:BorderRadius.circular(15),border:Border.all(color:Colors.white.withOpacity(.09))),child:child);
  Widget _pill(String t,Color c)=>Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:5),decoration:BoxDecoration(color:c.withOpacity(.14),borderRadius:BorderRadius.circular(30),border:Border.all(color:c.withOpacity(.45))),child:Text(t.isEmpty?'MATCH':t,style:TextStyle(color:c,fontSize:8,fontWeight:FontWeight.w900,letterSpacing:.7)));
  Widget _quick(IconData i,String s,VoidCallback f)=>InkWell(onTap:f,borderRadius:BorderRadius.circular(12),child:Container(padding:const EdgeInsets.symmetric(vertical:14),decoration:BoxDecoration(color:panel,borderRadius:BorderRadius.circular(12)),child:Column(children:[Icon(i,color:gold),const SizedBox(height:6),Text(s,style:const TextStyle(fontSize:10,fontWeight:FontWeight.w800))])));
- Widget _themeChoice(int value,String label,Color color)=>ChoiceChip(label:Text(label),selected:mcsTheme.value==value,avatar:CircleAvatar(radius:7,backgroundColor:color),onSelected:(_)=>_saveTheme(value));
+ 
+ void _addScore(String label,int runs,{bool wicket=false,bool legal=true}) {
+  if(scorerClosed)return;
+  setState(() {
+   scorerRuns+=runs; if(wicket)scorerWickets++; if(!legal)scorerExtras+=runs; if(legal)scorerBalls++;
+   scorerLog.add({'label':label,'runs':runs,'wicket':wicket,'legal':legal,'total':scorerRuns});
+   if(scorerWickets>=10||scorerBalls>=300)scorerClosed=true;
+  });
+ }
+ void _resetScore(){setState((){scorerRuns=0;scorerWickets=0;scorerBalls=0;scorerExtras=0;scorerClosed=false;scorerLog.clear();});}
+ void _undoScore(){if(scorerLog.isEmpty)return;setState((){scorerLog.removeLast();scorerRuns=0;scorerWickets=0;scorerBalls=0;scorerExtras=0;scorerClosed=false;for(final e in scorerLog){scorerRuns+=e['runs'] as int;if(e['wicket']==true)scorerWickets++;if(e['legal']==true)scorerBalls++;else scorerExtras+=e['runs'] as int;} });}
+ Widget _manualScorer()=>_card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+  const Text('MANUAL MATCH SCORER',style:TextStyle(fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1)),
+  const SizedBox(height:10),
+  Row(children:[Expanded(child:Text('INDIA  '+scorerRuns.toString()+'/'+scorerWickets.toString(),style:const TextStyle(fontSize:21,fontWeight:FontWeight.w900))),Text((scorerBalls~/6).toString()+'.'+(scorerBalls%6).toString()+' OV',style:const TextStyle(color:gold,fontWeight:FontWeight.w900))]),
+  Text('Extras '+scorerExtras.toString()+'  •  CRR '+(scorerBalls==0?'0.00':(scorerRuns/(scorerBalls/6)).toStringAsFixed(2)),style:const TextStyle(color:muted,fontSize:10)),
+  const SizedBox(height:10),
+  Row(children:[Expanded(child:TextFormField(initialValue:striker,onChanged:(v)=>striker=v,decoration:const InputDecoration(labelText:'Striker',isDense:true))),const SizedBox(width:8),Expanded(child:TextFormField(initialValue:nonStriker,onChanged:(v)=>nonStriker=v,decoration:const InputDecoration(labelText:'Non-striker',isDense:true)))]),
+  TextFormField(initialValue:bowler,onChanged:(v)=>bowler=v,decoration:const InputDecoration(labelText:'Bowler',isDense:true)),
+  const SizedBox(height:12),
+  Wrap(spacing:6,runSpacing:6,children:[
+   for(final n in [0,1,2,3,4,6])OutlinedButton(onPressed:scorerClosed?null:()=>_addScore(n==0?'DOT':n==4?'FOUR':n==6?'SIX':'RUN',n),child:Text(n.toString())),
+   OutlinedButton(onPressed:scorerClosed?null:()=>_addScore('WIDE',1,legal:false),child:const Text('WIDE')),
+   OutlinedButton(onPressed:scorerClosed?null:()=>_addScore('NO BALL',1,legal:false),child:const Text('NO BALL')),
+   ElevatedButton(onPressed:scorerClosed?null:()=>_addScore('WICKET',0,wicket:true),child:const Text('WICKET')),
+  ]),
+  Row(children:[TextButton.icon(onPressed:_undoScore,icon:const Icon(Icons.undo),label:const Text('UNDO')),const Spacer(),TextButton.icon(onPressed:_resetScore,icon:const Icon(Icons.restart_alt),label:const Text('RESET'))]),
+  if(scorerClosed)_pill('INNINGS COMPLETE',gold),
+  if(scorerLog.isNotEmpty)Text('Recent: '+scorerLog.reversed.take(8).map((e)=>e['label'].toString()).join('  •  '),style:const TextStyle(color:muted,fontSize:9)),
+  const Text('This is a local test scorer. Match saving, innings handover, partnerships and tournament totals are not connected yet.',style:TextStyle(color:muted,fontSize:9,height:1.4))
+ ]));
+\n Widget _themeChoice(int value,String label,Color color)=>ChoiceChip(label:Text(label),selected:mcsTheme.value==value,avatar:CircleAvatar(radius:7,backgroundColor:color),onSelected:(_)=>_saveTheme(value));
  Widget _feature(IconData i,String a,String b)=>_card(Row(children:[Icon(i,color:gold,size:21),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(a,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w900)),const SizedBox(height:3),Text(b,style:const TextStyle(color:muted,fontSize:10))])),const Icon(Icons.chevron_right,color:muted)]));
  Widget _note(String s)=>Padding(padding:const EdgeInsets.only(top:12),child:Text(s,style:const TextStyle(color:muted,fontSize:10,height:1.5)));
 }
