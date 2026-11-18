@@ -1,19 +1,27 @@
-# MyCricStats — Flutter migration branch
+# MyCricStats Flutter
 
-This branch is the Flutter Web + Android implementation track. It is isolated from `main`.
+This is the Flutter rebuild of **MyCricStats (MCS)**. It is a cricket-only application and is not the MySportzStats football scorer.
 
-## Local development
-1. Install the Flutter stable SDK and Android Studio (for Android builds).
-2. From the repository root, generate platform folders once:
-   ```sh
-   flutter create --platforms=android,web --project-name mycricstats --org com.beinginnovator .
-   flutter pub get
-   ```
-3. Run the web app with `flutter run -d chrome`.
-4. Build Android with `flutter build apk --release`.
+## Current foundation
+- MyCricStats navy / red / gold match-centre visual language
+- Home, Matches, Scorecard, Commentary and Tournament & Tools destinations
+- Domestic match feed loaded from `/api/domestic` and refreshed every 20 seconds
+- Match selection and scorecard overview
+- Cricket-only Sportmonks proxy client using `/api/proxy?path=...` with guest/server token support
+- Flutter Web and Android targets
 
-## Cloudflare Pages
-The separate Pages project `mycricstats-flutter-test` runs `bash scripts/cloudflare_build.sh` and publishes `build/web`. The build script installs Flutter stable, generates platform scaffolding, resolves packages, and builds the web app.
+## Build
+```bash
+flutter pub get
+flutter run -d chrome
+flutter build web --release --base-href /
+flutter build apk --release
+```
 
-## Current migration scope
-The first Flutter milestone establishes the responsive match-centre shell and interactive Toss setup, plus Squads and Stats screens. It is a UI foundation, not yet a complete port. Sportmonks live scores, scoring controls, commentary/TTS, chat, D1 history, domestic feeds, advertisements, tournament calculations and administration still need to be migrated and verified. No production branch changes are made here.
+Cloudflare Pages uses `bash scripts/cloudflare_build.sh` with output directory `build/web`.
+
+## Cricket API
+The existing Pages Function `/api/proxy` is restricted to Sportmonks Cricket API v2 resources. Set `SPORTMONKS_TOKEN` in Cloudflare Pages environment variables for guest API calls. The Flutter client must not route to a football API.
+
+## Migration status
+This commit establishes the correct MCS Flutter app shell and domestic feed connection. Full migration of live fixture scorecards, ball-by-ball commentary/TTS, match-room chat, scorer controls, history, tournament calculations, advertisements and player/squad management remains staged work. Those modules are not represented as completed integrations.
