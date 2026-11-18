@@ -1,14 +1,33 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
+
+echo "=== MyCricStats Flutter Pages build starting ==="
+export CI=true
+export FLUTTER_SUPPRESS_ANALYTICS=true
+export GIT_TERMINAL_PROMPT=0
+
 FLUTTER_DIR="${RUNNER_TEMP:-/tmp}/flutter-sdk"
+
 if [ ! -x "$FLUTTER_DIR/bin/flutter" ]; then
+  echo "=== Installing Flutter stable SDK ==="
   rm -rf "$FLUTTER_DIR"
   git clone --depth 1 --branch stable https://github.com/flutter/flutter.git "$FLUTTER_DIR"
 fi
+
 export PATH="$FLUTTER_DIR/bin:$PATH"
+echo "=== Flutter version ==="
 flutter --version
-flutter config --enable-web
-# Generate Android platform files as well as web scaffolding when first building.
-flutter create --platforms=android,web --project-name mycricstats --org com.beinginnovator .
+
+echo "=== Generate web platform scaffolding (skip nested pub get) ==="
+flutter create --platforms=web --project-name mycricstats --org com.beinginnovator .
+
+echo "=== Resolve Dart dependencies ==="
 flutter pub get
+
+echo "=== Build Flutter web release ==="
 flutter build web --release --base-href /
+
+echo "=== Verify build output ==="
+test -s build/web/index.html
+find build/web -maxdepth 1 -type f -printf '%f\n' | head -20
+echo "=== MyCricStats Flutter Pages build completed ==="
