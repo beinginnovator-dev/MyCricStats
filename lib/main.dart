@@ -3,25 +3,33 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 void main() => runApp(const MyCricStatsApp());
-const navy = Color(0xFF01002C), panel = Color(0xFF12123F), red = Color(0xFFFF0F50), gold = Color(0xFFFBBF24), muted = Color(0xFFA8A8C8), blue = Color(0xFF7DD3FC);
+const navy = Color(0xFFF4F6FA), panel = Color(0xFFFFFFFF), red = Color(0xFFE11D48), gold = Color(0xFFB7791F), muted = Color(0xFF667085), blue = Color(0xFF2563EB);
 const apiBase = String.fromEnvironment('MCS_API_BASE', defaultValue: 'https://mycricstats.pages.dev');
 class MyCricStatsApp extends StatelessWidget {
  const MyCricStatsApp({super.key});
  @override Widget build(BuildContext context) => MaterialApp(title:'MyCricStats',debugShowCheckedModeBanner:false,
-  theme:ThemeData(useMaterial3:true,brightness:Brightness.dark,scaffoldBackgroundColor:navy,colorScheme:const ColorScheme.dark(primary:red,secondary:gold,surface:panel)),home:const MCSHome());
+  theme:ThemeData(useMaterial3:true,brightness:Brightness.light,scaffoldBackgroundColor:navy,colorScheme:const ColorScheme.light(primary:red,secondary:gold,surface:panel),appBarTheme:const AppBarTheme(backgroundColor:Colors.white,foregroundColor:Color(0xFF101828),elevation:0)),home:const MCSHome());
 }
 class MCSMatch {
  final String id,name,teamA,teamB,status,venue,type;
  final int? scoreA,wicketsA,scoreB,wicketsB; final String oversA,oversB;
  const MCSMatch({required this.id,required this.name,required this.teamA,required this.teamB,required this.status,this.venue='',this.type='Cricket',this.scoreA,this.wicketsA,this.scoreB,this.wicketsB,this.oversA='',this.oversB=''});
- factory MCSMatch.fromJson(Map<String,dynamic> j)=>MCSMatch(
-  id:(j['id']??j['fixture_id']??'').toString(),name:(j['name']??j['round']??'Cricket match').toString(),
-  teamA:(j['teamA']??j['localteam']?['name']??j['localteam_name']??'Team A').toString(),
-  teamB:(j['teamB']??j['visitorteam']?['name']??j['visitorteam_name']??'Team B').toString(),
-  status:(j['status']??j['note']??'upcoming').toString(),
-  venue:(j['venue'] is Map?j['venue']['name']:j['venue']??'').toString(),type:(j['type']??'Cricket').toString(),
-  scoreA:_toInt(j['scoreA']),wicketsA:_toInt(j['wicketsA']),scoreB:_toInt(j['scoreB']),wicketsB:_toInt(j['wicketsB']),
-  oversA:(j['oversA']??'').toString(),oversB:(j['oversB']??'').toString());
+ factory MCSMatch.fromJson(Map<String,dynamic> j){
+  final runs=(j['runs'] is List)?List<Map>.from(j['runs']):<Map>[];
+  final a=runs.isNotEmpty?runs[0]:null, b=runs.length>1?runs[1]:null;
+  final local=j['localteam'], visitor=j['visitorteam'];
+  return MCSMatch(
+   id:(j['id']??j['fixture_id']??'').toString(),
+   name:(j['name']??j['round']??j['type']??'Cricket match').toString(),
+   teamA:(j['teamA']??(local is Map?local['name']:null)??j['localteam_name']??'Team A').toString(),
+   teamB:(j['teamB']??(visitor is Map?visitor['name']:null)??j['visitorteam_name']??'Team B').toString(),
+   status:(j['status']??j['note']??(j['live']==1?'LIVE':'Upcoming')).toString(),
+   venue:(j['venue'] is Map?j['venue']['name']:j['venue']??'').toString(),
+   type:(j['type']??'Cricket').toString(),
+   scoreA:_toInt(j['scoreA']??a?['score']),wicketsA:_toInt(j['wicketsA']??a?[' wickets']??a?['wickets']),
+   scoreB:_toInt(j['scoreB']??b?['score']),wicketsB:_toInt(j['wicketsB']??b?['wickets']),
+   oversA:(j['oversA']??a?['overs']??'').toString(),oversB:(j['oversB']??b?['overs']??'').toString());
+ }
  bool get isLive=>status.toLowerCase().contains('live')||status.toLowerCase().contains('innings');
 }
 int? _toInt(dynamic v)=>v==null?null:int.tryParse(v.toString());
@@ -33,6 +41,15 @@ class MCSApi {
   final body=jsonDecode(r.body); final list=body is List?body:(body is Map?body['matches']:null);
   if(list is! List)return []; return list.whereType<Map>().map((e)=>MCSMatch.fromJson(Map<String,dynamic>.from(e))).toList();
  }
+ static Future<List<MCSMatch>> liveScores() async {
+  final body=await cricket('livescores',query:{'include':'localteam,visitorteam,runs,venue,league'});
+  final list=body['data'];
+  if(list is! List)return [];
+  return list.whereType<Map>().map((e)=>MCSMatch.fromJson(Map<String,dynamic>.from(e))).toList();
+ }
+ static Future<Map<String,dynamic>> fixture(String id) async {
+  return cricket('fixtures/$id',query:{'include':'localteam,visitorteam,runs,batting,bowling,lineup,balls,venue,league'});
+ }
  static Future<Map<String,dynamic>> cricket(String path,{Map<String,String> query=const {}}) async {
   final uri=Uri.parse('$apiBase/api/proxy').replace(queryParameters:{'path':path,'guest':'1',...query});
   final r=await http.get(uri).timeout(const Duration(seconds:14)); final data=jsonDecode(r.body);
@@ -43,13 +60,24 @@ class MCSApi {
 class MCSHome extends StatefulWidget { const MCSHome({super.key}); @override State<MCSHome> createState()=>_MCSHomeState(); }
 class _MCSHomeState extends State<MCSHome> {
  int tab=0; bool loading=true; String? error; List<MCSMatch> matches=[]; MCSMatch? selected; Timer? timer;
- @override void initState(){super.initState();refresh();timer=Timer.periodic(const Duration(seconds:20),(_)=>refresh(silent:true));}
+ @override void initState(){super.initState();refresh();timer=Timer.periodic(const Duration(seconds:12),(_)=>refresh(silent:true));}
  @override void dispose(){timer?.cancel();super.dispose();}
  Future<void> refresh({bool silent=false}) async {
   if(!silent&&mounted)setState(()=>loading=true);
-  try{final rows=await MCSApi.domestic();if(!mounted)return;setState((){
-   matches=rows;if(selected==null&&rows.isNotEmpty)selected=rows.firstWhere((m)=>m.isLive,orElse:()=>rows.first);
-   loading=false;error=null;});}
+  try{
+   List<MCSMatch> live=[];
+   try{live=await MCSApi.liveScores();}catch(_){}
+   final domestic=await MCSApi.domestic();
+   final byId=<String,MCSMatch>{};
+   for(final m in domestic) { byId[m.id]=m; }
+   for(final m in live) { byId[m.id]=m; }
+   final rows=byId.values.toList();
+   if(!mounted)return;setState((){
+    matches=rows;
+    if(selected==null&&rows.isNotEmpty)selected=rows.firstWhere((m)=>m.isLive,orElse:()=>rows.first);
+    else if(selected!=null){final fresh=rows.where((m)=>m.id==selected!.id);if(fresh.isNotEmpty)selected=fresh.first;}
+    loading=false;error=null;});
+  }
   catch(e){if(!mounted)return;setState(() { loading=false; error=e.toString().replaceFirst('Exception: ',''); });}
  }
  @override Widget build(BuildContext context){
@@ -85,13 +113,13 @@ class _MCSHomeState extends State<MCSHome> {
    const SizedBox(height:14),_scoreRow(selected!.teamA,_score(selected!.scoreA,selected!.wicketsA),selected!.oversA),
    const Divider(color:Color(0x33444466),height:22),_scoreRow(selected!.teamB,_score(selected!.scoreB,selected!.wicketsB),selected!.oversB),
    const SizedBox(height:14),const Text('BATTING & BOWLING',style:TextStyle(color:gold,fontWeight:FontWeight.w900,fontSize:10,letterSpacing:1)),
-   const SizedBox(height:7),const Text('Player-by-player figures will load from the linked Sportmonks Cricket fixture.',style:TextStyle(color:muted,fontSize:11,height:1.5))])),
+   const SizedBox(height:7),const Text('Live innings totals are synced from Sportmonks Cricket. Detailed batting, bowling and ball-by-ball panels are being connected next.',style:TextStyle(color:muted,fontSize:11,height:1.5))])),
   _note('This view is connected to the MCS domestic match list. Full fixture scorecard mapping is the next integration step.')]);
  Widget _commentary()=>ListView(padding:const EdgeInsets.all(14),children:[
   _title('BALL-BY-BALL',selected?.name??'Match commentary'),
   _card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
    const Row(children:[Icon(Icons.graphic_eq,color:gold),SizedBox(width:8),Text('LIVE COMMENTARY',style:TextStyle(fontWeight:FontWeight.w900,letterSpacing:1))]),
-   const SizedBox(height:12),const Text('Delivery events, batter and bowler details, over summaries and match narration will appear here when fixture ball data is connected.',style:TextStyle(color:muted,fontSize:12,height:1.55)),
+   const SizedBox(height:12),const Text('Commentary and ball-by-ball data will be loaded from the selected Sportmonks fixture when available. Event animations will only play for confirmed deliveries.',style:TextStyle(color:muted,fontSize:12,height:1.55)),
    if(selected!=null)Padding(padding:const EdgeInsets.only(top:10),child:Text(selected!.teamA+' vs '+selected!.teamB,style:const TextStyle(color:blue,fontSize:11,fontWeight:FontWeight.w800))) ]))]);
  Widget _more()=>ListView(padding:const EdgeInsets.all(14),children:[
   _title('TOURNAMENT & TOOLS','MyCricStats cricket features'),
