@@ -59,7 +59,7 @@ class MCSApi {
 }
 class MCSHome extends StatefulWidget { const MCSHome({super.key}); @override State<MCSHome> createState()=>_MCSHomeState(); }
 class _MCSHomeState extends State<MCSHome> {
- int tab=0; bool loading=true; String? error; List<MCSMatch> matches=[]; MCSMatch? selected; Timer? timer; Timer? playbackTimer; List<Map<String,dynamic>> demoEvents=[]; int playbackIndex=-1; bool playbackRunning=false;
+ int tab=0; bool loading=true; String? error; List<MCSMatch> matches=[]; MCSMatch? selected; Timer? timer; Timer? playbackTimer; List<Map<String,dynamic>> demoEvents=[]; int playbackIndex=-1; bool playbackRunning=false; String? demoMatchId;
  Map<String,dynamic>? fixtureData; bool fixtureLoading=false; String? fixtureError; String eventKey=''; int eventVersion=0;
  List<Map<String,dynamic>> get _batting => _records(fixtureData?['batting'] ?? fixtureData?['scoreboards']);
  List<Map<String,dynamic>> get _bowling => _records(fixtureData?['bowling']);
@@ -131,7 +131,8 @@ class _MCSHomeState extends State<MCSHome> {
  int _ballsFor(String overs){final p=overs.split('.');final o=int.tryParse(p.first)??0;final b=p.length>1?(int.tryParse(p[1])??0):0;return o*6+b;}
  void _prepareDemoPlayback(MCSMatch m){
   if(!m.id.startsWith('demo-'))return;
-  _stopPlayback();final out=<Map<String,dynamic>>[];
+  if(demoMatchId==m.id&&demoEvents.isNotEmpty)return;
+  demoMatchId=m.id;_stopPlayback();final out=<Map<String,dynamic>>[];
   void innings(int n,String team,int runs,int wickets,String overs){
    final count=_ballsFor(overs);if(count<=0)return;
    final values=List<int>.filled(count,0);var remaining=runs;
