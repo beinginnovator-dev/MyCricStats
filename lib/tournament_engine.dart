@@ -129,7 +129,7 @@ class TournamentEngine {
       inn.runs+=runs+1;inn.extras+=1;inn.noBalls++;
       bowler.bowlRuns+=runs+1;bowler.noBalls++;
       final batRuns=runs;
-      batter.runs+=batRuns;
+      batter.runs+=batRuns;batter.balls++;
       if(batRuns==4)batter.fours++;if(batRuns==6)batter.sixes++;
     } else if(type==DeliveryType.wide){
       final conceded=runs<=0?1:runs;
@@ -137,7 +137,7 @@ class TournamentEngine {
       bowler.bowlRuns+=conceded;bowler.wides++;
     } else if(type==DeliveryType.legBye){
       inn.runs+=runs;inn.extras+=runs;inn.legByes+=runs;inn.legalBalls++;
-      batter.balls++;bowler.bowlBalls++;bowler.bowlRuns+=runs;
+      batter.balls++;bowler.bowlBalls++;
     } else {
       inn.runs+=runs;inn.legalBalls++;batter.runs+=runs;batter.balls++;
       if(runs==4)batter.fours++;if(runs==6)batter.sixes++;
@@ -161,7 +161,7 @@ class TournamentEngine {
       if((type==DeliveryType.legal||type==DeliveryType.legBye)&&runs.isOdd&&!wicket){final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;}
       if(inn.legalBalls>0&&inn.legalBalls%6==0){final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;requireBowlerChange=true;lastOverBowler=inn.bowler;inn.overBalls=[];}
     }
-    final maxWickets=(battingSquad.length-1).clamp(0,10);
+    final maxWickets=(match.settings.playersPerSide<battingSquad.length?match.settings.playersPerSide:battingSquad.length)-1;
     final chaseDone=match.innings==2&&inn.target!=null&&inn.runs>=inn.target!;
     if(inn.wickets>=maxWickets||inn.legalBalls>=match.settings.overs*6||chaseDone){inn.complete=true;_finishInnings();}
   }
