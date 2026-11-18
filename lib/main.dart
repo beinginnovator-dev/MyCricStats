@@ -26,7 +26,7 @@ class MCSMatch {
    status:(j['status']??j['note']??(j['live']==1?'LIVE':'Upcoming')).toString(),
    venue:(j['venue'] is Map?j['venue']['name']:j['venue']??'').toString(),
    type:(j['type']??'Cricket').toString(),
-   scoreA:_toInt(j['scoreA']??a?['score']),wicketsA:_toInt(j['wicketsA']??a?[' wickets']??a?['wickets']),
+   scoreA:_toInt(j['scoreA']??a?['score']),wicketsA:_toInt(j['wicketsA']??a?['wickets']),
    scoreB:_toInt(j['scoreB']??b?['score']),wicketsB:_toInt(j['wicketsB']??b?['wickets']),
    oversA:(j['oversA']??a?['overs']??'').toString(),oversB:(j['oversB']??b?['overs']??'').toString());
  }
