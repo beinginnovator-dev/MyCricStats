@@ -1,301 +1,243 @@
-import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-void main() => runApp(const MyCricStatsApp());
-const navy = Color(0xFF08090D), panel = Color(0xFF15171E), red = Color(0xFFFF304F), gold = Color(0xFFFFC857), muted = Color(0xFFB5BAC6), blue = Color(0xFF4B8DFF);
-final ValueNotifier<int> mcsTheme = ValueNotifier<int>(0);
-const List<String> mcsThemeNames = ['Pro Black / Red','Midnight Red','Graphite Red'];
-const List<Color> mcsThemeAccents = [Color(0xFFFF304F),Color(0xFFE11D48),Color(0xFFFF5A36)];
-const apiBase = String.fromEnvironment('MCS_API_BASE', defaultValue: 'https://mycricstats.pages.dev');
-class MyCricStatsApp extends StatelessWidget {
- const MyCricStatsApp({super.key});
- @override Widget build(BuildContext context) => ValueListenableBuilder<int>(valueListenable:mcsTheme,builder:(context,index,_) { final accent=mcsThemeAccents[index.clamp(0,2).toInt()]; return MaterialApp(title:'MyCricStats',debugShowCheckedModeBanner:false,
-  theme:ThemeData(useMaterial3:true,brightness:Brightness.dark,scaffoldBackgroundColor:navy,cardColor:panel,canvasColor:navy,colorScheme:ColorScheme.dark(primary:accent,secondary:gold,surface:panel,onSurface:Colors.white),appBarTheme:const AppBarTheme(backgroundColor:navy,foregroundColor:Colors.white,elevation:0),navigationBarTheme:NavigationBarThemeData(backgroundColor:panel,indicatorColor:accent.withOpacity(.22),labelTextStyle:WidgetStateProperty.all(const TextStyle(color:Colors.white))),inputDecorationTheme:InputDecorationTheme(filled:true,fillColor:panel,labelStyle:const TextStyle(color:muted),border:OutlineInputBorder(borderRadius:BorderRadius.all(Radius.circular(10)),borderSide:BorderSide(color:muted)))),home:const MCSHome()); });
-}
-class MCSMatch {
- final String id,name,teamA,teamB,status,venue,type;
- final int? scoreA,wicketsA,scoreB,wicketsB; final String oversA,oversB;
- const MCSMatch({required this.id,required this.name,required this.teamA,required this.teamB,required this.status,this.venue='',this.type='Cricket',this.scoreA,this.wicketsA,this.scoreB,this.wicketsB,this.oversA='',this.oversB=''});
- factory MCSMatch.fromJson(Map<String,dynamic> j){
-  final runs=(j['runs'] is List)?List<Map>.from(j['runs']):<Map>[];
-  final a=runs.isNotEmpty?runs[0]:null, b=runs.length>1?runs[1]:null;
-  final local=j['localteam'], visitor=j['visitorteam'];
-  return MCSMatch(
-   id:(j['id']??j['fixture_id']??'').toString(),
-   name:(j['name']??j['round']??j['type']??'Cricket match').toString(),
-   teamA:(j['teamA']??(local is Map?local['name']:null)??j['localteam_name']??'Team A').toString(),
-   teamB:(j['teamB']??(visitor is Map?visitor['name']:null)??j['visitorteam_name']??'Team B').toString(),
-   status:(j['status']??j['note']??(j['live']==1?'LIVE':'Upcoming')).toString(),
-   venue:(j['venue'] is Map?j['venue']['name']:j['venue']??'').toString(),
-   type:(j['type']??'Cricket').toString(),
-   scoreA:_toInt(j['scoreA']??a?['score']),wicketsA:_toInt(j['wicketsA']??a?['wickets']),
-   scoreB:_toInt(j['scoreB']??b?['score']),wicketsB:_toInt(j['wicketsB']??b?['wickets']),
-   oversA:(j['oversA']??a?['overs']??'').toString(),oversB:(j['oversB']??b?['overs']??'').toString());
- }
- bool get isLive=>status.toLowerCase().contains('live')||status.toLowerCase().contains('innings');
-}
-int? _toInt(dynamic v)=>v==null?null:int.tryParse(v.toString());
-String _score(int? r,int? w)=>r==null?'—':r.toString()+'/'+(w??0).toString();
-class MCSApi {
- static Future<List<MCSMatch>> domestic() async {
-  final r=await http.get(Uri.parse('$apiBase/api/domestic')).timeout(const Duration(seconds:12));
-  if(r.statusCode!=200) throw Exception('Domestic feed returned '+r.statusCode.toString());
-  final body=jsonDecode(r.body); final list=body is List?body:(body is Map?body['matches']:null);
-  if(list is! List)return []; return list.whereType<Map>().map((e)=>MCSMatch.fromJson(Map<String,dynamic>.from(e))).toList();
- }
- static Future<List<MCSMatch>> liveScores() async {
-  final body=await cricket('livescores',query:{'include':'localteam,visitorteam,runs,venue,league'});
-  final list=body['data'];
-  if(list is! List)return [];
-  return list.whereType<Map>().map((e)=>MCSMatch.fromJson(Map<String,dynamic>.from(e))).toList();
- }
- static Future<Map<String,dynamic>> fixture(String id) async {
-  return cricket('fixtures/$id',query:{'include':'localteam,visitorteam,runs,batting,bowling,lineup,balls.batsman,balls.bowler,balls.score,venue,league'});
- }
- static Future<Map<String,dynamic>> cricket(String path,{Map<String,String> query=const {}}) async {
-  final uri=Uri.parse('$apiBase/api/proxy').replace(queryParameters:{'path':path,'guest':'1',...query});
-  final r=await http.get(uri).timeout(const Duration(seconds:14)); final data=jsonDecode(r.body);
-  if(r.statusCode!=200)throw Exception(data is Map?data['message']??'Cricket API error':'Cricket API error');
-  return Map<String,dynamic>.from(data as Map);
- }
-}
-class MCSHome extends StatefulWidget { const MCSHome({super.key}); @override State<MCSHome> createState()=>_MCSHomeState(); }
-class _MCSHomeState extends State<MCSHome> {
- int tab=0; bool loading=true; int scorerRuns=0,scorerWickets=0,scorerBalls=0,scorerExtras=0; bool scorerClosed=false; final List<Map<String,dynamic>> scorerLog=[]; String striker='Batter 1',nonStriker='Batter 2',bowler='Bowler 1'; String? error; List<MCSMatch> matches=[]; MCSMatch? selected; Timer? timer; Timer? playbackTimer; List<Map<String,dynamic>> demoEvents=[]; int playbackIndex=-1; bool playbackRunning=false; String? demoMatchId;
- Map<String,dynamic>? fixtureData; bool fixtureLoading=false; String? fixtureError; String eventKey=''; int eventVersion=0;
- List<Map<String,dynamic>> get _batting => _records(fixtureData?['batting'] ?? fixtureData?['scoreboards']);
- List<Map<String,dynamic>> get _bowling => _records(fixtureData?['bowling']);
- List<Map<String,dynamic>> get _deliveries => _records(fixtureData?['balls']).reversed.take(24).toList();
- // Historical India–New Zealand results used only as local UI test fixtures.
- // These are not live Sportmonks records.
- static const List<MCSMatch> _demoMatches = [
-  MCSMatch(id:'demo-ind-nz-2026-01-11',name:'1st ODI • 11 Jan 2026',teamA:'India',teamB:'New Zealand',status:'DEMO • INDIA WON BY 4 WICKETS',venue:'BCA Stadium, Vadodara',type:'ODI',scoreA:306,wicketsA:6,scoreB:300,wicketsB:8,oversA:'49.0',oversB:'50.0'),
-  MCSMatch(id:'demo-ind-nz-2026-01-14',name:'2nd ODI • 14 Jan 2026',teamA:'India',teamB:'New Zealand',status:'DEMO • NZ WON BY 7 WICKETS',venue:'Niranjan Shah Stadium, Rajkot',type:'ODI',scoreA:284,wicketsA:7,scoreB:286,wicketsB:3,oversA:'50.0',oversB:'47.3'),
-  MCSMatch(id:'demo-ind-nz-2026-01-18',name:'3rd ODI • 18 Jan 2026',teamA:'India',teamB:'New Zealand',status:'DEMO • NZ WON BY 41 RUNS',venue:'Holkar Cricket Stadium, Indore',type:'ODI',scoreA:296,wicketsA:10,scoreB:337,wicketsB:8,oversA:'46.0',oversB:'50.0'),
-  MCSMatch(id:'demo-ind-nz-2026-11-15',name:'5th ODI • 15 Nov 2026',teamA:'India',teamB:'New Zealand',status:'DEMO • INDIA WON BY 22 RUNS',venue:'Bay Oval, Mount Maunganui',type:'ODI',scoreA:209,wicketsA:10,scoreB:187,wicketsB:10,oversA:'42.1',oversB:'48.1'),
- ];
 
- @override void initState(){super.initState();_loadTheme();refresh();timer=Timer.periodic(const Duration(seconds:12),(_)=>refresh(silent:true));}
- Future<void> _loadTheme() async { final p=await SharedPreferences.getInstance(); mcsTheme.value=(p.getInt('mcs_theme')??0).clamp(0,2).toInt(); }
- Future<void> _saveTheme(int v) async { mcsTheme.value=v; final p=await SharedPreferences.getInstance(); await p.setInt('mcs_theme',v); }
- @override void dispose(){timer?.cancel();playbackTimer?.cancel();super.dispose();}
- static List<Map<String,dynamic>> _records(dynamic value){if(value is Map&&value['data'] is List)value=value['data'];if(value is! List)return <Map<String,dynamic>>[];return value.whereType<Map>().map((e)=>Map<String,dynamic>.from(e)).toList();}
- String _player(dynamic value){if(value is Map)return (value['fullname']??value['name']??value['display_name']??'Player').toString();return value?.toString()??'—';}
- String _deliveryText(Map<String,dynamic> ball){final score=ball['score'] is Map?Map<String,dynamic>.from(ball['score']):<String,dynamic>{};final runs=_toInt(score['runs']??ball['score'])??0;final wicket=score['is_wicket']==true||ball['is_wicket']==true||ball['wicket']!=null;final name=(score['name']??ball['name']??'').toString().toLowerCase();if(wicket||name.contains('wicket'))return 'WICKET';if(runs==6||name.contains('six'))return 'SIX';if(runs==4||name.contains('four'))return 'FOUR';if(name.isNotEmpty)return name.toUpperCase();return runs.toString()+' RUN'+(runs==1?'':'S');}
- Future<void> loadFixture({bool silent=false}) async {final match=selected;if(match==null||match.id.isEmpty)return;if(match.id.startsWith('demo-')){_stopPlayback();_prepareDemoPlayback(match);if(mounted)setState((){fixtureData=null;fixtureError=null;fixtureLoading=false;});return;}if(!silent&&mounted)setState(()=>fixtureLoading=true);try{final body=await MCSApi.fixture(match.id);final raw=body['data'];if(!mounted||selected?.id!=match.id)return;final data=raw is Map?Map<String,dynamic>.from(raw):body;final balls=_records(data['balls']);final latest=balls.isEmpty?null:balls.last;final key=latest==null?'':(latest['id']??latest['ball']??latest['overs']??jsonEncode(latest)).toString();setState((){fixtureData=data;fixtureError=null;fixtureLoading=false;if(key.isNotEmpty&&key!=eventKey){eventKey=key;eventVersion++;}});}catch(e){if(!mounted)return;setState((){fixtureLoading=false;fixtureError=e.toString().replaceFirst('Exception: ','');});}}
- Future<void> refresh({bool silent=false}) async {
-  if(!silent&&mounted)setState(()=>loading=true);
-  try{
-   List<MCSMatch> live=[];
-   try{live=await MCSApi.liveScores();}catch(_){}
-   List<MCSMatch> domestic=[];
-   try{domestic=await MCSApi.domestic();}catch(_){}
-   final byId=<String,MCSMatch>{};
-   for(final m in _demoMatches) { byId[m.id]=m; }
-   for(final m in domestic) { byId[m.id]=m; }
-   for(final m in live) { byId[m.id]=m; }
-   final rows=byId.values.toList();
-   if(!mounted)return;setState((){
-    matches=rows;
-    if(selected==null&&rows.isNotEmpty)selected=rows.firstWhere((m)=>m.isLive,orElse:()=>rows.first);
-    else if(selected!=null){final fresh=rows.where((m)=>m.id==selected!.id);if(fresh.isNotEmpty)selected=fresh.first;}
-    loading=false;error=null;});
-   if(selected!=null){if(selected!.id.startsWith('demo-'))_prepareDemoPlayback(selected!);await loadFixture(silent:true);}
+void main() => runApp(const SportzFlutterApp());
+
+const bg = Color(0xFF080B12);
+const surface = Color(0xFF111827);
+const surface2 = Color(0xFF192235);
+const accent = Color(0xFFFF304F);
+const gold = Color(0xFFFFC857);
+const muted = Color(0xFF91A0B7);
+
+class SportzFlutterApp extends StatefulWidget {
+  const SportzFlutterApp({super.key});
+  @override State<SportzFlutterApp> createState() => _SportzFlutterAppState();
+}
+class _SportzFlutterAppState extends State<SportzFlutterApp> {
+  int themeIndex = 0;
+  @override void initState() { super.initState(); _loadTheme(); }
+  Future<void> _loadTheme() async { final p = await SharedPreferences.getInstance(); if (mounted) setState(() => themeIndex = p.getInt('sportz_theme') ?? 0); }
+  Future<void> _setTheme(int value) async { final p = await SharedPreferences.getInstance(); await p.setInt('sportz_theme', value); if (mounted) setState(() => themeIndex = value); }
+  @override Widget build(BuildContext context) {
+    final colors = [accent, const Color(0xFFE11D48), const Color(0xFFFF653D)];
+    final primary = colors[themeIndex.clamp(0, 2)];
+    return MaterialApp(
+      title: 'MySportzStats',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true, brightness: Brightness.dark,
+        scaffoldBackgroundColor: bg, colorScheme: ColorScheme.dark(primary: primary, secondary: gold, surface: surface),
+        appBarTheme: const AppBarTheme(backgroundColor: bg, foregroundColor: Colors.white, elevation: 0),
+        navigationBarTheme: NavigationBarThemeData(backgroundColor: surface, indicatorColor: primary.withOpacity(.18)),
+        cardTheme: CardThemeData(color: surface, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
+        textTheme: ThemeData.dark().textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white),
+      ),
+      home: SportzShell(primary: primary, themeIndex: themeIndex, onThemeChanged: _setTheme),
+    );
   }
-  catch(e){if(!mounted)return;setState(() { loading=false; error=e.toString().replaceFirst('Exception: ',''); });}
- }
- @override Widget build(BuildContext context){
-  final pages=[_home(),_matches(),_scorecard(),_commentary(),_more()];
-  return ValueListenableBuilder<int>(valueListenable:mcsTheme,builder:(context,themeIndex,_)=>Scaffold(appBar:AppBar(toolbarHeight:64,titleSpacing:14,title:Row(children:[
-   Container(width:38,height:38,decoration:BoxDecoration(color:red,borderRadius:BorderRadius.circular(12)),child:const Icon(Icons.sports_cricket,color:Colors.white)),
-   const SizedBox(width:10),const Column(crossAxisAlignment:CrossAxisAlignment.start,mainAxisAlignment:MainAxisAlignment.center,children:[
-    Text('MYCRICSTATS',style:TextStyle(fontSize:15,fontWeight:FontWeight.w900,letterSpacing:1)),
-    Text('CRICKET MATCH CENTRE',style:TextStyle(fontSize:9,color:muted,letterSpacing:1.2,fontWeight:FontWeight.w700))])]),
-   actions:[IconButton(onPressed:refresh,icon:const Icon(Icons.refresh)),const SizedBox(width:5)]),
-   body:SafeArea(top:false,child:IndexedStack(index:tab,children:pages)),
-   bottomNavigationBar:NavigationBar(backgroundColor:panel,indicatorColor:red.withOpacity(.18),selectedIndex:tab,onDestinationSelected:(v)=>setState(()=>tab=v),
-    destinations:const [NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'Home'),
-     NavigationDestination(icon:Icon(Icons.sports_cricket_outlined),label:'Matches'),NavigationDestination(icon:Icon(Icons.scoreboard_outlined),label:'Scorecard'),
-     NavigationDestination(icon:Icon(Icons.mic_none),label:'Commentary'),NavigationDestination(icon:Icon(Icons.grid_view_rounded),label:'More')])));
- }
- String _flagFor(String team){final t=team.toLowerCase();if(t.contains('india'))return '🇮🇳';if(t.contains('new zealand')||t=='nz')return '🇳🇿';if(t.contains('australia'))return '🇦🇺';if(t.contains('england'))return '🏴';if(t.contains('pakistan'))return '🇵🇰';if(t.contains('south africa'))return '🇿🇦';if(t.contains('sri lanka'))return '🇱🇰';if(t.contains('bangladesh'))return '🇧🇩';if(t.contains('afghanistan'))return '🇦🇫';if(t.contains('west indies'))return '🏝️';if(t.contains('ireland'))return '🇮🇪';if(t.contains('zimbabwe'))return '🇿🇼';if(t.contains('nepal'))return '🇳🇵';return '🏏';}
- Widget _home()=>RefreshIndicator(onRefresh:refresh,child:ListView(padding:const EdgeInsets.all(14),children:[
-  _heading('MATCH CENTRE','CRICKET ONLY'),if(selected!=null)_featured(selected!)else _empty(),
-  const SizedBox(height:17),_heading('MATCHES',matches.length.toString()+' LISTED'),
-  if(loading&&matches.isEmpty)const _Loading() else if(matches.isEmpty)_empty() else ...matches.take(5).map(_matchTile),
-  const SizedBox(height:16),_heading('QUICK ACCESS',null),
-  Row(children:[Expanded(child:_quick(Icons.table_chart_outlined,'Scorecard',()=>setState(()=>tab=2))),const SizedBox(width:8),
-   Expanded(child:_quick(Icons.forum_outlined,'Commentary',()=>setState(()=>tab=3))),const SizedBox(width:8),
-   Expanded(child:_quick(Icons.leaderboard_outlined,'Stats',()=>setState(()=>tab=4)))])
- ]));
- Widget _matches()=>RefreshIndicator(onRefresh:refresh,child:ListView(padding:const EdgeInsets.all(14),children:[
-  _title('MATCHES','Historical IND vs NZ demo results + connected feeds'),if(error!=null)_error(error!),
-  if(loading&&matches.isEmpty)const _Loading(),if(matches.isEmpty&&!loading)_empty(),...matches.map(_matchTile)]));
+}
 
- void _stopPlayback(){playbackTimer?.cancel();playbackTimer=null;playbackRunning=false;}
- int _ballsFor(String overs){final p=overs.split('.');final o=int.tryParse(p.first)??0;final b=p.length>1?(int.tryParse(p[1])??0):0;return o*6+b;}
- void _prepareDemoPlayback(MCSMatch m){
-  if(!m.id.startsWith('demo-'))return;
-  if(demoMatchId==m.id&&demoEvents.isNotEmpty)return;
-  demoMatchId=m.id;_stopPlayback();final out=<Map<String,dynamic>>[];
-  void innings(int n,String team,int runs,int wickets,String overs){
-   final count=_ballsFor(overs);if(count<=0)return;
-   final values=List<int>.filled(count,0);var remaining=runs;
-   const pattern=[1,2,0,4,1,0,3,1,6,0,2,1];
-   for(var i=0;i<count&&remaining>0;i++){final cap=pattern[i%pattern.length];final take=remaining<cap?remaining:cap;values[i]=take;remaining-=take;}
-   for(var i=0;i<count&&remaining>0;i++){final take=remaining>6?6:remaining;values[i]=take;remaining-=take;}
-   final wicketAt=<int>{};for(var w=0;w<wickets;w++){final pos=((w+1)*count/(wickets+1)).floor().clamp(0,count-1);wicketAt.add(pos);}
-   for(var i=0;i<count;i++){final label=wicketAt.contains(i)?'WICKET':values[i]==6?'SIX':values[i]==4?'FOUR':values[i]==0?'DOT BALL':values[i].toString()+' RUNS';out.add({'innings':n,'team':team,'runs':values[i],'wicket':wicketAt.contains(i),'over':i~/6+1,'ball':i%6+1,'text':label});}
+class SportzShell extends StatefulWidget {
+  final Color primary; final int themeIndex; final ValueChanged<int> onThemeChanged;
+  const SportzShell({super.key, required this.primary, required this.themeIndex, required this.onThemeChanged});
+  @override State<SportzShell> createState() => _SportzShellState();
+}
+class _SportzShellState extends State<SportzShell> {
+  int tab = 0;
+  int runs = 0, wickets = 0, legalBalls = 0, extras = 0, innings = 1;
+  int maxOvers = 8;
+  String teamA = 'TEAM RED', teamB = 'TEAM BLUE';
+  String striker = 'Batter 01', nonStriker = 'Batter 02', bowler = 'Bowler 01';
+  final List<String> thisOver = [];
+  final List<Map<String, dynamic>> history = [];
+  bool matchLive = false, matchEnded = false;
+  String matchTitle = 'MATCH DAY 01';
+  double get overs => legalBalls / 6;
+  String get overText => '${legalBalls ~/ 6}.${legalBalls % 6}';
+  double get crr => legalBalls == 0 ? 0 : runs / (legalBalls / 6);
+  String get battingTeam => innings == 1 ? teamA : teamB;
+  String get bowlingTeam => innings == 1 ? teamB : teamA;
+
+  void score(String label, {int add = 0, bool legal = true, bool wicket = false, bool extra = false}) {
+    if (!matchLive || matchEnded) return;
+    setState(() {
+      final before = {'runs': runs, 'wickets': wickets, 'balls': legalBalls, 'extras': extras, 'over': List<String>.from(thisOver), 'striker': striker, 'nonStriker': nonStriker};
+      history.add(before);
+      runs += add; if (wicket) wickets++; if (extra) extras += add;
+      if (legal) { legalBalls++; thisOver.add(label); }
+      else { thisOver.add(label); }
+      if (legalBalls > 0 && legalBalls % 6 == 0) { final old = striker; striker = nonStriker; nonStriker = old; }
+      if (wickets >= 10 || legalBalls >= maxOvers * 6) matchEnded = true;
+    });
   }
-  innings(1,m.teamA,m.scoreA??0,m.wicketsA??0,m.oversA);
-  innings(2,m.teamB,m.scoreB??0,m.wicketsB??0,m.oversB);
-  if(mounted)setState(() { demoEvents=out; playbackIndex=-1; playbackRunning=false; });
- }
- void _startPlayback(){
-  if(demoEvents.isEmpty||playbackRunning)return;
-  if(playbackIndex>=demoEvents.length-1)playbackIndex=-1;
-  setState(()=>playbackRunning=true);
-  playbackTimer=Timer.periodic(const Duration(milliseconds:650),(t){
-   if(!mounted){t.cancel();return;}
-   if(playbackIndex>=demoEvents.length-1){t.cancel();setState(()=>playbackRunning=false);return;}
-   setState(()=>playbackIndex++);
-   if(playbackIndex>=demoEvents.length-1){t.cancel();setState(()=>playbackRunning=false);}
-  });
- }
- void _restartPlayback(){_stopPlayback();setState(()=>playbackIndex=-1);_startPlayback();}
- Widget _demoPlaybackPanel(){
-  final m=selected!;final current=playbackIndex>=0&&playbackIndex<demoEvents.length?demoEvents[playbackIndex]:null;
-  final inning=current==null?1:current['innings'] as int;
-  var runs=0,wkts=0,balls=0;
-  for(var i=0;i<=playbackIndex&&i<demoEvents.length;i++){final e=demoEvents[i];if(e['innings']==inning){runs+=e['runs'] as int;if(e['wicket']==true)wkts++;balls++;}}
-  final team=inning==1?m.teamA:m.teamB;final targetRuns=inning==1?(m.scoreA??0):(m.scoreB??0);final targetWkts=inning==1?(m.wicketsA??0):(m.wicketsB??0);
-  final totalBalls=_ballsFor(inning==1?m.oversA:m.oversB);
-  final overText='\${balls~/6}.\${balls%6}';
-  return _card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-   Row(children:[_pill('DEMO PLAYBACK',gold),const Spacer(),Text(m.type,style:const TextStyle(color:muted,fontSize:10,fontWeight:FontWeight.w800))]),
-   const SizedBox(height:12),Text(m.name,style:const TextStyle(fontSize:13,fontWeight:FontWeight.w900)),
-   const SizedBox(height:12),Container(width:double.infinity,padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:const Color(0xFF101044),borderRadius:BorderRadius.circular(14)),child:Column(children:[
-    Text('INNINGS $inning • $team',style:const TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1)),
-    const SizedBox(height:7),Text('$runs/$wkts',style:const TextStyle(color:Colors.white,fontSize:34,fontWeight:FontWeight.w900)),
-    Text('OVER $overText  •  '+(current==null?'READY':current["text"].toString()),style:const TextStyle(color:Color(0xFFF3C66A),fontSize:11,fontWeight:FontWeight.w800)),
-    const SizedBox(height:10),LinearProgressIndicator(value:totalBalls==0?0:balls/totalBalls,backgroundColor:Colors.white24,color:const Color(0xFFF3C66A),minHeight:5),
-    const SizedBox(height:5),Align(alignment:Alignment.centerRight,child:Text('$balls / $totalBalls balls',style:const TextStyle(color:Colors.white60,fontSize:9)))
-   ])),
-   const SizedBox(height:12),Row(children:[
-    Expanded(child:ElevatedButton.icon(onPressed:playbackRunning?(){_stopPlayback();setState((){});}:_startPlayback,icon:Icon(playbackRunning?Icons.pause:Icons.play_arrow),label:Text(playbackRunning?'PAUSE':'START'),style:ElevatedButton.styleFrom(backgroundColor:red,foregroundColor:Colors.white))),
-    const SizedBox(width:8),OutlinedButton.icon(onPressed:_restartPlayback,icon:const Icon(Icons.restart_alt),label:const Text('RESTART'))
-   ]),
-   const SizedBox(height:8),Text('Final target: $targetRuns/$targetWkts • '+(inning==1?m.oversA:m.oversB)+' overs',style:const TextStyle(color:muted,fontSize:10)),
-   const SizedBox(height:6),const Text('Simulated delivery sequence for UI testing — not official historical ball-by-ball data.',style:TextStyle(color:gold,fontSize:9,height:1.4))
-  ]));
- }
+  void undo() { if (history.isEmpty) return; final s = history.removeLast(); setState(() { runs=s['runs']; wickets=s['wickets']; legalBalls=s['balls']; extras=s['extras']; thisOver..clear()..addAll((s['over'] as List).cast<String>()); striker=s['striker']; nonStriker=s['nonStriker']; matchEnded=false; }); }
+  void startMatch() { setState(() { matchLive=true; matchEnded=false; runs=0; wickets=0; legalBalls=0; extras=0; innings=1; history.clear(); thisOver.clear(); tab=2; }); }
+  void resetMatch() { setState(() { matchLive=false; matchEnded=false; runs=0; wickets=0; legalBalls=0; extras=0; innings=1; history.clear(); thisOver.clear(); }); }
+  void swapStrike() { setState(() { final s=striker; striker=nonStriker; nonStriker=s; }); }
 
- Widget _demoScorecard(){
-  final m=selected!;
-  return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-   _card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[_pill(m.status,gold),const Spacer(),Text(m.type,style:const TextStyle(color:muted,fontSize:10,fontWeight:FontWeight.w900))]),const SizedBox(height:12),_scoreRow(m.teamA,_score(m.scoreA,m.wicketsA),m.oversA),const Divider(height:22),_scoreRow(m.teamB,_score(m.scoreB,m.wicketsB),m.oversB),const SizedBox(height:10),Row(children:[const Icon(Icons.stadium_outlined,color:gold,size:15),const SizedBox(width:6),Expanded(child:Text(m.venue,style:const TextStyle(color:muted,fontSize:10)))])])),
-   _card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('INNINGS SUMMARY',style:TextStyle(fontWeight:FontWeight.w900,fontSize:12,letterSpacing:1)),const SizedBox(height:12),_inningsSummary(m.teamA,m.scoreA??0,m.wicketsA??0,m.oversA),const Divider(height:22),_inningsSummary(m.teamB,m.scoreB??0,m.wicketsB??0,m.oversB)])),
-   _demoPlaybackPanel(),_note('Demo scorecard: final totals are shown for visual testing. Playback deliveries are simulated and are not verified historical ball-by-ball records.')
+  @override Widget build(BuildContext context) {
+    final pages = [_dashboard(), _matches(), _scorer(), _stats(), _more()];
+    return Scaffold(
+      appBar: AppBar(
+        titleSpacing: 16,
+        title: Row(children: [
+          Container(width: 38, height: 38, decoration: BoxDecoration(color: widget.primary, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.sports_cricket, color: Colors.white)),
+          const SizedBox(width: 10),
+          const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('MYSPORTZSTATS', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.1)),
+            Text('LIVE SPORTS SCORING', style: TextStyle(fontSize: 9, color: muted, letterSpacing: 1.3, fontWeight: FontWeight.w800)),
+          ]),
+        ]),
+        actions: [IconButton(onPressed: () => setState(() {}), icon: const Icon(Icons.refresh)), const SizedBox(width: 4)],
+      ),
+      body: SafeArea(top: false, child: IndexedStack(index: tab, children: pages)),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: tab, onDestinationSelected: (v) => setState(() => tab=v),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.sports_score), label: 'Matches'),
+          NavigationDestination(icon: Icon(Icons.scoreboard_outlined), selectedIcon: Icon(Icons.scoreboard), label: 'Scorer'),
+          NavigationDestination(icon: Icon(Icons.query_stats), label: 'Stats'),
+          NavigationDestination(icon: Icon(Icons.grid_view_rounded), label: 'More'),
+        ],
+      ),
+    );
+  }
+
+  Widget _dashboard() => ListView(padding: const EdgeInsets.all(16), children: [
+    Row(children: [const Expanded(child: Text('MATCH CENTRE', style: TextStyle(fontSize: 12, color: muted, fontWeight: FontWeight.w900, letterSpacing: 1.5))), _chip(matchLive ? 'LIVE' : 'READY', matchLive ? accent : muted)]),
+    const SizedBox(height: 14),
+    _heroMatch(),
+    const SizedBox(height: 20),
+    _section('QUICK ACCESS', 'MATCH OPERATIONS'),
+    Row(children: [
+      Expanded(child: _quick(Icons.sports_cricket, 'Start scoring', () => setState(() => tab=2))),
+      const SizedBox(width: 10),
+      Expanded(child: _quick(Icons.groups_2_outlined, 'Squads', () => setState(() => tab=1))),
+      const SizedBox(width: 10),
+      Expanded(child: _quick(Icons.leaderboard_outlined, 'Statistics', () => setState(() => tab=3))),
+    ]),
+    const SizedBox(height: 20),
+    _section('MATCH SERVICES', 'LIVE CONTROL'),
+    _serviceTile(Icons.cast_connected, 'Live viewer & sharing', 'Publish a synchronized match feed', () => _info('Live viewer connection will be wired to the original MySportzStats live service.')),
+    _serviceTile(Icons.forum_outlined, 'Live chat & reactions', 'Match-room interaction', () => _info('Chat interface is planned for the next integration stage.')),
+    _serviceTile(Icons.history, 'Match history', 'Saved scorecards and results', () => setState(() => tab=3)),
   ]);
- }
- Widget _inningsSummary(String team,int runs,int wickets,String overs)=>Row(children:[Expanded(child:Text(_flagFor(team)+'  '+team,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w900))),Text('$runs/$wickets',style:const TextStyle(fontSize:20,fontWeight:FontWeight.w900,color:Color(0xFF101828))),const SizedBox(width:8),Text('$overs overs',style:const TextStyle(color:muted,fontSize:10))]);
- Widget _scorecard()=>ListView(padding:const EdgeInsets.all(14),children:[
-  _title('SCORECARD',selected?.name??'Select a cricket match'),
-  if(selected==null)_empty()else if(selected!.id.startsWith('demo-'))_demoScorecard()else _card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-   Row(children:[_pill(selected!.status.toUpperCase(),selected!.isLive?red:gold),const Spacer(),Text(selected!.type,style:const TextStyle(color:muted,fontSize:10))]),
-   const SizedBox(height:14),_scoreRow(selected!.teamA,_score(selected!.scoreA,selected!.wicketsA),selected!.oversA),
-   const Divider(color:Color(0x33444466),height:22),_scoreRow(selected!.teamB,_score(selected!.scoreB,selected!.wicketsB),selected!.oversB),
-   const SizedBox(height:14),if(fixtureLoading)const LinearProgressIndicator(minHeight:2),if(fixtureError!=null)Text('Fixture detail: '+fixtureError!,style:const TextStyle(color:red,fontSize:10)),
-   _dataSection('BATTING',_batting,['score','runs','ball','overs','four_x','six_x','strike_rate']),_dataSection('BOWLING',_bowling,['overs','medals','runs','wickets','wide','noball','rate']),
-   if(_batting.isEmpty&&_bowling.isEmpty&&!fixtureLoading)const Text('Detailed innings figures are not present in this fixture response yet.',style:TextStyle(color:muted,fontSize:11))])),
-  _note(selected?.id.startsWith('demo-')==true?'Historical final scores are demo fixtures for layout testing. Detailed batting, bowling and ball-by-ball data are not included.':'Scorecard figures are shown only when returned by the selected Sportmonks fixture.')]);
- Widget _commentary()=>ListView(padding:const EdgeInsets.all(14),children:[_title('BALL-BY-BALL',selected?.name??'Match commentary'),if(selected!=null)_card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[const Icon(Icons.graphic_eq,color:gold),const SizedBox(width:8),const Text('LATEST CONFIRMED EVENTS',style:TextStyle(fontWeight:FontWeight.w900,letterSpacing:1)),const Spacer(),IconButton(onPressed:()=>loadFixture(),icon:const Icon(Icons.refresh,size:18))]),if(fixtureLoading)const LinearProgressIndicator(minHeight:2),if(fixtureError!=null)Text(fixtureError!,style:const TextStyle(color:red,fontSize:10)),if(_deliveries.isEmpty)const Padding(padding:EdgeInsets.symmetric(vertical:12),child:Text('No ball-by-ball records returned for this fixture yet.',style:TextStyle(color:muted,fontSize:11))),..._deliveries.map((ball){final label=_deliveryText(ball);final special=['FOUR','SIX','WICKET'].contains(label);final over=(ball['ball']??ball['overs']??ball['over']??'').toString();final batter=_player(ball['batsman']);final bowler=_player(ball['bowler']);return Container(margin:const EdgeInsets.only(top:8),padding:const EdgeInsets.all(11),decoration:BoxDecoration(color:const Color(0xFFF8FAFC),borderRadius:BorderRadius.circular(11)),child:Row(children:[Container(width:54,height:38,alignment:Alignment.center,decoration:BoxDecoration(color:special?red.withOpacity(.12):Colors.white,borderRadius:BorderRadius.circular(9)),child:Text(label,style:TextStyle(color:special?red:blue,fontSize:9,fontWeight:FontWeight.w900))),const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(over.isEmpty?'Delivery':'Ball '+over,style:const TextStyle(fontSize:10,fontWeight:FontWeight.w900)),Text(batter+' vs '+bowler,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:9))]))]));})]))else _empty()]);
- Widget _more()=>ListView(padding:const EdgeInsets.all(14),children:[
-  _title('PRO THEMES','True black backgrounds with red broadcast accents'),
-  _card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('SELECT A THEME',style:TextStyle(fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1)),const SizedBox(height:10),Wrap(spacing:8,runSpacing:8,children:[for(var i=0;i<3;i++)_themeChoice(i,mcsThemeNames[i],mcsThemeAccents[i])])])),
-  _title('SCORING','Manual scoring controls'),
-  _manualScorer(),
-  _title('TOURNAMENT & TOOLS','MyCricStats cricket features'),
-  _feature(Icons.groups_2_outlined,'Squads','Playing XI and player list'),
-  _feature(Icons.casino_outlined,'Toss setup','Toss winner and bat / bowl decision'),
-  _feature(Icons.leaderboard_outlined,'Tournament stats','Orange Cap, Purple Cap and leaderboards'),
-  _feature(Icons.chat_bubble_outline,'Match room','Viewer chat and room activity'),
-  _feature(Icons.history,'Match history','Completed matches and saved scorecards'),
-  _feature(Icons.campaign_outlined,'Sponsor placements','Advertisement areas in match centre'),
-  _note('These are MCS cricket destinations. Full migration of each module is staged separately; they are not marked as integrated.')]);
- Widget _featured(MCSMatch m)=>Container(margin:const EdgeInsets.only(top:10),padding:const EdgeInsets.all(16),
-  decoration:BoxDecoration(borderRadius:BorderRadius.circular(18),gradient:const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF17174F),Color(0xFF09092E)]),border:Border.all(color:Colors.white.withOpacity(.13))),
-  child:Column(children:[
-   Row(children:[_pill(m.isLive?'LIVE':m.status.toUpperCase(),m.isLive?red:gold),const Spacer(),Text(m.type.toUpperCase(),style:const TextStyle(color:muted,fontSize:9,fontWeight:FontWeight.w800))]),
-   const SizedBox(height:17),Row(children:[Expanded(child:_team(m.teamA,_score(m.scoreA,m.wicketsA),m.oversA)),
-    const Padding(padding:EdgeInsets.symmetric(horizontal:8),child:Text('VS',style:TextStyle(color:muted,fontSize:10,fontWeight:FontWeight.w900))),
-    Expanded(child:_team(m.teamB,_score(m.scoreB,m.wicketsB),m.oversB))]),
-   const SizedBox(height:14),Divider(color:Colors.white.withOpacity(.1),height:1),
-   Row(children:[const Icon(Icons.stadium_outlined,color:gold,size:14),const SizedBox(width:6),
-    Expanded(child:Text(m.venue.isEmpty?m.name:m.venue,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:10))),
-    TextButton(onPressed:()=>setState(()=>tab=2),child:const Text('SCORECARD',style:TextStyle(fontSize:9,fontWeight:FontWeight.w900)))])]));
- Widget _team(String name,String score,String overs)=>Column(children:[
-  const Icon(Icons.shield_outlined,color:blue,size:29),const SizedBox(height:6),
-  Text(name.toUpperCase(),textAlign:TextAlign.center,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w900)),
-  const SizedBox(height:4),Text(score,style:const TextStyle(color:Colors.white,fontSize:25,fontWeight:FontWeight.w900)),
-  if(overs.isNotEmpty)Text('OV '+overs,style:const TextStyle(color:gold,fontSize:10,fontWeight:FontWeight.w800))]);
- Widget _matchTile(MCSMatch m)=>InkWell(onTap:(){setState(() { selected=m; tab=m.id.startsWith('demo-')?2:0; fixtureData=null; fixtureError=null; });if(m.id.startsWith('demo-'))loadFixture(silent:true);},borderRadius:BorderRadius.circular(14),
-  child:Container(margin:const EdgeInsets.only(top:8),padding:const EdgeInsets.all(13),
-   decoration:BoxDecoration(color:panel,borderRadius:BorderRadius.circular(14),border:Border.all(color:Colors.white.withOpacity(.09))),
-   child:Column(children:[Row(children:[_pill(m.isLive?'LIVE':m.status.toUpperCase(),m.isLive?red:gold),const Spacer(),Text(m.type,style:const TextStyle(color:muted,fontSize:9))]),
-    const SizedBox(height:10),_scoreRow(m.teamA,_score(m.scoreA,m.wicketsA),m.oversA),const SizedBox(height:7),
-    _scoreRow(m.teamB,_score(m.scoreB,m.wicketsB),m.oversB),
-    if(m.venue.isNotEmpty)Padding(padding:const EdgeInsets.only(top:8),child:Align(alignment:Alignment.centerLeft,child:Text(m.venue,style:const TextStyle(color:muted,fontSize:9))))])));
- Widget _dataSection(String heading,List<Map<String,dynamic>> rows,List<String> fields){if(rows.isEmpty)return const SizedBox.shrink();return Padding(padding:const EdgeInsets.only(top:14),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(heading,style:const TextStyle(color:gold,fontWeight:FontWeight.w900,fontSize:10,letterSpacing:1)),const SizedBox(height:6),...rows.map((r){final player=_player(r['batsman']??r['bowler']??r['player']??r['player_name']??r['name']);final vals=fields.where((k)=>r[k]!=null).map((k)=>k+': '+r[k].toString()).join(' • ');return Padding(padding:const EdgeInsets.symmetric(vertical:5),child:Row(children:[Expanded(child:Text(player,style:const TextStyle(fontSize:11,fontWeight:FontWeight.w800))),Flexible(child:Text(vals,overflow:TextOverflow.ellipsis,textAlign:TextAlign.right,style:const TextStyle(color:muted,fontSize:9)))]));})]));}
- Widget _scoreRow(String n,String s,String o)=>Row(children:[Expanded(child:Text(n,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w800))),
-  Text(s,style:const TextStyle(fontSize:16,fontWeight:FontWeight.w900)),if(o.isNotEmpty)Padding(padding:const EdgeInsets.only(left:7),child:Text('('+o+' ov)',style:const TextStyle(color:muted,fontSize:10)))]);
- Widget _empty()=>_card(Column(children:[const Icon(Icons.sports_cricket,color:gold,size:30),const SizedBox(height:8),
-  const Text('No matches available yet',style:TextStyle(fontWeight:FontWeight.w800,fontSize:13)),const SizedBox(height:5),
-  const Text('Demo IND vs NZ results and matches published to the MyCricStats feeds will appear here.',textAlign:TextAlign.center,style:TextStyle(color:muted,fontSize:11,height:1.45)),
-  const SizedBox(height:9),OutlinedButton.icon(onPressed:refresh,icon:const Icon(Icons.refresh,size:16),label:const Text('Refresh'))]));
- Widget _error(String s)=>_card(Row(children:[const Icon(Icons.cloud_off,color:red),const SizedBox(width:9),Expanded(child:Text(s,style:const TextStyle(color:muted,fontSize:11)))]));
- Widget _title(String a,String b)=>Padding(padding:const EdgeInsets.only(bottom:13),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-  Text(a,style:const TextStyle(fontSize:20,fontWeight:FontWeight.w900)),const SizedBox(height:4),Text(b,style:const TextStyle(color:muted,fontSize:11))]));
- Widget _heading(String a,String? b)=>Row(children:[Text(a,style:const TextStyle(color:muted,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.2)),const Spacer(),if(b!=null)Text(b,style:const TextStyle(color:gold,fontSize:9,fontWeight:FontWeight.w800))]);
- Widget _card(Widget child)=>Container(margin:const EdgeInsets.only(top:10),padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:Theme.of(context).cardColor,borderRadius:BorderRadius.circular(15),border:Border.all(color:Colors.white.withOpacity(.09))),child:child);
- Widget _pill(String t,Color c)=>Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:5),decoration:BoxDecoration(color:c.withOpacity(.14),borderRadius:BorderRadius.circular(30),border:Border.all(color:c.withOpacity(.45))),child:Text(t.isEmpty?'MATCH':t,style:TextStyle(color:c,fontSize:8,fontWeight:FontWeight.w900,letterSpacing:.7)));
- Widget _quick(IconData i,String s,VoidCallback f)=>InkWell(onTap:f,borderRadius:BorderRadius.circular(12),child:Container(padding:const EdgeInsets.symmetric(vertical:14),decoration:BoxDecoration(color:Theme.of(context).cardColor,borderRadius:BorderRadius.circular(12)),child:Column(children:[Icon(i,color:gold),const SizedBox(height:6),Text(s,style:const TextStyle(fontSize:10,fontWeight:FontWeight.w800))])));
- 
- void _addScore(String label,int runs,{bool wicket=false,bool legal=true}) {
-  if(scorerClosed)return;
-  setState(() {
-   scorerRuns+=runs; if(wicket)scorerWickets++; if(!legal)scorerExtras+=runs; if(legal)scorerBalls++;
-   scorerLog.add({'label':label,'runs':runs,'wicket':wicket,'legal':legal,'total':scorerRuns});
-   if(scorerWickets>=10||scorerBalls>=300)scorerClosed=true;
-  });
- }
- void _resetScore(){setState((){scorerRuns=0;scorerWickets=0;scorerBalls=0;scorerExtras=0;scorerClosed=false;scorerLog.clear();});}
- void _undoScore(){if(scorerLog.isEmpty)return;setState((){scorerLog.removeLast();scorerRuns=0;scorerWickets=0;scorerBalls=0;scorerExtras=0;scorerClosed=false;for(final e in scorerLog){scorerRuns+=e['runs'] as int;if(e['wicket']==true)scorerWickets++;if(e['legal']==true)scorerBalls++;else scorerExtras+=e['runs'] as int;} });}
- Widget _manualScorer()=>_card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-  const Text('MANUAL MATCH SCORER',style:TextStyle(fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1)),
-  const SizedBox(height:10),
-  Row(children:[Expanded(child:Text('🇮🇳 INDIA  '+scorerRuns.toString()+'/'+scorerWickets.toString(),style:const TextStyle(fontSize:21,fontWeight:FontWeight.w900))),Text((scorerBalls~/6).toString()+'.'+(scorerBalls%6).toString()+' OV',style:const TextStyle(color:gold,fontWeight:FontWeight.w900))]),
-  Text('Extras '+scorerExtras.toString()+'  •  CRR '+(scorerBalls==0?'0.00':(scorerRuns/(scorerBalls/6)).toStringAsFixed(2)),style:const TextStyle(color:muted,fontSize:10)),
-  const SizedBox(height:10),
-  Row(children:[Expanded(child:TextFormField(initialValue:striker,onChanged:(v)=>striker=v,decoration:const InputDecoration(labelText:'Striker',isDense:true))),const SizedBox(width:8),Expanded(child:TextFormField(initialValue:nonStriker,onChanged:(v)=>nonStriker=v,decoration:const InputDecoration(labelText:'Non-striker',isDense:true)))]),
-  TextFormField(initialValue:bowler,onChanged:(v)=>bowler=v,decoration:const InputDecoration(labelText:'Bowler',isDense:true)),
-  const SizedBox(height:12),
-  Wrap(spacing:6,runSpacing:6,children:[
-   for(final n in [0,1,2,3,4,6])OutlinedButton(onPressed:scorerClosed?null:()=>_addScore(n==0?'DOT':n==4?'FOUR':n==6?'SIX':'RUN',n),child:Text(n.toString())),
-   OutlinedButton(onPressed:scorerClosed?null:()=>_addScore('WIDE',1,legal:false),child:const Text('WIDE')),
-   OutlinedButton(onPressed:scorerClosed?null:()=>_addScore('NO BALL',1,legal:false),child:const Text('NO BALL')),
-   ElevatedButton(onPressed:scorerClosed?null:()=>_addScore('WICKET',0,wicket:true),child:const Text('WICKET')),
-  ]),
-  Row(children:[TextButton.icon(onPressed:_undoScore,icon:const Icon(Icons.undo),label:const Text('UNDO')),const Spacer(),TextButton.icon(onPressed:_resetScore,icon:const Icon(Icons.restart_alt),label:const Text('RESET'))]),
-  if(scorerClosed)_pill('INNINGS COMPLETE',gold),
-  if(scorerLog.isNotEmpty)Text('Recent: '+scorerLog.reversed.take(8).map((e)=>e['label'].toString()).join('  •  '),style:const TextStyle(color:muted,fontSize:9)),
-  const Text('This is a local test scorer. Match saving, innings handover, partnerships and tournament totals are not connected yet.',style:TextStyle(color:muted,fontSize:9,height:1.4))
- ]));
 
- Widget _themeChoice(int value,String label,Color color)=>ChoiceChip(label:Text(label,style:TextStyle(color:mcsTheme.value==value?Colors.white:muted)),selected:mcsTheme.value==value,selectedColor:Color(0xFF3A111B),avatar:CircleAvatar(radius:7,backgroundColor:color),onSelected:(_)=>_saveTheme(value));
- Widget _feature(IconData i,String a,String b)=>_card(Row(children:[Icon(i,color:gold,size:21),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(a,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w900)),const SizedBox(height:3),Text(b,style:const TextStyle(color:muted,fontSize:10))])),const Icon(Icons.chevron_right,color:muted)]));
- Widget _note(String s)=>Padding(padding:const EdgeInsets.only(top:12),child:Text(s,style:const TextStyle(color:muted,fontSize:10,height:1.5)));
+  Widget _heroMatch() => Container(
+    padding: const EdgeInsets.all(18),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF202D46), Color(0xFF111827), Color(0xFF251722)]),
+      borderRadius: BorderRadius.circular(22), border: Border.all(color: Colors.white.withOpacity(.07)),
+    ),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [_chip('CRICKET', gold), const Spacer(), Text(matchTitle, style: const TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800))]),
+      const SizedBox(height: 22),
+      Row(children: [
+        Expanded(child: _teamBlock('🇮🇳', teamA)),
+        const Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('VS', style: TextStyle(color: gold, fontWeight: FontWeight.w900, fontSize: 13))),
+        Expanded(child: _teamBlock('🇳🇿', teamB)),
+      ]),
+      const SizedBox(height: 20),
+      if (matchLive) Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Text('$runs/$wickets', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900)),
+        const SizedBox(width: 12), Text('($overText ov)', style: const TextStyle(color: muted, fontWeight: FontWeight.w700)),
+      ]) else const Center(child: Text('READY FOR THE NEXT MATCH', style: TextStyle(color: muted, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.1))),
+      const SizedBox(height: 16),
+      SizedBox(width: double.infinity, child: FilledButton.icon(
+        onPressed: matchLive ? () => setState(() => tab=2) : startMatch,
+        icon: Icon(matchLive ? Icons.open_in_new : Icons.play_arrow),
+        label: Text(matchLive ? 'OPEN LIVE SCORER' : 'START MATCH'),
+        style: FilledButton.styleFrom(backgroundColor: widget.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 15)),
+      )),
+    ]),
+  );
+
+  Widget _teamBlock(String flag, String name) => Column(children: [
+    Text(flag, style: const TextStyle(fontSize: 34)),
+    const SizedBox(height: 7),
+    Text(name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: .7)),
+  ]);
+
+  Widget _matches() => ListView(padding: const EdgeInsets.all(16), children: [
+    _section('MATCHES', 'FIXTURES • SQUADS • TOSS'),
+    _serviceTile(Icons.add_circle_outline, 'Create a match', 'Set teams, match title and overs', _createMatch),
+    _serviceTile(Icons.groups_outlined, 'Team squads', 'Manage playing XI and substitutes', () => _info('Squad management screen is in the build plan.')),
+    _serviceTile(Icons.toll, 'Toss setup', 'Choose toss winner and decision', () => _info('Toss setup will be connected to match creation.')),
+    _serviceTile(Icons.event_available, 'Upcoming matches', 'Your scheduled fixtures', () => _info('No scheduled fixtures have been added yet.')),
+    _serviceTile(Icons.history, 'Completed matches', 'Open past scorecards', () => setState(() => tab=3)),
+  ]);
+
+  Widget _scorer() => ListView(padding: const EdgeInsets.all(14), children: [
+    Row(children: [const Expanded(child: Text('LIVE SCORER', style: TextStyle(fontSize: 12, color: muted, fontWeight: FontWeight.w900, letterSpacing: 1.4))), _chip(matchLive ? (matchEnded ? 'COMPLETED' : 'LIVE') : 'NOT STARTED', matchLive ? accent : muted)]),
+    const SizedBox(height: 12),
+    Container(padding: const EdgeInsets.all(18), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF202D46), Color(0xFF111827)]), borderRadius: BorderRadius.circular(20)), child: Column(children: [
+      Text('$teamA  vs  $teamB', style: const TextStyle(color: muted, fontSize: 11, fontWeight: FontWeight.w800)),
+      const SizedBox(height: 8),
+      Text('$runs/$wickets', style: const TextStyle(fontSize: 46, fontWeight: FontWeight.w900, letterSpacing: -1.5)),
+      Text('$overText OV  •  CRR ${crr.toStringAsFixed(2)}  •  EXTRAS $extras', style: const TextStyle(color: gold, fontSize: 11, fontWeight: FontWeight.w800)),
+      const SizedBox(height: 12),
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text('STRIKER  $striker', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800)), const SizedBox(width: 14), Text('NON-STRIKER  $nonStriker', style: const TextStyle(fontSize: 10, color: muted))]),
+      const SizedBox(height: 12),
+      Wrap(spacing: 6, children: thisOver.map((e) => _chip(e, e=='W' ? accent : (e=='4'||e=='6' ? gold : muted))).toList()),
+    ])),
+    const SizedBox(height: 14),
+    if (!matchLive) SizedBox(width: double.infinity, child: FilledButton(onPressed: startMatch, child: const Text('START MATCH'))),
+    if (matchLive && !matchEnded) ...[
+      _section('RUNS', 'LEGAL DELIVERIES'),
+      GridView.count(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisCount: 3, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 2.0, children: [
+        _runButton('0', () => score('0')), _runButton('1', () { score('1', add:1); swapStrike(); }), _runButton('2', () { score('2', add:2); if (legalBalls.isOdd) swapStrike(); }),
+        _runButton('3', () { score('3', add:3); swapStrike(); }), _runButton('4', () => score('4', add:4)), _runButton('6', () => score('6', add:6)),
+      ]),
+      const SizedBox(height: 12),
+      _section('EXTRAS & WICKETS', 'MATCH EVENTS'),
+      GridView.count(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisCount: 3, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 2.0, children: [
+        _runButton('WIDE', () => score('Wd', add:1, legal:false, extra:true)),
+        _runButton('NO BALL', () => score('Nb', add:1, legal:false, extra:true)),
+        _runButton('WICKET', () => score('W', wicket:true)),
+      ]),
+      const SizedBox(height: 12),
+      Row(children: [Expanded(child: OutlinedButton.icon(onPressed: undo, icon: const Icon(Icons.undo), label: const Text('UNDO'))), const SizedBox(width: 8), Expanded(child: OutlinedButton.icon(onPressed: swapStrike, icon: const Icon(Icons.swap_horiz), label: const Text('SWAP STRIKE')))]),
+      const SizedBox(height: 8),
+      SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: _changeBowler, icon: const Icon(Icons.sports), label: Text('BOWLER: $bowler'))),
+    ],
+    if (matchEnded) _serviceTile(Icons.flag, 'Innings complete', 'Start the second innings from match controls', () => _info('Second-innings workflow will be added with toss and innings management.')),
+    const SizedBox(height: 8),
+    SizedBox(width: double.infinity, child: TextButton.icon(onPressed: resetMatch, icon: const Icon(Icons.restart_alt), label: const Text('RESET LOCAL TEST MATCH'))),
+    const Text('Local scoring prototype. Live server sync, persistent history and tournament aggregation are integration tasks.', style: TextStyle(color: muted, fontSize: 10, height: 1.5)),
+  ]);
+
+  Widget _stats() => ListView(padding: const EdgeInsets.all(16), children: [
+    _section('MATCH STATISTICS', 'SCORE SUMMARY'),
+    Row(children: [Expanded(child: _metric('RUNS', '$runs')), const SizedBox(width: 8), Expanded(child: _metric('WICKETS', '$wickets')), const SizedBox(width: 8), Expanded(child: _metric('OVERS', overText))]),
+    const SizedBox(height: 14),
+    _serviceTile(Icons.scoreboard, 'Full scorecard', 'Batting, bowling and fall of wickets', () => _info('Full scorecard will be linked to saved match data.')),
+    _serviceTile(Icons.emoji_events_outlined, 'Tournament standings', 'Points table and net run rate', () => _info('Standings and NRR aggregation are planned.')),
+    _serviceTile(Icons.military_tech_outlined, 'Player leaderboards', 'Orange Cap, Purple Cap and awards', () => _info('Player award tables will be populated from match history.')),
+    _serviceTile(Icons.bar_chart, 'Match analytics', 'Run rate, partnerships and over summary', () => _info('Advanced analytics will follow persistent scorecard integration.')),
+  ]);
+
+  Widget _more() => ListView(padding: const EdgeInsets.all(16), children: [
+    _section('MORE', 'APP SETTINGS & SERVICES'),
+    _serviceTile(Icons.palette_outlined, 'App themes', 'Choose a professional scoreboard palette', _chooseTheme),
+    _serviceTile(Icons.share_outlined, 'Share live match', 'Viewer link and match room', () => _info('Live sharing will use the existing MySportzStats live room service.')),
+    _serviceTile(Icons.campaign_outlined, 'Advertisement placement', 'Dedicated match-page ad area', () => _info('Advertisement slot layout will be added to the match viewer and scorer.')),
+    _serviceTile(Icons.settings_outlined, 'Match settings', 'Overs, match title and team names', _createMatch),
+    _serviceTile(Icons.info_outline, 'About', 'Flutter rebuild of MySportzStats', () => _info('This is the separate Flutter rebuild. The original scorer app is not modified.')),
+  ]);
+
+  Widget _section(String title, String subtitle) => Padding(padding: const EdgeInsets.only(bottom: 10), child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1.2))), Text(subtitle, style: const TextStyle(color: muted, fontSize: 9, fontWeight: FontWeight.w800))]));
+  Widget _chip(String label, Color color) => Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6), decoration: BoxDecoration(color: color.withOpacity(.14), borderRadius: BorderRadius.circular(30), border: Border.all(color: color.withOpacity(.3))), child: Text(label, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: .6)));
+  Widget _quick(IconData icon, String label, VoidCallback action) => InkWell(onTap: action, borderRadius: BorderRadius.circular(16), child: Container(padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8), decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(16)), child: Column(children: [Icon(icon, color: widget.primary, size: 22), const SizedBox(height: 8), Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800))])));
+  Widget _serviceTile(IconData icon, String title, String subtitle, VoidCallback action) => Card(child: ListTile(onTap: action, leading: Container(width: 40, height: 40, decoration: BoxDecoration(color: widget.primary.withOpacity(.12), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: widget.primary)), title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)), subtitle: Text(subtitle, style: const TextStyle(color: muted, fontSize: 10)), trailing: const Icon(Icons.chevron_right, color: muted)));
+  Widget _metric(String label, String value) => Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(15)), child: Column(children: [Text(label, style: const TextStyle(color: muted, fontSize: 9, fontWeight: FontWeight.w900)), const SizedBox(height: 7), Text(value, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900))]));
+  Widget _runButton(String text, VoidCallback action) => FilledButton(onPressed: action, style: FilledButton.styleFrom(backgroundColor: surface2, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13))), child: Text(text, style: const TextStyle(fontWeight: FontWeight.w900)));
+  Future<void> _info(String message) async { if (!mounted) return; showDialog<void>(context: context, builder: (c) => AlertDialog(backgroundColor: surface, content: Text(message), actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('OK'))])); }
+  Future<void> _changeBowler() async { final c=TextEditingController(text:bowler); await showDialog<void>(context:context,builder:(d)=>AlertDialog(backgroundColor:surface,title:const Text('Change bowler'),content:TextField(controller:c,decoration:const InputDecoration(labelText:'Bowler name')),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('CANCEL')),FilledButton(onPressed:(){setState(()=>bowler=c.text.trim().isEmpty?'Bowler':c.text.trim());Navigator.pop(d);},child:const Text('SAVE'))])); }
+  Future<void> _createMatch() async {
+    final a=TextEditingController(text:teamA), b=TextEditingController(text:teamB), title=TextEditingController(text:matchTitle), oversC=TextEditingController(text:maxOvers.toString());
+    await showDialog<void>(context:context,builder:(d)=>AlertDialog(backgroundColor:surface,title:const Text('Match setup'),content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[TextField(controller:title,decoration:const InputDecoration(labelText:'Match title')),TextField(controller:a,decoration:const InputDecoration(labelText:'Team A')),TextField(controller:b,decoration:const InputDecoration(labelText:'Team B')),TextField(controller:oversC,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'Overs'))])),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('CANCEL')),FilledButton(onPressed:(){setState((){matchTitle=title.text;teamA=a.text;teamB=b.text;maxOvers=(int.tryParse(oversC.text)??8).clamp(1,50);resetMatch();});Navigator.pop(d);},child:const Text('SAVE'))]));
+  }
+  Future<void> _chooseTheme() async { await showModalBottomSheet<void>(context:context,backgroundColor:surface,builder:(c)=>SafeArea(child:Column(mainAxisSize:MainAxisSize.min,children:[const Padding(padding:EdgeInsets.all(16),child:Text('CHOOSE THEME',style:TextStyle(fontWeight:FontWeight.w900,letterSpacing:1))),...['Pro Black / Red','Midnight Red','Graphite Red'].asMap().entries.map((e)=>ListTile(title:Text(e.value),trailing:widget.themeIndex==e.key?const Icon(Icons.check_circle,color:accent):null,onTap:(){widget.onThemeChanged(e.key);Navigator.pop(c);})),const SizedBox(height:12)]))); }
 }
-class _Loading extends StatelessWidget { const _Loading(); @override Widget build(BuildContext context)=>Container(margin:const EdgeInsets.only(top:10),padding:const EdgeInsets.all(18),decoration:BoxDecoration(color:panel,borderRadius:BorderRadius.circular(14)),child:const Row(children:[SizedBox(width:17,height:17,child:CircularProgressIndicator(strokeWidth:2)),SizedBox(width:12),Text('Loading MyCricStats matches…',style:TextStyle(color:muted,fontSize:11))])); }
