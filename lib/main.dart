@@ -48,7 +48,7 @@ class MCSApi {
   return list.whereType<Map>().map((e)=>MCSMatch.fromJson(Map<String,dynamic>.from(e))).toList();
  }
  static Future<Map<String,dynamic>> fixture(String id) async {
-  return cricket('fixtures/$id',query:{'include':'localteam,visitorteam,runs,batting,bowling,lineup,balls,venue,league'});
+  return cricket('fixtures/$id',query:{'include':'localteam,visitorteam,runs,batting,bowling,lineup,balls.batsman,balls.bowler,balls.score,venue,league'});
  }
  static Future<Map<String,dynamic>> cricket(String path,{Map<String,String> query=const {}}) async {
   final uri=Uri.parse('$apiBase/api/proxy').replace(queryParameters:{'path':path,'guest':'1',...query});
@@ -60,8 +60,16 @@ class MCSApi {
 class MCSHome extends StatefulWidget { const MCSHome({super.key}); @override State<MCSHome> createState()=>_MCSHomeState(); }
 class _MCSHomeState extends State<MCSHome> {
  int tab=0; bool loading=true; String? error; List<MCSMatch> matches=[]; MCSMatch? selected; Timer? timer;
+ Map<String,dynamic>? fixtureData; bool fixtureLoading=false; String? fixtureError; String eventKey=''; int eventVersion=0;
+ List<Map<String,dynamic>> get _batting => _records(fixtureData?['batting'] ?? fixtureData?['scoreboards']);
+ List<Map<String,dynamic>> get _bowling => _records(fixtureData?['bowling']);
+ List<Map<String,dynamic>> get _deliveries => _records(fixtureData?['balls']).reversed.take(24).toList();
  @override void initState(){super.initState();refresh();timer=Timer.periodic(const Duration(seconds:12),(_)=>refresh(silent:true));}
  @override void dispose(){timer?.cancel();super.dispose();}
+ static List<Map<String,dynamic>> _records(dynamic value){if(value is Map&&value['data'] is List)value=value['data'];if(value is! List)return <Map<String,dynamic>>[];return value.whereType<Map>().map((e)=>Map<String,dynamic>.from(e)).toList();}
+ String _player(dynamic value){if(value is Map)return (value['fullname']??value['name']??value['display_name']??'Player').toString();return value?.toString()??'—';}
+ String _deliveryText(Map<String,dynamic> ball){final score=ball['score'] is Map?Map<String,dynamic>.from(ball['score']):<String,dynamic>{};final runs=_toInt(score['runs']??ball['score'])??0;final wicket=score['is_wicket']==true||ball['is_wicket']==true||ball['wicket']!=null;final name=(score['name']??ball['name']??'').toString().toLowerCase();if(wicket||name.contains('wicket'))return 'WICKET';if(runs==6||name.contains('six'))return 'SIX';if(runs==4||name.contains('four'))return 'FOUR';if(name.isNotEmpty)return name.toUpperCase();return runs.toString()+' RUN'+(runs==1?'':'S');}
+ Future<void> loadFixture({bool silent=false}) async {final match=selected;if(match==null||match.id.isEmpty)return;if(!silent&&mounted)setState(()=>fixtureLoading=true);try{final body=await MCSApi.fixture(match.id);final raw=body['data'];if(!mounted||selected?.id!=match.id)return;final data=raw is Map?Map<String,dynamic>.from(raw):body;final balls=_records(data['balls']);final latest=balls.isEmpty?null:balls.last;final key=latest==null?'':(latest['id']??latest['ball']??latest['overs']??jsonEncode(latest)).toString();setState((){fixtureData=data;fixtureError=null;fixtureLoading=false;if(key.isNotEmpty&&key!=eventKey){eventKey=key;eventVersion++;}});}catch(e){if(!mounted)return;setState((){fixtureLoading=false;fixtureError=e.toString().replaceFirst('Exception: ','');});}}
  Future<void> refresh({bool silent=false}) async {
   if(!silent&&mounted)setState(()=>loading=true);
   try{
@@ -77,6 +85,7 @@ class _MCSHomeState extends State<MCSHome> {
     if(selected==null&&rows.isNotEmpty)selected=rows.firstWhere((m)=>m.isLive,orElse:()=>rows.first);
     else if(selected!=null){final fresh=rows.where((m)=>m.id==selected!.id);if(fresh.isNotEmpty)selected=fresh.first;}
     loading=false;error=null;});
+   if(selected!=null)await loadFixture(silent:true);
   }
   catch(e){if(!mounted)return;setState(() { loading=false; error=e.toString().replaceFirst('Exception: ',''); });}
  }
@@ -89,7 +98,7 @@ class _MCSHomeState extends State<MCSHome> {
     Text('CRICKET MATCH CENTRE',style:TextStyle(fontSize:9,color:muted,letterSpacing:1.2,fontWeight:FontWeight.w700))])]),
    actions:[IconButton(onPressed:refresh,icon:const Icon(Icons.refresh)),const SizedBox(width:5)]),
    body:SafeArea(top:false,child:IndexedStack(index:tab,children:pages)),
-   bottomNavigationBar:NavigationBar(backgroundColor:const Color(0xFF08083A),indicatorColor:red.withOpacity(.18),selectedIndex:tab,onDestinationSelected:(v)=>setState(()=>tab=v),
+   bottomNavigationBar:NavigationBar(backgroundColor:Colors.white,indicatorColor:red.withOpacity(.18),selectedIndex:tab,onDestinationSelected:(v)=>setState(()=>tab=v),
     destinations:const [NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'Home'),
      NavigationDestination(icon:Icon(Icons.sports_cricket_outlined),label:'Matches'),NavigationDestination(icon:Icon(Icons.scoreboard_outlined),label:'Scorecard'),
      NavigationDestination(icon:Icon(Icons.mic_none),label:'Commentary'),NavigationDestination(icon:Icon(Icons.grid_view_rounded),label:'More')]));
@@ -112,15 +121,11 @@ class _MCSHomeState extends State<MCSHome> {
    Row(children:[_pill(selected!.status.toUpperCase(),selected!.isLive?red:gold),const Spacer(),Text(selected!.type,style:const TextStyle(color:muted,fontSize:10))]),
    const SizedBox(height:14),_scoreRow(selected!.teamA,_score(selected!.scoreA,selected!.wicketsA),selected!.oversA),
    const Divider(color:Color(0x33444466),height:22),_scoreRow(selected!.teamB,_score(selected!.scoreB,selected!.wicketsB),selected!.oversB),
-   const SizedBox(height:14),const Text('BATTING & BOWLING',style:TextStyle(color:gold,fontWeight:FontWeight.w900,fontSize:10,letterSpacing:1)),
-   const SizedBox(height:7),const Text('Live innings totals are synced from Sportmonks Cricket. Detailed batting, bowling and ball-by-ball panels are being connected next.',style:TextStyle(color:muted,fontSize:11,height:1.5))])),
-  _note('This view is connected to the MCS domestic match list. Full fixture scorecard mapping is the next integration step.')]);
- Widget _commentary()=>ListView(padding:const EdgeInsets.all(14),children:[
-  _title('BALL-BY-BALL',selected?.name??'Match commentary'),
-  _card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-   const Row(children:[Icon(Icons.graphic_eq,color:gold),SizedBox(width:8),Text('LIVE COMMENTARY',style:TextStyle(fontWeight:FontWeight.w900,letterSpacing:1))]),
-   const SizedBox(height:12),const Text('Commentary and ball-by-ball data will be loaded from the selected Sportmonks fixture when available. Event animations will only play for confirmed deliveries.',style:TextStyle(color:muted,fontSize:12,height:1.55)),
-   if(selected!=null)Padding(padding:const EdgeInsets.only(top:10),child:Text(selected!.teamA+' vs '+selected!.teamB,style:const TextStyle(color:blue,fontSize:11,fontWeight:FontWeight.w800))) ]))]);
+   const SizedBox(height:14),if(fixtureLoading)const LinearProgressIndicator(minHeight:2),if(fixtureError!=null)Text('Fixture detail: '+fixtureError!,style:const TextStyle(color:red,fontSize:10)),
+   _dataSection('BATTING',_batting,['score','runs','ball','overs','four_x','six_x','strike_rate']),_dataSection('BOWLING',_bowling,['overs','medals','runs','wickets','wide','noball','rate']),
+   if(_batting.isEmpty&&_bowling.isEmpty&&!fixtureLoading)const Text('Detailed innings figures are not present in this fixture response yet.',style:TextStyle(color:muted,fontSize:11))])),
+  _note('Scorecard figures are shown only when returned by the selected Sportmonks fixture.')]);
+ Widget _commentary()=>ListView(padding:const EdgeInsets.all(14),children:[_title('BALL-BY-BALL',selected?.name??'Match commentary'),if(selected!=null)_card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[const Icon(Icons.graphic_eq,color:gold),const SizedBox(width:8),const Text('LATEST CONFIRMED EVENTS',style:TextStyle(fontWeight:FontWeight.w900,letterSpacing:1)),const Spacer(),IconButton(onPressed:()=>loadFixture(),icon:const Icon(Icons.refresh,size:18))]),if(fixtureLoading)const LinearProgressIndicator(minHeight:2),if(fixtureError!=null)Text(fixtureError!,style:const TextStyle(color:red,fontSize:10)),if(_deliveries.isEmpty)const Padding(padding:EdgeInsets.symmetric(vertical:12),child:Text('No ball-by-ball records returned for this fixture yet.',style:TextStyle(color:muted,fontSize:11))),..._deliveries.map((ball){final label=_deliveryText(ball);final special=['FOUR','SIX','WICKET'].contains(label);final over=(ball['ball']??ball['overs']??ball['over']??'').toString();final batter=_player(ball['batsman']);final bowler=_player(ball['bowler']);return Container(margin:const EdgeInsets.only(top:8),padding:const EdgeInsets.all(11),decoration:BoxDecoration(color:const Color(0xFFF8FAFC),borderRadius:BorderRadius.circular(11)),child:Row(children:[Container(width:54,height:38,alignment:Alignment.center,decoration:BoxDecoration(color:special?red.withOpacity(.12):Colors.white,borderRadius:BorderRadius.circular(9)),child:Text(label,style:TextStyle(color:special?red:blue,fontSize:9,fontWeight:FontWeight.w900))),const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(over.isEmpty?'Delivery':'Ball '+over,style:const TextStyle(fontSize:10,fontWeight:FontWeight.w900)),Text(batter+' vs '+bowler,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:9))]))]));})]))else _empty()]);
  Widget _more()=>ListView(padding:const EdgeInsets.all(14),children:[
   _title('TOURNAMENT & TOOLS','MyCricStats cricket features'),
   _feature(Icons.groups_2_outlined,'Squads','Playing XI and player list'),
@@ -153,6 +158,7 @@ class _MCSHomeState extends State<MCSHome> {
     const SizedBox(height:10),_scoreRow(m.teamA,_score(m.scoreA,m.wicketsA),m.oversA),const SizedBox(height:7),
     _scoreRow(m.teamB,_score(m.scoreB,m.wicketsB),m.oversB),
     if(m.venue.isNotEmpty)Padding(padding:const EdgeInsets.only(top:8),child:Align(alignment:Alignment.centerLeft,child:Text(m.venue,style:const TextStyle(color:muted,fontSize:9))))])));
+ Widget _dataSection(String heading,List<Map<String,dynamic>> rows,List<String> fields){if(rows.isEmpty)return const SizedBox.shrink();return Padding(padding:const EdgeInsets.only(top:14),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(heading,style:const TextStyle(color:gold,fontWeight:FontWeight.w900,fontSize:10,letterSpacing:1)),const SizedBox(height:6),...rows.map((r){final player=_player(r['batsman']??r['bowler']??r['player']??r['player_name']??r['name']);final vals=fields.where((k)=>r[k]!=null).map((k)=>k+': '+r[k].toString()).join(' • ');return Padding(padding:const EdgeInsets.symmetric(vertical:5),child:Row(children:[Expanded(child:Text(player,style:const TextStyle(fontSize:11,fontWeight:FontWeight.w800))),Flexible(child:Text(vals,overflow:TextOverflow.ellipsis,textAlign:TextAlign.right,style:const TextStyle(color:muted,fontSize:9)))]));})]));}
  Widget _scoreRow(String n,String s,String o)=>Row(children:[Expanded(child:Text(n,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w800))),
   Text(s,style:const TextStyle(fontSize:16,fontWeight:FontWeight.w900)),if(o.isNotEmpty)Padding(padding:const EdgeInsets.only(left:7),child:Text('('+o+' ov)',style:const TextStyle(color:muted,fontSize:10)))]);
  Widget _empty()=>_card(Column(children:[const Icon(Icons.sports_cricket,color:gold,size:30),const SizedBox(height:8),
