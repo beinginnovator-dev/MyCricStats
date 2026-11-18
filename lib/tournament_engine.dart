@@ -114,7 +114,8 @@ class TournamentEngine {
     if(requireBowlerChange&&inn.bowler==lastOverBowler) throw StateError('Select a different bowler for the new over');
     if(inn.overBalls.isNotEmpty&&inn.overBalls.length>0){
       final previous=inn.deliveries.isEmpty?'':inn.deliveries.last.bowler;
-      if(previous.isNotEmpty&&previous!=inn.bowler) throw StateError('The same bowler must complete this over');
+      final activeBowlerName=players[inn.bowler]?.name??'';
+      if(previous.isNotEmpty&&previous!=activeBowlerName) throw StateError('The same bowler must complete this over');
     }
     if(wicket&&dismissal==null) throw StateError('Select dismissal type');
     if((dismissal==DismissalType.caught||dismissal==DismissalType.runOut)&&(fielder==null||fielder.trim().isEmpty)) throw StateError('Select fielder');
