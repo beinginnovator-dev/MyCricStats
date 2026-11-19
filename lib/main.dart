@@ -76,7 +76,7 @@ class _SportzHomeState extends State<SportzHome>{
   }
   Future<void> nextBowler()async{final e=engine!;final p=await choosePlayer('Select next bowler',e.bowlingSquad.where((x)=>x.id!=e.match.current.bowler&&x.id!=e.lastOverBowler).toList());if(p==null)return;try{e.selectNextBowler(p);setState((){});await publishLive();}catch(x){msg(x.toString());}}
   TeamRecord? _team(String id){for(final t in teams){if(t.id==id)return t;}return null;}
-  Future<void> publishLive()async{final m=match;if(m==null)return;try{final payload={'match':{...m.toJson(),'firstBattingTeamId':engine?.actualFirstBattingTeamId??m.firstBattingTeamId},'players':allPlayers.map((p)=>p.toJson()).toList(),'teamA':{'name':m.teamA,'flag':_team(m.teamAId)?.flag??'🏏'},'teamB':{'name':m.teamB,'flag':_team(m.teamBId)?.flag??'🏏'},'sponsors':sponsors,'popupAds':popupAds,'tournament':{'name':tournamentName,'fixtures':tournamentFixtures},'advertising':{'enabled':settings.adEnabled}};final url=Uri.parse('${Uri.base.origin}/api/live/${m.id}');final r=await http.put(url,headers:{'Content-Type':'application/json'},body:jsonEncode(payload));if(r.statusCode<200||r.statusCode>=300)throw Exception('Live sync HTTP ${r.statusCode}');}catch(e){debugPrint('Live sync failed: $e');}}
+  Future<void> publishLive()async{final m=match;if(m==null)return;try{final payload={'match':{...m.toJson(),'firstBattingTeamId':engine?.actualFirstBattingTeamId??m.firstBattingTeamId},'players':allPlayers.map((p)=>p.toJson()).toList(),'teams':teams.map((t)=>{'id':t.id,'name':t.name,'flag':t.flag,'country':t.country,'players':t.players.map((p)=>{'id':p.id,'name':p.name,'role':p.role}).toList()}).toList(),'teamA':{'id':m.teamAId,'name':m.teamA,'flag':_team(m.teamAId)?.flag??'🏏'},'teamB':{'id':m.teamBId,'name':m.teamB,'flag':_team(m.teamBId)?.flag??'🏏'},'sponsors':sponsors,'popupAds':popupAds,'tournament':{'name':tournamentName,'fixtures':tournamentFixtures},'advertising':{'enabled':settings.adEnabled}};final url=Uri.parse('${Uri.base.origin}/api/live/${m.id}');final r=await http.put(url,headers:{'Content-Type':'application/json'},body:jsonEncode(payload));if(r.statusCode<200||r.statusCode>=300)throw Exception('Live sync HTTP ${r.statusCode}');}catch(e){debugPrint('Live sync failed: $e');}}
   Future<void> shareLive()async{final m=match;if(m==null){msg('Create a match first');return;}await publishLive();final url='${Uri.base.origin}/viewer.html?id=${Uri.encodeComponent(m.id)}';await Share.share(url,subject:'${m.teamA} vs ${m.teamB} - Live Score');}
   Future<void> reselectBatter(bool striker)async{final e=engine!;final options=e.battingSquad.where((p)=>!p.isOut&&p.id!=(striker?e.match.current.nonStriker:e.match.current.striker)).toList();final id=await choosePlayer(striker?'Select striker':'Select non-striker',options);if(id==null)return;try{e.changeBatter(playerId:id,striker:striker);setState((){});await publishLive();}catch(x){msg(x.toString());}}
   Future<void> reselectBowler()async{final e=engine!;final options=e.bowlingSquad.where((p)=>p.id!=e.match.current.bowler).toList();final id=await choosePlayer('Select bowler',options);if(id==null)return;try{e.changeBowler(id);setState((){});await publishLive();}catch(x){msg(x.toString());}}
@@ -260,15 +260,35 @@ class _SportzHomeState extends State<SportzHome>{
     final liveUrl='${Uri.base.origin}/live.html?id=${Uri.encodeComponent(m.id)}';
     final teamAScore=firstTeamIsA?first:(m.innings==2?inn:null);
     final teamBScore=firstTeamIsA?(m.innings==2?inn:null):first;
-    Widget teamScore(TeamRecord? team,InningsRecord? score){
+    final battingTeamId=e.battingTeamId;
+    final striker=e.players[inn.striker];
+    final nonStriker=e.players[inn.nonStriker];
+    final bowler=e.players[inn.bowler];
+    Widget playerLine(IconData icon,String name,String figures){
+      return Padding(padding:const EdgeInsets.only(top:7),child:Row(children:[
+        Icon(icon,size:15,color:const Color(0xffffd166)),
+        const SizedBox(width:6),
+        Expanded(child:Text(name,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white,fontSize:12,fontWeight:FontWeight.w800))),
+        Text(figures,style:const TextStyle(color:Color(0xffd6e0e9),fontSize:11,fontWeight:FontWeight.w700)),
+      ]));
+    }
+    Widget teamScore(TeamRecord? team,InningsRecord? score,{required bool battingSide}){
+      final bowlOvers=bowler==null?'0.0':'${bowler.bowlBalls~/6}.${bowler.bowlBalls%6}';
       return Expanded(child:InkWell(
         borderRadius:BorderRadius.circular(12),
         onTap:(){if(team!=null)showDialog(context:context,builder:(d)=>AlertDialog(title:Text('${team.flag} ${team.name} · Squad'),content:Text(team.players.map((p)=>p.name).join('\\n')),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('Close'))]));},
-        child:Padding(padding:const EdgeInsets.symmetric(horizontal:8,vertical:12),child:Column(children:[
-          Text('${team?.flag??'🏏'}  ${team?.name??'TEAM'}',maxLines:1,overflow:TextOverflow.ellipsis,textAlign:TextAlign.center,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:13)),
-          const SizedBox(height:9),
+        child:Padding(padding:const EdgeInsets.fromLTRB(9,13,9,12),child:Column(children:[
+          Row(mainAxisAlignment:MainAxisAlignment.center,children:[
+            Text(team?.flag??'🏏',style:const TextStyle(fontSize:23)),
+            const SizedBox(width:7),
+            Flexible(child:Text(team?.name??'TEAM',maxLines:1,overflow:TextOverflow.ellipsis,textAlign:TextAlign.center,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:16))),
+          ]),
+          const SizedBox(height:8),
           Text(score==null?'Yet to bat':'${score.runs}/${score.wickets}',maxLines:1,style:TextStyle(color:score==null?const Color(0xffa9bac9):Colors.white,fontWeight:FontWeight.w900,fontSize:score==null?19:30)),
-          if(score!=null)Text('(${score.overs})',style:const TextStyle(color:Colors.white,fontSize:14,fontWeight:FontWeight.w800)),
+          if(score!=null)Text('(${score.overs})',style:const TextStyle(color:Colors.white,fontSize:13,fontWeight:FontWeight.w800)),
+          if(battingSide&&striker!=null)playerLine(Icons.sports_cricket,'${striker.name} *','${striker.runs} (${striker.balls})'),
+          if(battingSide&&settings.dualBatting&&nonStriker!=null)playerLine(Icons.sports_cricket,nonStriker.name,'${nonStriker.runs} (${nonStriker.balls})'),
+          if(!battingSide&&bowler!=null)playerLine(Icons.sports_baseball,bowler.name,'${bowler.bowlRuns} ($bowlOvers) / ${bowler.wickets}'),
         ])),
       ));
     }
@@ -276,20 +296,30 @@ class _SportzHomeState extends State<SportzHome>{
     final buttonStyle=(Color color)=>FilledButton.styleFrom(backgroundColor:color,foregroundColor:Colors.white,minimumSize:const Size(0,48),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(12)),textStyle:const TextStyle(fontWeight:FontWeight.w900));
     return ListView(padding:const EdgeInsets.fromLTRB(12,12,12,24),children:[
       Container(padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:mainColor,borderRadius:BorderRadius.circular(20),border:Border.all(color:edgeColor,width:1.5)),child:DefaultTextStyle.merge(style:const TextStyle(color:Colors.white),child:Column(children:[
-        Row(children:[Expanded(child:Text(settings.title.isEmpty?'MATCH CENTRE':settings.title.toUpperCase(),maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:14,letterSpacing:1.1))),Text(m.status.toUpperCase(),style:const TextStyle(color:Color(0xffffd166),fontWeight:FontWeight.w900,fontSize:11))]),
+        Text(settings.title.isEmpty?'MATCH CENTRE':settings.title.toUpperCase(),textAlign:TextAlign.center,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:16,letterSpacing:1.1)),
+        const SizedBox(height:4),
+        Text('${settings.matchType.toUpperCase()}  ·  ${settings.venue.trim().isEmpty?'VENUE TBC':settings.venue.toUpperCase()}',textAlign:TextAlign.center,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Color(0xffd1dbe5),fontWeight:FontWeight.w800,fontSize:11,letterSpacing:.5)),
+        const SizedBox(height:6),
+        Row(mainAxisAlignment:MainAxisAlignment.center,children:[Text(m.status.toUpperCase(),style:const TextStyle(color:Color(0xffffd166),fontWeight:FontWeight.w900,fontSize:11))]),
         const SizedBox(height:12),
         Container(decoration:BoxDecoration(border:Border.all(color:edgeColor,width:1.4),borderRadius:BorderRadius.circular(16),color:Colors.black.withValues(alpha:.18)),child:Row(children:[
-          teamScore(ta,teamAScore),
-          Container(width:1,height:76,color:edgeColor),
+          teamScore(ta,teamAScore,battingSide:m.teamAId==battingTeamId),
+          Container(width:1,height:112,color:edgeColor),
           const Padding(padding:EdgeInsets.symmetric(horizontal:7),child:Text('VS',style:TextStyle(color:Colors.white70,fontWeight:FontWeight.w900,fontSize:12))),
-          Container(width:1,height:76,color:edgeColor),
-          teamScore(tb,teamBScore),
+          Container(width:1,height:112,color:edgeColor),
+          teamScore(tb,teamBScore,battingSide:m.teamBId==battingTeamId),
         ])),
-        const SizedBox(height:12),
-        Text('${inn.runs}/${inn.wickets}',style:const TextStyle(fontSize:42,fontWeight:FontWeight.w900,height:1.05,letterSpacing:-1)),
-        Text('${inn.overs} OV  ·  CRR ${inn.crr.toStringAsFixed(2)}  ·  EXTRAS ${inn.extras}',style:const TextStyle(color:Color(0xffc1ced9),fontWeight:FontWeight.w800,fontSize:12)),
+        const SizedBox(height:10),
+        Text('${inn.overs} OV  ·  CRR ${inn.crr.toStringAsFixed(2)}  ·  EXTRAS ${inn.extras}',textAlign:TextAlign.center,style:const TextStyle(color:Color(0xffc1ced9),fontWeight:FontWeight.w800,fontSize:12)),
         if(m.innings==2)Padding(padding:const EdgeInsets.only(top:7),child:Text('TARGET ${inn.target??first.runs+1}  ·  NEED ${((inn.target??first.runs+1)-inn.runs).clamp(0,99999)} RUNS',style:const TextStyle(color:Color(0xffffc857),fontWeight:FontWeight.w900))),
-        if(last!=null&&['4','6','W'].contains(last.label))Padding(padding:const EdgeInsets.only(top:8),child:Container(padding:const EdgeInsets.symmetric(horizontal:18,vertical:7),decoration:BoxDecoration(color:last.label=='W'?const Color(0xffb91c1c):accent,borderRadius:BorderRadius.circular(20)),child:Text(last.label=='W'?'WICKET!':last.label=='6'?'SIX!':'FOUR!',style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900)))),
+        if(last!=null&&(['4','6','W'].contains(last.label)||((e.players.values.where((p)=>p.name==last.batter).firstOrNull?.runs??0)==50)||((e.players.values.where((p)=>p.name==last.batter).firstOrNull?.runs??0)==100)))
+          Builder(builder:(ctx){
+            final batterNow=e.players.values.where((p)=>p.name==last.batter).firstOrNull;
+            final milestone=batterNow?.runs==100?'CENTURY! ${batterNow!.name} 100':batterNow?.runs==50?'FIFTY! ${batterNow!.name} 50':'';
+            final message=milestone.isNotEmpty?milestone:last.label=='W'?'WICKET!':last.label=='6'?'SIX!':'FOUR!';
+            final colour=last.label=='W'?const Color(0xffb91c1c):accent;
+            return TweenAnimationBuilder<double>(key:ValueKey('${inn.deliveries.length}-$message'),tween:Tween(begin:.55,end:1),duration:const Duration(milliseconds:750),curve:Curves.elasticOut,builder:(context,value,child)=>Transform.scale(scale:value,child:Opacity(opacity:value.clamp(0,1),child:child)),child:Container(margin:const EdgeInsets.only(top:10),padding:const EdgeInsets.symmetric(horizontal:20,vertical:12),decoration:BoxDecoration(color:colour,borderRadius:BorderRadius.circular(24),boxShadow:[BoxShadow(color:colour.withValues(alpha:.45),blurRadius:18,spreadRadius:2)]),child:Text(message,textAlign:TextAlign.center,style:const TextStyle(color:Colors.white,fontSize:17,fontWeight:FontWeight.w900,letterSpacing:1.1))));
+          }),
         if(inn.overBalls.isNotEmpty)...[
           const Divider(color:Color(0xff526273),height:22),
           Align(alignment:Alignment.centerLeft,child:Text('THIS OVER',style:TextStyle(color:Colors.white.withValues(alpha:.7),fontWeight:FontWeight.w900,fontSize:12))),
