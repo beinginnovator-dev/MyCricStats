@@ -140,11 +140,13 @@ class _SportzHomeState extends State<SportzHome>{
       if(teams.length<2)const Padding(padding:EdgeInsets.all(12),child:Text('Create two teams and add their players before creating a match.'))
     ] else if(homeSubtab==1)...[
       section('MATCH SETTINGS','CONFIGURATION'),
+      DropdownButtonFormField<String>(value:a?.id,decoration:const InputDecoration(labelText:'Team A'),items:teams.map((t)=>DropdownMenuItem(value:t.id,child:Text('${t.flag} ${t.name}'))).toList(),onChanged:(v)async{setState(()=>selectedTeamAId=v??'');await _save();}),
+      DropdownButtonFormField<String>(value:b?.id,decoration:const InputDecoration(labelText:'Team B'),items:teams.where((t)=>t.id!=a?.id).map((t)=>DropdownMenuItem(value:t.id,child:Text('${t.flag} ${t.name}'))).toList(),onChanged:(v)async{setState(()=>selectedTeamBId=v??'');await _save();}),
       Card(child:ListTile(leading:const Icon(Icons.sports_cricket),title:const Text('Match configuration'),subtitle:Text('${settings.title} · ${settings.overs} overs · ${settings.playersPerSide} players · ${settings.matchType}'),trailing:const Icon(Icons.edit),onTap:configureMatch)),
       Card(child:ListTile(title:const Text('Dual batting'),subtitle:Text(settings.dualBatting?'Enabled — select striker and non-striker':'Disabled — one batter selection only'),trailing:Switch(value:settings.dualBatting,onChanged:(v)async{setState(()=>settings.dualBatting=v);await _save();}))),
       if(match==null)FilledButton.icon(onPressed:createMatch,icon:const Icon(Icons.add_circle),label:const Text('CREATE MATCH'))
       else ListTile(title:Text('${match!.teamA} vs ${match!.teamB}'),subtitle:Text('Status: ${match!.status}'),trailing:const Icon(Icons.edit),onTap:configureMatch),
-    ] else ...[
+    ] else if(homeSubtab==2)...[
       section('TOSS CENTRE','CALL · FLIP · ELECT'),
       if(match==null)Card(child:ListTile(title:const Text('Create a match first'),subtitle:const Text('Complete match settings, then return here for the toss.'),trailing:const Icon(Icons.arrow_forward),onTap:()=>setState(()=>homeSubtab=1)))
       else ...[
@@ -158,6 +160,13 @@ class _SportzHomeState extends State<SportzHome>{
         ]
       ],
       if(match==null&&teams.length>=2)Padding(padding:const EdgeInsets.only(top:10),child:FilledButton.icon(onPressed:createMatch,icon:const Icon(Icons.add),label:const Text('CREATE MATCH')))
+    ] else ...[
+      section('TOURNAMENT SCHEDULE','MULTI-TEAM FIXTURES'),
+      TextFormField(initialValue:tournamentName,decoration:const InputDecoration(labelText:'Tournament name'),onChanged:(v)=>tournamentName=v),
+      FilledButton.icon(onPressed:addTournamentFixture,icon:const Icon(Icons.add),label:const Text('ADD FIXTURE')),
+      if(tournamentFixtures.isEmpty)const Text('Create fixtures across any of your teams.'),
+      ...tournamentFixtures.asMap().entries.map((entry)=>Card(child:ListTile(title:Text('${entry.value['teamAName']} vs ${entry.value['teamBName']}'),subtitle:Text('${entry.value['type']} · ${entry.value['date']} · ${entry.value['status']}'),trailing:IconButton(icon:const Icon(Icons.delete_outline),onPressed:()async{tournamentFixtures.removeAt(entry.key);await _save();setState((){});if(match!=null)await publishLive();})))),
+      FilledButton.icon(onPressed:shareTournamentSchedule,icon:const Icon(Icons.share),label:const Text('PUBLISH / SHARE SCHEDULE')),
     ]
   ]);
   Future<void> addTournamentFixture()async{
