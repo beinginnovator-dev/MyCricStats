@@ -136,6 +136,24 @@ class _SportzHomeState extends State<SportzHome>{
     ]);
   });
   Widget stats()=>ListView(padding:const EdgeInsets.all(14),children:[
+    if(engine!=null)...[
+      section('LIVE MATCH SCORECARD','DETAILED INNINGS STATISTICS'),
+      Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Text('${match!.teamA} vs ${match!.teamB} · Innings ${match!.innings}',style:const TextStyle(fontWeight:FontWeight.w900)),
+        const SizedBox(height:5),Text('${match!.current.runs}/${match!.current.wickets}  (${match!.current.overs} ov) · CRR ${match!.current.crr.toStringAsFixed(2)} · Extras ${match!.current.extras}',style:const TextStyle(fontWeight:FontWeight.w800)),
+        const SizedBox(height:12),const Text('BATTING',style:TextStyle(fontWeight:FontWeight.w900,fontSize:12)),
+        _statsTable(['BATSMAN','R','B','4s','6s','SR','STATUS'],engine!.battingSquad.where((p)=>p.balls>0||p.isOut||p.id==match!.current.striker||p.id==match!.current.nonStriker).map((p)=>[p.name+(p.id==match!.current.striker?' *':''),p.runs,p.balls,p.fours,p.sixes,p.balls==0?'0.00':(p.runs*100/p.balls).toStringAsFixed(2),p.isOut?'OUT':'NOT OUT']).toList()),
+        const SizedBox(height:12),const Text('BOWLING',style:TextStyle(fontWeight:FontWeight.w900,fontSize:12)),
+        _statsTable(['BOWLER','O','R','W','DOTS','WD','NB','ECON'],engine!.bowlingSquad.where((p)=>p.bowlBalls>0||p.wickets>0||p.id==match!.current.bowler).map((p)=>[p.name,'${p.bowlBalls~/6}.${p.bowlBalls%6}',p.bowlRuns,p.wickets,p.dots,p.wides,p.noBalls,p.bowlBalls==0?'0.00':(p.bowlRuns/(p.bowlBalls/6)).toStringAsFixed(2)]).toList()),
+        const SizedBox(height:12),const Text('EXTRAS BREAKDOWN',style:TextStyle(fontWeight:FontWeight.w900,fontSize:12)),
+        Text('Wides ${match!.current.wides}  ·  No-balls ${match!.current.noBalls}  ·  Leg-byes ${match!.current.legByes}  ·  Total ${match!.current.extras}'),
+        const SizedBox(height:12),const Text('FALL OF WICKETS',style:TextStyle(fontWeight:FontWeight.w900,fontSize:12)),
+        if(match!.current.fallOfWickets.isEmpty)const Text('No wickets yet') else ...match!.current.fallOfWickets.asMap().entries.map((x)=>Text('${x.key+1}) ${x.value['score']} runs · ${x.value['batter']} · ${x.value['dismissal']} · ${x.value['over']} ov')),
+        const SizedBox(height:12),const Text('BALL-BY-BALL / OVER SUMMARY',style:TextStyle(fontWeight:FontWeight.w900,fontSize:12)),
+        ..._overSummary(match!.current.deliveries).map((x)=>Padding(padding:const EdgeInsets.symmetric(vertical:4),child:Text('Over ${x['over']}: ${x['balls']}   ·   ${x['runs']} runs'))),
+      ]))),
+      const SizedBox(height:14),
+    ],
     section('TOURNAMENT CENTRE','DETAILED PLAYER STATISTICS'),
     Wrap(spacing:8,runSpacing:8,children:[
       SizedBox(width:155,child:metric('Matches',history.length.toString())),
@@ -153,6 +171,12 @@ class _SportzHomeState extends State<SportzHome>{
     const SizedBox(height:14),section('EXTRAS & MATCH SUMMARY','SAVED MATCHES'),
     _statsTable(['MATCH','SCORE A','SCORE B','RESULT'],history.reversed.map((m)=>['${m['teamA']} v ${m['teamB']}','${m['firstRuns']}/${m['firstWickets']}','${m['secondRuns']}/${m['secondWickets']}',m['result']??'']).toList())
   ]);
+  List<Map<String,dynamic>> _overSummary(List<BallRecord> deliveries){
+    final result=<Map<String,dynamic>>[];var legal=0;var runs=0;var balls=<String>[];
+    for(final d in deliveries){runs+=d.type==DeliveryType.wide?(d.runs<=0?1:d.runs):d.type==DeliveryType.noBall?d.runs+1:d.runs;balls.add(d.label);if(d.legal)legal++;if(d.legal&&legal%6==0){result.add({'over':legal~/6,'balls':balls.join('  '),'runs':runs});balls=[];runs=0;}}
+    if(balls.isNotEmpty)result.add({'over':'${legal~/6}.${legal%6}','balls':balls.join('  '),'runs':runs});
+    return result;
+  }
   List<List<dynamic>> _rankedPlayers(String sort){
     final map=<String,Map<String,dynamic>>{};
     for(final m in history){for(final raw in (m['players'] as List? ??[])){
