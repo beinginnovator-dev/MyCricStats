@@ -166,6 +166,24 @@ class TournamentEngine {
     if(inn.wickets>=maxWickets||inn.legalBalls>=match.settings.overs*6||chaseDone){inn.complete=true;_finishInnings();}
   }
 
+  void changeBatter({required String playerId, required bool striker}) {
+    final inn=match.current;final p=players[playerId];
+    if(match.status!='Live'||p==null||p.teamId!=battingTeamId||p.isOut) throw StateError('Choose an available batter from the batting team');
+    final current=striker?inn.striker:inn.nonStriker;
+    if(playerId==current) return;
+    if(playerId==(striker?inn.nonStriker:inn.striker)) throw StateError('A batter cannot occupy both positions');
+    if(striker&&inn.striker.isEmpty||!striker&&inn.nonStriker.isEmpty) throw StateError('Select the dismissed batter first');
+    inn.striker=striker?playerId:inn.striker;inn.nonStriker=striker?inn.nonStriker:playerId;
+  }
+
+  void changeBowler(String playerId) {
+    final p=players[playerId];
+    if(match.status!='Live'||p==null||p.teamId!=bowlingTeamId) throw StateError('Choose a bowler from the fielding team');
+    if(requireBowlerChange&&playerId==lastOverBowler) throw StateError('The previous over bowler cannot bowl consecutive overs');
+    if(match.current.legalBalls%6!=0&&match.current.bowler.isNotEmpty&&playerId!=match.current.bowler) throw StateError('The same bowler must complete the current over');
+    match.current.bowler=playerId;
+  }
+
   void selectNextBatter(String playerId) {
     final inn=match.current;final p=players[playerId];
     if(match.status!='Live'||!requireBatterChange||p==null||p.teamId!=battingTeamId||p.isOut) throw StateError('Select an available batter from the batting team');
