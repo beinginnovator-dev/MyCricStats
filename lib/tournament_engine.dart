@@ -44,6 +44,7 @@ class BallRecord {
 }
 
 class InningsRecord {
+  InningsRecord();
   int runs=0,wickets=0,legalBalls=0,extras=0,wides=0,noBalls=0,legByes=0;
   String striker='',nonStriker='',bowler='';
   int? target;
