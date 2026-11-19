@@ -179,7 +179,7 @@ class TournamentEngine {
   void changeBowler(String playerId) {
     final p=players[playerId];
     if(match.status!='Live'||p==null||p.teamId!=bowlingTeamId) throw StateError('Choose a bowler from the fielding team');
-    if(requireBowlerChange&&playerId==lastOverBowler) throw StateError('The previous over bowler cannot bowl consecutive overs');
+    if(requireBowlerChange){if(playerId==lastOverBowler) throw StateError('The previous over bowler cannot bowl consecutive overs');match.current.bowler=playerId;requireBowlerChange=false;lastOverBowler='';return;}
     if(match.current.legalBalls%6!=0&&match.current.bowler.isNotEmpty&&playerId!=match.current.bowler) throw StateError('The same bowler must complete the current over');
     match.current.bowler=playerId;
   }
