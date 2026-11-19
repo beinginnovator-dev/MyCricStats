@@ -40,6 +40,7 @@ class BallRecord {
   final DismissalType? dismissal;
   final String? fielder;
   Map<String,dynamic> toJson()=>{'innings':innings,'label':label,'type':type.name,'runs':runs,'legal':legal,'batter':batter,'bowler':bowler,'dismissal':dismissal?.name,'fielder':fielder};
+  factory BallRecord.fromJson(Map<String,dynamic> j)=>BallRecord(innings:j['innings']??1,label:j['label']??'',type:DeliveryType.values.firstWhere((x)=>x.name==j['type'],orElse:()=>DeliveryType.legal),runs:j['runs']??0,legal:j['legal']??true,batter:j['batter']??'',bowler:j['bowler']??'',dismissal:j['dismissal']==null?null:DismissalType.values.firstWhere((x)=>x.name==j['dismissal'],orElse:()=>DismissalType.bowled),fielder:j['fielder']);
 }
 
 class InningsRecord {
@@ -53,6 +54,7 @@ class InningsRecord {
   String get overs => '${legalBalls~/6}.${legalBalls%6}';
   double get crr => legalBalls==0?0:runs/(legalBalls/6);
   Map<String,dynamic> toJson()=>{'runs':runs,'wickets':wickets,'legalBalls':legalBalls,'extras':extras,'wides':wides,'noBalls':noBalls,'legByes':legByes,'striker':striker,'nonStriker':nonStriker,'bowler':bowler,'target':target,'overBalls':overBalls,'deliveries':deliveries.map((d)=>d.toJson()).toList(),'fallOfWickets':fallOfWickets,'complete':complete};
+  factory InningsRecord.fromJson(Map<String,dynamic> j){final x=InningsRecord();x.runs=j['runs']??0;x.wickets=j['wickets']??0;x.legalBalls=j['legalBalls']??0;x.extras=j['extras']??0;x.wides=j['wides']??0;x.noBalls=j['noBalls']??0;x.legByes=j['legByes']??0;x.striker=j['striker']??'';x.nonStriker=j['nonStriker']??'';x.bowler=j['bowler']??'';x.target=j['target'];x.overBalls=List<String>.from(j['overBalls']??[]);x.deliveries=((j['deliveries'] as List?)??[]).map((v)=>BallRecord.fromJson(Map<String,dynamic>.from(v))).toList();x.fallOfWickets=List<Map<String,dynamic>>.from(((j['fallOfWickets'] as List?)??[]).map((v)=>Map<String,dynamic>.from(v)));x.complete=j['complete']??false;return x;}
 }
 
 class MatchRecord {
@@ -74,6 +76,7 @@ class TournamentEngine {
   final Map<String,PlayerRecord> players;
   final MatchRecord match;
   final List<Map<String,dynamic>> undoStack=[];
+  final List<Map<String,dynamic>> redoStack=[];
   bool requireBatterChange=false, requireBowlerChange=false;
   String lastDismissedBatter='',lastOverBowler='';
   bool lastDismissedAtStriker=true;
@@ -120,8 +123,7 @@ class TournamentEngine {
     if(wicket&&dismissal==null) throw StateError('Select dismissal type');
     if((dismissal==DismissalType.caught||dismissal==DismissalType.runOut)&&(fielder==null||fielder.trim().isEmpty)) throw StateError('Select fielder');
     if(dismissal==DismissalType.runOut&&(runOutBatterId==null||!{inn.striker,inn.nonStriker}.contains(runOutBatterId))) throw StateError('Select which batter was run out');
-    final before=match.toJson();
-    undoStack.add(before);
+    undoStack.add(_snapshot());redoStack.clear();
     final legal=type==DeliveryType.legal||type==DeliveryType.legBye;
     final label=wicket?'W':type==DeliveryType.wide?'WD':type==DeliveryType.noBall?'NB':type==DeliveryType.legBye?'LB$runs':'$runs';
     final batter=players[inn.striker]!,bowler=players[inn.bowler]!;
@@ -165,6 +167,11 @@ class TournamentEngine {
     final chaseDone=match.innings==2&&inn.target!=null&&inn.runs>=inn.target!;
     if(inn.wickets>=maxWickets||inn.legalBalls>=match.settings.overs*6||chaseDone){inn.complete=true;_finishInnings();}
   }
+
+  Map<String,dynamic> _snapshot()=>{'match':match.toJson(),'players':players.values.map((p)=>p.toJson()).toList(),'requireBatterChange':requireBatterChange,'requireBowlerChange':requireBowlerChange,'lastDismissedBatter':lastDismissedBatter,'lastOverBowler':lastOverBowler,'lastDismissedAtStriker':lastDismissedAtStriker,'firstBattingOverride':_firstBattingOverride};
+  void _restore(Map<String,dynamic> s){final m=Map<String,dynamic>.from(s['match']);match.tossWinner=m['tossWinner']??'';match.tossDecision=m['tossDecision']??'';match.status=m['status']??'Setup';match.result=m['result']??'';match.manOfMatch=m['manOfMatch']??'';match.innings=m['innings']??1;match.inningsList=((m['inningsList'] as List?)??[]).map((v)=>InningsRecord.fromJson(Map<String,dynamic>.from(v))).toList();if(match.inningsList.isEmpty)match.inningsList=[InningsRecord()];match.allDeliveries=match.inningsList.expand((x)=>x.deliveries).toList();match.completedAt=m['completedAt']==null?null:DateTime.tryParse(m['completedAt']);for(final v in (s['players'] as List? ??[])){final j=Map<String,dynamic>.from(v);final p=players[j['id']];if(p!=null){final q=PlayerRecord.fromJson(j);p.isOut=q.isOut;p.runs=q.runs;p.balls=q.balls;p.fours=q.fours;p.sixes=q.sixes;p.bowlRuns=q.bowlRuns;p.bowlBalls=q.bowlBalls;p.wickets=q.wickets;p.dots=q.dots;p.wides=q.wides;p.noBalls=q.noBalls;}}requireBatterChange=s['requireBatterChange']??false;requireBowlerChange=s['requireBowlerChange']??false;lastDismissedBatter=s['lastDismissedBatter']??'';lastOverBowler=s['lastOverBowler']??'';lastDismissedAtStriker=s['lastDismissedAtStriker']??true;_firstBattingOverride=s['firstBattingOverride'];}
+  bool undo(){if(undoStack.isEmpty)return false;redoStack.add(_snapshot());_restore(undoStack.removeLast());return true;}
+  bool redo(){if(redoStack.isEmpty)return false;undoStack.add(_snapshot());_restore(redoStack.removeLast());return true;}
 
   void changeBatter({required String playerId, required bool striker}) {
     final inn=match.current;final p=players[playerId];
