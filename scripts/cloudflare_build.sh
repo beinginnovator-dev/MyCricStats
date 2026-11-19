@@ -50,6 +50,7 @@ MANIFEST
 # Ship the custom install manifest and public live-viewer page with Flutter assets.
 cp web/manifest.json build/web/manifest.json
 cp web/live.html build/web/live.html
+cp web/viewer.html build/web/viewer.html
 
 echo "=== Verify build output ==="
 test -s build/web/index.html
