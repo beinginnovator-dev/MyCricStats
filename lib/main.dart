@@ -47,6 +47,20 @@ class _SportzHomeState extends State<SportzHome>{
   Future<void> shareLive()async{final m=match;if(m==null){msg('Create a match first');return;}await publishLive();final url='${Uri.base.origin}/live.html?id=${Uri.encodeComponent(m.id)}';await Share.share(url,subject:'${m.teamA} vs ${m.teamB} - Live Score');}
   Future<void> reselectBatter(bool striker)async{final e=engine!;final options=e.battingSquad.where((p)=>!p.isOut&&p.id!=(striker?e.match.current.nonStriker:e.match.current.striker)).toList();final id=await choosePlayer(striker?'Select striker':'Select non-striker',options);if(id==null)return;try{e.changeBatter(playerId:id,striker:striker);setState((){});await publishLive();}catch(x){msg(x.toString());}}
   Future<void> reselectBowler()async{final e=engine!;final options=e.bowlingSquad.where((p)=>p.id!=e.match.current.bowler).toList();final id=await choosePlayer('Select bowler',options);if(id==null)return;try{e.changeBowler(id);setState((){});await publishLive();}catch(x){msg(x.toString());}}
+  Future<void> selectBatterCategory()async{
+    final choice=await showModalBottomSheet<String>(context:context,builder:(d)=>SafeArea(child:Column(mainAxisSize:MainAxisSize.min,children:[
+      const ListTile(title:Text('BATTING PLAYERS',style:TextStyle(fontWeight:FontWeight.w900))),
+      ListTile(leading:const Icon(Icons.star),title:const Text('Select striker'),onTap:()=>Navigator.pop(d,'striker')),
+      ListTile(leading:const Icon(Icons.person_outline),title:const Text('Select non-striker'),onTap:()=>Navigator.pop(d,'non')),
+      if(engine?.requireBatterChange==true)ListTile(leading:const Icon(Icons.person_add),title:const Text('Select next batter'),onTap:()=>Navigator.pop(d,'next')),
+      ListTile(leading:const Icon(Icons.swap_horiz),title:const Text('Swap striker / non-striker ends'),onTap:()=>Navigator.pop(d,'swap')),
+    ])));
+    if(choice==null)return;
+    if(choice=='striker')await reselectBatter(true);
+    if(choice=='non')await reselectBatter(false);
+    if(choice=='next')await nextBatter();
+    if(choice=='swap'){try{engine!.swapBatters();setState((){});await publishLive();}catch(e){msg(e.toString());}}
+  }
   Future<void> changePlayerUnified()async{
     final role=await showModalBottomSheet<String>(context:context,builder:(d)=>SafeArea(child:Wrap(children:[
       ListTile(leading:const Icon(Icons.sports_cricket),title:const Text('Change striker'),onTap:()=>Navigator.pop(d,'striker')),
@@ -119,9 +133,11 @@ class _SportzHomeState extends State<SportzHome>{
       const SizedBox(height:12),
       if(m.status=='Live'||m.status=='Ready'||m.status=='Innings Break')
         SingleChildScrollView(scrollDirection:Axis.horizontal,child:Row(children:[
-          OutlinedButton.icon(onPressed:pickOpeners,icon:const Icon(Icons.groups),label:Text(inningsBreak?'SELECT CHASE PLAYERS':'SELECT OPENERS')),
+          OutlinedButton.icon(onPressed:pickOpeners,icon:const Icon(Icons.groups),label:Text(inningsBreak?'SELECT CHASE OPENERS':'OPENERS')),
           const SizedBox(width:8),
-          OutlinedButton.icon(onPressed:changePlayerUnified,icon:const Icon(Icons.manage_accounts),label:const Text('CHANGE PLAYER')),
+          OutlinedButton.icon(onPressed:selectBatterCategory,icon:const Icon(Icons.sports_cricket),label:const Text('BATSMAN')),
+          const SizedBox(width:8),
+          OutlinedButton.icon(onPressed:reselectBowler,icon:const Icon(Icons.sports_baseball),label:const Text('BOWLER')),
         ])),
       const SizedBox(height:10),section('MATCH CONTROL','LIVE VIEWER & CORRECTIONS'),
       SingleChildScrollView(scrollDirection:Axis.horizontal,child:Row(children:[
