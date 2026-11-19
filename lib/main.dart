@@ -52,7 +52,16 @@ class _SportzHomeState extends State<SportzHome>{
     try{engine!.startToss(winnerTeamId:winner,decision:decision);tossWinner=winner;tossDecision=decision;setState(()=>homeSubtab=2);await _save();msg('${_team(winner)?.name??'Team'} won the toss and elected to ${decision.toLowerCase()}.');}catch(e){msg(e.toString());}
   }
   Future<String?> choosePlayer(String title,List<PlayerRecord> options)async=>showDialog<String>(context:context,builder:(d)=>AlertDialog(title:Text(title),content:SizedBox(width:320,child:ListView(shrinkWrap:true,children:options.map((p)=>ListTile(title:Text(p.name),subtitle:Text(p.role),onTap:()=>Navigator.pop(d,p.id))).toList()))));
-  Future<void> pickOpeners()async{final e=engine!;final bat=e.battingSquad,bowl=e.bowlingSquad;if(bat.length<2||bowl.isEmpty){msg('Squad players are missing');return;}final st=await choosePlayer('Select striker',bat.where((p)=>!p.isOut).toList());if(st==null)return;final ns=await choosePlayer('Select non-striker',bat.where((p)=>!p.isOut&&p.id!=st).toList());if(ns==null)return;final bw=await choosePlayer('Select opening bowler',bowl);if(bw==null)return;try{if(match!.innings==1)e.selectOpeners(strikerId:st,nonStrikerId:ns,bowlerId:bw);else e.startSecondInnings(strikerId:st,nonStrikerId:ns,bowlerId:bw);setState((){});await publishLive();}catch(x){msg(x.toString());}}
+  Future<void> pickOpeners()async{
+    final e=engine!;final bat=e.battingSquad,bowl=e.bowlingSquad;
+    if(bat.isEmpty||bowl.isEmpty){msg('Squad players are missing');return;}
+    final st=await choosePlayer('Select striker / opening batter',bat.where((p)=>!p.isOut).toList());if(st==null)return;
+    String ns='';
+    if(settings.dualBatting){final selected=await choosePlayer('Select non-striker',bat.where((p)=>!p.isOut&&p.id!=st).toList());if(selected==null)return;ns=selected;}
+    final bw=await choosePlayer('Select opening bowler',bowl);if(bw==null)return;
+    try{if(match!.innings==1)e.selectOpeners(strikerId:st,nonStrikerId:ns,bowlerId:bw);else e.startSecondInnings(strikerId:st,nonStrikerId:ns,bowlerId:bw);setState((){});await publishLive();}
+    catch(x){msg(x.toString());}
+  }
   Future<void> nextBatter()async{final e=engine!,inn=e.match.current;final p=await choosePlayer('Select next batter',e.battingSquad.where((x)=>!x.isOut&&x.id!=inn.striker&&x.id!=inn.nonStriker).toList());if(p==null)return;try{e.selectNextBatter(p);setState((){});await publishLive();}catch(x){msg(x.toString());}}
   Future<void> nextBowler()async{final e=engine!;final p=await choosePlayer('Select next bowler',e.bowlingSquad.where((x)=>x.id!=e.match.current.bowler&&x.id!=e.lastOverBowler).toList());if(p==null)return;try{e.selectNextBowler(p);setState((){});await publishLive();}catch(x){msg(x.toString());}}
   TeamRecord? _team(String id){for(final t in teams){if(t.id==id)return t;}return null;}
@@ -66,18 +75,20 @@ class _SportzHomeState extends State<SportzHome>{
       ListTile(leading:const Icon(Icons.star),title:const Text('Select striker'),onTap:()=>Navigator.pop(d,'striker')),
       ListTile(leading:const Icon(Icons.person_outline),title:const Text('Select non-striker'),onTap:()=>Navigator.pop(d,'non')),
       if(engine?.requireBatterChange==true)ListTile(leading:const Icon(Icons.person_add),title:const Text('Select next batter'),onTap:()=>Navigator.pop(d,'next')),
+      if(engine?.requireBatterChange==true&&engine!.battingSquad.any((p)=>p.isOut))ListTile(leading:const Icon(Icons.replay),title:const Text('Re-bat a dismissed player (short squad)'),onTap:()=>Navigator.pop(d,'rebat')),
       ListTile(leading:const Icon(Icons.swap_horiz),title:const Text('Swap striker / non-striker ends'),onTap:()=>Navigator.pop(d,'swap')),
     ])));
     if(choice==null)return;
     if(choice=='striker')await reselectBatter(true);
     if(choice=='non')await reselectBatter(false);
     if(choice=='next')await nextBatter();
+    if(choice=='rebat'){final e=engine!;final id=await choosePlayer('Select dismissed batter to re-bat',e.battingSquad.where((p)=>p.isOut).toList());if(id!=null){try{e.reBatPlayer(id);setState((){});await publishLive();}catch(x){msg(x.toString());}}}
     if(choice=='swap'){try{engine!.swapBatters();setState((){});await publishLive();}catch(e){msg(e.toString());}}
   }
   Future<void> changePlayerUnified()async{
     final role=await showModalBottomSheet<String>(context:context,builder:(d)=>SafeArea(child:Wrap(children:[
       ListTile(leading:const Icon(Icons.sports_cricket),title:const Text('Change striker'),onTap:()=>Navigator.pop(d,'striker')),
-      ListTile(leading:const Icon(Icons.swap_horiz),title:const Text('Change non-striker'),onTap:()=>Navigator.pop(d,'non')),
+      if(settings.dualBatting)ListTile(leading:const Icon(Icons.swap_horiz),title:const Text('Change non-striker'),onTap:()=>Navigator.pop(d,'non')),
       ListTile(leading:const Icon(Icons.sports_baseball),title:const Text('Change bowler'),onTap:()=>Navigator.pop(d,'bowler')),
       if(engine?.requireBatterChange==true)ListTile(leading:const Icon(Icons.person_add),title:const Text('Select next batter'),onTap:()=>Navigator.pop(d,'next')),
       if(engine?.requireBowlerChange==true)ListTile(leading:const Icon(Icons.sports),title:const Text('Select next-over bowler'),onTap:()=>Navigator.pop(d,'nextBowler')),
