@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
@@ -45,7 +46,7 @@ class _SportzHomeState extends State<SportzHome>{
     if(caller==null)return;
     final call=await showDialog<String>(context:context,builder:(d)=>AlertDialog(title:const Text('Call the coin'),content:Wrap(spacing:12,children:['Heads','Tails'].map((x)=>FilledButton(onPressed:()=>Navigator.pop(d,x),child:Text(x))).toList())));
     if(call==null)return;
-    final result=DateTime.now().microsecondsSinceEpoch.isEven?'Heads':'Tails';
+    final result=Random.secure().nextBool()?'Heads':'Tails';
     final winner=call==result?caller:(caller==match!.teamAId?match!.teamBId:match!.teamAId);
     final decision=await showDialog<String>(context:context,builder:(d)=>AlertDialog(title:Text('${result.toUpperCase()} — ${_team(winner)?.name??'Winner'} won the toss'),content:const Text('Toss-winning team elects:'),actions:[TextButton(onPressed:()=>Navigator.pop(d,'Bat'),child:const Text('BAT')),FilledButton(onPressed:()=>Navigator.pop(d,'Bowl'),child:const Text('BOWL'))]));
     if(decision==null)return;
@@ -90,7 +91,8 @@ class _SportzHomeState extends State<SportzHome>{
       ListTile(leading:const Icon(Icons.sports_cricket),title:const Text('Change striker'),onTap:()=>Navigator.pop(d,'striker')),
       if(settings.dualBatting)ListTile(leading:const Icon(Icons.swap_horiz),title:const Text('Change non-striker'),onTap:()=>Navigator.pop(d,'non')),
       ListTile(leading:const Icon(Icons.sports_baseball),title:const Text('Change bowler'),onTap:()=>Navigator.pop(d,'bowler')),
-      if(engine?.requireBatterChange==true)if(engine?.requireBatterChange==true&&engine!.battingSquad.any((p)=>p.isOut))ListTile(leading:const Icon(Icons.replay),title:const Text('Re-bat dismissed player'),onTap:()=>Navigator.pop(d,'rebat')),
+      if(engine?.requireBatterChange==true)ListTile(leading:const Icon(Icons.person_add),title:const Text('Select next batter'),onTap:()=>Navigator.pop(d,'next')),
+      if(engine?.requireBatterChange==true&&engine!.battingSquad.any((p)=>p.isOut))ListTile(leading:const Icon(Icons.replay),title:const Text('Re-bat dismissed player'),onTap:()=>Navigator.pop(d,'rebat')),
       if(engine?.requireBowlerChange==true)ListTile(leading:const Icon(Icons.sports),title:const Text('Select next-over bowler'),onTap:()=>Navigator.pop(d,'nextBowler')),
     ])));
     if(role==null)return;
