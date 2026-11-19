@@ -20,19 +20,21 @@ class _SportzFlutterAppState extends State<SportzFlutterApp>{
 class SportzHome extends StatefulWidget{const SportzHome({super.key,required this.mode,required this.onMode});final ThemeMode mode;final ValueChanged<ThemeMode> onMode;@override State<SportzHome> createState()=>_SportzHomeState();}
 class _SportzHomeState extends State<SportzHome>{
   int tab=0,homeSubtab=0,statsSubtab=0;bool loading=true;
+  String selectedTeamAId='',selectedTeamBId='',tournamentName='Tournament';
+  final tournamentFixtures=<Map<String,dynamic>>[];
   final teams=<TeamRecord>[];final history=<Map<String,dynamic>>[];
   MatchSettings settings=MatchSettings();
   MatchRecord? match;TournamentEngine? engine;
   String tossWinner='',tossDecision='Bat';
   final sponsors=<Map<String,String>>[];
   final popupAds=<Map<String,String>>[];
-  final titleC=TextEditingController(),venueC=TextEditingController(),adTextC=TextEditingController(),adImageC=TextEditingController(),adLinkC=TextEditingController();
+  final titleC=TextEditingController(),venueC=TextEditingController(),adTextC=TextEditingController(),adImageC=TextEditingController(),adLinkC=TextEditingController(),tournamentNameC=TextEditingController();
   final teamNameC=TextEditingController(),playerNameC=TextEditingController();
   String teamCountry='India',teamFlag='🇮🇳',playerRole='All-rounder';
   @override void initState(){super.initState();_load();}
-  Future<void> _load()async{final p=await SharedPreferences.getInstance();try{final t=jsonDecode(p.getString('sportz_teams')??'[]') as List;teams..clear()..addAll(t.map((e)=>TeamRecord.fromJson(Map<String,dynamic>.from(e))));history..clear()..addAll((jsonDecode(p.getString('sportz_history')??'[]') as List).map((e)=>Map<String,dynamic>.from(e)));settings=MatchSettings.fromJson(Map<String,dynamic>.from(jsonDecode(p.getString('sportz_settings')??'{}')));sponsors..clear()..addAll((jsonDecode(p.getString('sportz_sponsors')??'[]') as List).map((x)=>Map<String,String>.from(x)));popupAds..clear()..addAll((jsonDecode(p.getString('sportz_popup_ads')??'[]') as List).map((x)=>Map<String,String>.from(x)));}catch(_){}if(mounted)setState(()=>loading=false);}
-  Future<void> _save()async{final p=await SharedPreferences.getInstance();await p.setString('sportz_teams',jsonEncode(teams.map((e)=>e.toJson()).toList()));await p.setString('sportz_history',jsonEncode(history));await p.setString('sportz_settings',jsonEncode(settings.toJson()));await p.setString('sportz_sponsors',jsonEncode(sponsors));await p.setString('sportz_popup_ads',jsonEncode(popupAds));}
-  TeamRecord? get a=>teams.isNotEmpty?teams[0]:null;TeamRecord? get b=>teams.length>1?teams[1]:null;
+  Future<void> _load()async{final p=await SharedPreferences.getInstance();try{final t=jsonDecode(p.getString('sportz_teams')??'[]') as List;teams..clear()..addAll(t.map((e)=>TeamRecord.fromJson(Map<String,dynamic>.from(e))));history..clear()..addAll((jsonDecode(p.getString('sportz_history')??'[]') as List).map((e)=>Map<String,dynamic>.from(e)));settings=MatchSettings.fromJson(Map<String,dynamic>.from(jsonDecode(p.getString('sportz_settings')??'{}')));sponsors..clear()..addAll((jsonDecode(p.getString('sportz_sponsors')??'[]') as List).map((x)=>Map<String,String>.from(x)));popupAds..clear()..addAll((jsonDecode(p.getString('sportz_popup_ads')??'[]') as List).map((x)=>Map<String,String>.from(x)));tournamentName=p.getString('sportz_tournament_name')??'Tournament';tournamentFixtures..clear()..addAll((jsonDecode(p.getString('sportz_tournament_fixtures')??'[]') as List).map((x)=>Map<String,dynamic>.from(x)));selectedTeamAId=p.getString('sportz_match_team_a')??'';selectedTeamBId=p.getString('sportz_match_team_b')??'';}catch(_){}if(mounted)setState(()=>loading=false);}
+  Future<void> _save()async{final p=await SharedPreferences.getInstance();await p.setString('sportz_teams',jsonEncode(teams.map((e)=>e.toJson()).toList()));await p.setString('sportz_history',jsonEncode(history));await p.setString('sportz_settings',jsonEncode(settings.toJson()));await p.setString('sportz_sponsors',jsonEncode(sponsors));await p.setString('sportz_popup_ads',jsonEncode(popupAds));await p.setString('sportz_tournament_name',tournamentName);await p.setString('sportz_tournament_fixtures',jsonEncode(tournamentFixtures));await p.setString('sportz_match_team_a',selectedTeamAId);await p.setString('sportz_match_team_b',selectedTeamBId);}
+  TeamRecord? get a=>teams.where((t)=>t.id==(selectedTeamAId.isEmpty?(teams.isNotEmpty?teams.first.id:''):selectedTeamAId)).firstOrNull;TeamRecord? get b=>teams.where((t)=>t.id==(selectedTeamBId.isEmpty?(teams.length>1?teams[1].id:''):selectedTeamBId)).firstOrNull;
   List<PlayerRecord> get allPlayers=>teams.expand((t)=>t.players).toList();
   void msg(String s)=>ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(s)));
   Future<String?> textDialog(String title,String initial)async{final c=TextEditingController(text:initial);return showDialog<String>(context:context,builder:(d)=>AlertDialog(title:Text(title),content:TextField(controller:c,autofocus:true),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(d,c.text.trim()),child:const Text('Save'))]));}
@@ -74,7 +76,7 @@ class _SportzHomeState extends State<SportzHome>{
   }
   Future<void> nextBowler()async{final e=engine!;final p=await choosePlayer('Select next bowler',e.bowlingSquad.where((x)=>x.id!=e.match.current.bowler&&x.id!=e.lastOverBowler).toList());if(p==null)return;try{e.selectNextBowler(p);setState((){});await publishLive();}catch(x){msg(x.toString());}}
   TeamRecord? _team(String id){for(final t in teams){if(t.id==id)return t;}return null;}
-  Future<void> publishLive()async{final m=match;if(m==null)return;try{final payload={'match':{...m.toJson(),'firstBattingTeamId':engine?.actualFirstBattingTeamId??m.firstBattingTeamId},'players':allPlayers.map((p)=>p.toJson()).toList(),'teamA':{'name':m.teamA,'flag':_team(m.teamAId)?.flag??'🏏'},'teamB':{'name':m.teamB,'flag':_team(m.teamBId)?.flag??'🏏'},'sponsors':sponsors,'popupAds':popupAds,'advertising':{'enabled':settings.adEnabled}};final url=Uri.parse('${Uri.base.origin}/api/live/${m.id}');final r=await http.put(url,headers:{'Content-Type':'application/json'},body:jsonEncode(payload));if(r.statusCode<200||r.statusCode>=300)throw Exception('Live sync HTTP ${r.statusCode}');}catch(e){debugPrint('Live sync failed: $e');}}
+  Future<void> publishLive()async{final m=match;if(m==null)return;try{final payload={'match':{...m.toJson(),'firstBattingTeamId':engine?.actualFirstBattingTeamId??m.firstBattingTeamId},'players':allPlayers.map((p)=>p.toJson()).toList(),'teamA':{'name':m.teamA,'flag':_team(m.teamAId)?.flag??'🏏'},'teamB':{'name':m.teamB,'flag':_team(m.teamBId)?.flag??'🏏'},'sponsors':sponsors,'popupAds':popupAds,'tournament':{'name':tournamentName,'fixtures':tournamentFixtures},'advertising':{'enabled':settings.adEnabled}};final url=Uri.parse('${Uri.base.origin}/api/live/${m.id}');final r=await http.put(url,headers:{'Content-Type':'application/json'},body:jsonEncode(payload));if(r.statusCode<200||r.statusCode>=300)throw Exception('Live sync HTTP ${r.statusCode}');}catch(e){debugPrint('Live sync failed: $e');}}
   Future<void> shareLive()async{final m=match;if(m==null){msg('Create a match first');return;}await publishLive();final url='${Uri.base.origin}/viewer.html?id=${Uri.encodeComponent(m.id)}';await Share.share(url,subject:'${m.teamA} vs ${m.teamB} - Live Score');}
   Future<void> reselectBatter(bool striker)async{final e=engine!;final options=e.battingSquad.where((p)=>!p.isOut&&p.id!=(striker?e.match.current.nonStriker:e.match.current.striker)).toList();final id=await choosePlayer(striker?'Select striker':'Select non-striker',options);if(id==null)return;try{e.changeBatter(playerId:id,striker:striker);setState((){});await publishLive();}catch(x){msg(x.toString());}}
   Future<void> reselectBowler()async{final e=engine!;final options=e.bowlingSquad.where((p)=>p.id!=e.match.current.bowler).toList();final id=await choosePlayer('Select bowler',options);if(id==null)return;try{e.changeBowler(id);setState((){});await publishLive();}catch(x){msg(x.toString());}}
@@ -128,6 +130,7 @@ class _SportzHomeState extends State<SportzHome>{
       ButtonSegment(value:0,label:Text('Teams & Squads'),icon:Icon(Icons.groups)),
       ButtonSegment(value:1,label:Text('Match Settings'),icon:Icon(Icons.tune)),
       ButtonSegment(value:2,label:Text('Toss'),icon:Icon(Icons.monetization_on)),
+      ButtonSegment(value:3,label:Text('Tournament'),icon:Icon(Icons.emoji_events)),
     ],selected:{homeSubtab},onSelectionChanged:(v)=>setState(()=>homeSubtab=v.first)),
     const SizedBox(height:14),
     if(homeSubtab==0)...[
@@ -157,6 +160,24 @@ class _SportzHomeState extends State<SportzHome>{
       if(match==null&&teams.length>=2)Padding(padding:const EdgeInsets.only(top:10),child:FilledButton.icon(onPressed:createMatch,icon:const Icon(Icons.add),label:const Text('CREATE MATCH')))
     ]
   ]);
+  Future<void> addTournamentFixture()async{
+    if(teams.length<2){msg('Create at least two teams first');return;}
+    final one=await choosePlayerTeam('Select first team',teams);if(one==null)return;
+    final two=await choosePlayerTeam('Select opponent',teams.where((t)=>t.id!=one.id).toList());if(two==null)return;
+    final type=await showDialog<String>(context:context,builder:(d)=>AlertDialog(title:const Text('Match category'),content:Column(mainAxisSize:MainAxisSize.min,children:['Friendly','Group Match','League Match','Knockout','Quarter Final','Semi Final','Final','Super Final'].map((v)=>ListTile(title:Text(v),onTap:()=>Navigator.pop(d,v))).toList())));
+    if(type==null)return;final date=await textDialog('Fixture date / time (optional)','');
+    setState(()=>tournamentFixtures.add({'id':'fx${DateTime.now().microsecondsSinceEpoch}','teamAId':one.id,'teamBId':two.id,'teamAName':one.name,'teamBName':two.name,'type':type,'date':date??'','status':'Scheduled'}));
+    await _save();if(match!=null)await publishLive();
+  }
+  Future<TeamRecord?> choosePlayerTeam(String title,List<TeamRecord> options)async{
+    final id=await showDialog<String>(context:context,builder:(d)=>AlertDialog(title:Text(title),content:Column(mainAxisSize:MainAxisSize.min,children:options.map((t)=>ListTile(title:Text('${t.flag} ${t.name}'),subtitle:Text('${t.players.length} players'),onTap:()=>Navigator.pop(d,t.id))).toList())));
+    return id==null?null:teams.where((t)=>t.id==id).firstOrNull;
+  }
+  Future<void> shareTournamentSchedule()async{
+    if(tournamentFixtures.isEmpty){msg('Add tournament fixtures first');return;}
+    final body='$tournamentName\\n'+tournamentFixtures.map((f)=>'${f['teamAName']} vs ${f['teamBName']} · ${f['type']} · ${f['date']}').join('\\n')+'\\n\\nViewer: ${match==null?'Create a match to generate the viewer link':'${Uri.base.origin}/live.html?id=${match!.id}'}';
+    await Share.share(body,subject:tournamentName);if(match!=null)await publishLive();
+  }
   Future<void> _addAdEntry(List<Map<String,String>> list,String title)async{
     if(list.length>=10){msg('Maximum 10 entries allowed');return;}
     final name=TextEditingController(),logo=TextEditingController(),link=TextEditingController();
