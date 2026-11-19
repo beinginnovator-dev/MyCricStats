@@ -132,7 +132,7 @@ class TournamentEngine {
       inn.runs+=runs+1;inn.extras+=1;inn.noBalls++;
       bowler.bowlRuns+=runs+1;bowler.noBalls++;
       final batRuns=runs;
-      batter.runs+=batRuns;batter.balls++;
+      batter.runs+=batRuns;
       if(batRuns==4)batter.fours++;if(batRuns==6)batter.sixes++;
     } else if(type==DeliveryType.wide){
       final conceded=runs<=0?1:runs;
@@ -160,10 +160,11 @@ class TournamentEngine {
     }
     final d=BallRecord(innings:match.innings,label:label,type:type,runs:runs,legal:legal,batter:batter.name,bowler:bowler.name,dismissal:dismissal,fielder:fielder);
     inn.deliveries.add(d);match.allDeliveries.add(d);inn.overBalls.add(label);
-    if(legal){
-      if((type==DeliveryType.legal||type==DeliveryType.legBye)&&runs.isOdd&&!wicket){final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;}
-      if(inn.legalBalls>0&&inn.legalBalls%6==0){final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;requireBowlerChange=true;lastOverBowler=inn.bowler;inn.overBalls=[];}
-    }
+    // Change ends for odd completed runs on every delivery type. A run-out
+    // requires an explicit crossing decision, so do not guess its end change.
+    final completedRuns=type==DeliveryType.wide?(runs-1).clamp(0,99):runs;
+    if(!wicket&&completedRuns.isOdd){final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;}
+    if(legal&&inn.legalBalls>0&&inn.legalBalls%6==0){final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;requireBowlerChange=true;lastOverBowler=inn.bowler;inn.overBalls=[];}
     final maxWickets=(match.settings.playersPerSide<battingSquad.length?match.settings.playersPerSide:battingSquad.length)-1;
     final chaseDone=match.innings==2&&inn.target!=null&&inn.runs>=inn.target!;
     if(inn.wickets>=maxWickets||inn.legalBalls>=match.settings.overs*6||chaseDone){inn.complete=true;_finishInnings();}
@@ -180,7 +181,7 @@ class TournamentEngine {
     final current=striker?inn.striker:inn.nonStriker;
     if(playerId==current) return;
     if(playerId==(striker?inn.nonStriker:inn.striker)) throw StateError('A batter cannot occupy both positions');
-    if(striker&&inn.striker.isEmpty||!striker&&inn.nonStriker.isEmpty) throw StateError('Select the dismissed batter first');
+    if(striker&&inn.striker.isEmpty||!striker&&inn.nonStriker.isEmpty) throw StateError('Use Select Next Batter to fill a dismissed batter position');
     inn.striker=striker?playerId:inn.striker;inn.nonStriker=striker?inn.nonStriker:playerId;
   }
 
@@ -199,11 +200,7 @@ class TournamentEngine {
     if(lastDismissedAtStriker||inn.striker.isEmpty)inn.striker=playerId;else inn.nonStriker=playerId;
     requireBatterChange=false;lastDismissedBatter='';
   }
-  void selectNextBowler(String playerId) {
-    final inn=match.current;final p=players[playerId];
-    if(match.status!='Live'||!requireBowlerChange||p==null||p.teamId!=bowlingTeamId||playerId==lastOverBowler) throw StateError('Choose a different bowler from the fielding team');
-    inn.bowler=playerId;requireBowlerChange=false;lastOverBowler='';
-  }
+  void selectNextBowler(String playerId) => changeBowler(playerId);
   void _finishInnings(){
     final inn=match.current;
     if(match.innings==1){
