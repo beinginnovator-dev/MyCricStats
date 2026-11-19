@@ -161,13 +161,13 @@ class _SportzHomeState extends State<SportzHome>{
       SizedBox(width:155,child:metric('Wickets',history.fold<int>(0,(s,m)=>s+((m['players'] as List? ??[]).fold<int>(0,(v,p)=>v+(p['wickets'] as int? ??0)))) .toString()))
     ]),
     const SizedBox(height:14),section('ORANGE CAP','MOST TOURNAMENT RUNS'),
-    _statsTable(['RANK','PLAYER','RUNS','BALLS','4s','6s','SR'],_rankedPlayers('runs')),
+    _statsTable(['RANK','PLAYER','RUNS','BALLS','4s','6s','SR'],_rankedPlayers('runs').asMap().entries.map((e)=><dynamic>[e.key+1,e.value['name'],e.value['runs'],e.value['balls'],e.value['fours'],e.value['sixes'],e.value['sr']]).toList()),
     const SizedBox(height:14),section('PURPLE CAP','MOST WICKETS'),
-    _statsTable(['RANK','PLAYER','WKTS','OVERS','RUNS','DOTS','ECON'],_rankedPlayers('wickets')),
+    _statsTable(['RANK','PLAYER','WKTS','OVERS','RUNS','DOTS','ECON'],_rankedPlayers('wickets').asMap().entries.map((e)=><dynamic>[e.key+1,e.value['name'],e.value['wickets'],e.value['overs'],e.value['bowlRuns'],e.value['dots'],e.value['economy']]).toList()),
     const SizedBox(height:14),section('BATTING LEADERS','BOUNDARIES & STRIKE RATE'),
-    _statsTable(['PLAYER','RUNS','4s','6s','SR','AVG'],_rankedPlayers('runs').map((p)=>[p['name'],p['runs'],p['fours'],p['sixes'],p['sr'],p['average']]).toList()),
+    _statsTable(['PLAYER','RUNS','4s','6s','SR','AVG'],_rankedPlayers('runs').map((p)=><dynamic>[p['name'],p['runs'],p['fours'],p['sixes'],p['sr'],p['average']]).toList()),
     const SizedBox(height:14),section('BOWLING LEADERS','ECONOMY & DOT BALLS'),
-    _statsTable(['PLAYER','WKTS','OVERS','RUNS','DOTS','ECON'],_rankedPlayers('wickets').map((p)=>[p['name'],p['wickets'],p['overs'],p['bowlRuns'],p['dots'],p['economy']]).toList()),
+    _statsTable(['PLAYER','WKTS','OVERS','RUNS','DOTS','ECON'],_rankedPlayers('wickets').map((p)=><dynamic>[p['name'],p['wickets'],p['overs'],p['bowlRuns'],p['dots'],p['economy']]).toList()),
     const SizedBox(height:14),section('EXTRAS & MATCH SUMMARY','SAVED MATCHES'),
     _statsTable(['MATCH','SCORE A','SCORE B','RESULT'],history.reversed.map((m)=>['${m['teamA']} v ${m['teamB']}','${m['firstRuns']}/${m['firstWickets']}','${m['secondRuns']}/${m['secondWickets']}',m['result']??'']).toList())
   ]);
@@ -177,7 +177,7 @@ class _SportzHomeState extends State<SportzHome>{
     if(balls.isNotEmpty)result.add({'over':'${legal~/6}.${legal%6}','balls':balls.join('  '),'runs':runs});
     return result;
   }
-  List<List<dynamic>> _rankedPlayers(String sort){
+  List<Map<String,dynamic>> _rankedPlayers(String sort){
     final map=<String,Map<String,dynamic>>{};
     for(final m in history){for(final raw in (m['players'] as List? ??[])){
       final p=Map<String,dynamic>.from(raw);final id=(p['id']??p['name']??'').toString();if(id.isEmpty)continue;
@@ -188,7 +188,13 @@ class _SportzHomeState extends State<SportzHome>{
     for(final p in list){final balls=p['balls'] as int,bb=p['bowlBalls'] as int;p['sr']=balls==0?'0.00':((p['runs'] as int)*100/balls).toStringAsFixed(2);p['average']=(p['wickets'] as int)==0?'—':((p['runs'] as int)/(p['wickets'] as int)).toStringAsFixed(2);p['overs']='${bb~/6}.${bb%6}';p['economy']=bb==0?'0.00':((p['bowlRuns'] as int)/(bb/6)).toStringAsFixed(2);}
     list.sort((a,b)=>(b[sort] as int).compareTo(a[sort] as int));return list;
   }
-  Widget _statsTable(List<String> headers,List<List<dynamic>> rows)=>Card(child:SingleChildScrollView(scrollDirection:Axis.horizontal,child:DataTable(columnSpacing:18,horizontalMargin:10,headingRowHeight:38,dataRowMinHeight:38,dataRowMaxHeight:48,columns:headers.map((h)=>DataColumn(label:Text(h,style:const TextStyle(fontSize:10,fontWeight:FontWeight.w900))).toList(),rows:rows.isEmpty?[DataRow(cells:headers.map((h)=>DataCell(Text(h==headers.first?'No data':'—'))).toList())]:rows.map((r)=>DataRow(cells:List.generate(headers.length,(i)=>DataCell(Text(i<r.length?(r[i]??'—').toString():'—',style:const TextStyle(fontSize:11))))).toList())));
+  Widget _statsTable(List<String> headers,List<List<dynamic>> rows){
+    final columns=headers.map((h)=>DataColumn(label:Text(h,style:const TextStyle(fontSize:10,fontWeight:FontWeight.w900)))).toList();
+    final dataRows=rows.isEmpty
+      ? <DataRow>[DataRow(cells:headers.map((h)=>DataCell(Text(h==headers.first?'No data':'—'))).toList())]
+      : rows.map((r)=>DataRow(cells:List.generate(headers.length,(i)=>DataCell(Text(i<r.length?(r[i]??'—').toString():'—',style:const TextStyle(fontSize:11)))))).toList();
+    return Card(child:SingleChildScrollView(scrollDirection:Axis.horizontal,child:DataTable(columnSpacing:18,horizontalMargin:10,headingRowHeight:38,dataRowMinHeight:38,dataRowMaxHeight:48,columns:columns,rows:dataRows)));
+  }
   Widget metric(String a,String b)=>Card(child:ListTile(title:Text(a),trailing:Text(b,style:const TextStyle(fontSize:20,fontWeight:FontWeight.w900))));
   Widget historyPage()=>ListView(padding:const EdgeInsets.all(16),children:[section('MATCH HISTORY','LOCAL ARCHIVE'),if(history.isEmpty)const Text('No completed matches yet.'),...history.reversed.map((m)=>Card(child:ListTile(title:Text('${m['teamA']} vs ${m['teamB']}'),subtitle:Text('${m['firstRuns']}/${m['firstWickets']} (${m['firstOvers']}) · ${m['secondRuns']}/${m['secondWickets']} (${m['secondOvers']})'),trailing:PopupMenuButton<String>(onSelected:(v)async{if(v=='edit'){final n=await textDialog('Edit match title',m['title']??'Match');if(n!=null&&n.trim().isNotEmpty){m['title']=n.trim();await _save();setState((){});}}else if(v=='delete'){history.remove(m);await _save();setState((){});}},itemBuilder:(c)=>const [PopupMenuItem(value:'edit',child:Text('Edit match entry')),PopupMenuItem(value:'delete',child:Text('Delete match'))]),onTap:()=>showDialog(context:context,builder:(d)=>AlertDialog(title:Text(m['title']??'Match'),content:Text('${m['result']}\n${(m['deliveries'] as List? ??[]).length} deliveries'),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('Close'))])))))]);
   Widget more()=>ListView(padding:const EdgeInsets.all(16),children:[section('APP SETTINGS','PREFERENCES'),SwitchListTile(title:const Text('Light theme'),value:widget.mode==ThemeMode.light,onChanged:(v)=>widget.onMode(v?ThemeMode.light:ThemeMode.dark)),ListTile(title:const Text('Match & advertisement settings'),subtitle:const Text('Overs, players, venue, popup and ad slot'),trailing:const Icon(Icons.chevron_right),onTap:configureMatch),ListTile(title:const Text('Super overs'),subtitle:Text(settings.superOvers?'Enabled':'Disabled')),ListTile(title:const Text('Original scorer features checklist'),subtitle:const Text('Toss gating · legal ball rules · wicket flow · bowler rotation · undo/redo · full analytics · cloud sync and live viewer integration are being completed in phases.'))]);
