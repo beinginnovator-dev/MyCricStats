@@ -82,7 +82,7 @@ class _SportzHomeState extends State<SportzHome>{
     final liveUrl='${Uri.base.origin}/live.html?id=${Uri.encodeComponent(m.id)}';
     Widget teamPanel(TeamRecord? t,bool isTeamA){
       final isFirstBattingTeam=isTeamA==firstTeamIsA;
-      final showScore=isFirstBattingTeam||!inningsBreak;
+      final showScore=m.innings==1?isFirstBattingTeam:(inningsBreak?isFirstBattingTeam:true);
       final scoreInn=isFirstBattingTeam?first:inn;
       final runs=scoreInn.runs;
       final wkts=scoreInn.wickets;
@@ -99,8 +99,8 @@ class _SportzHomeState extends State<SportzHome>{
         Text(heading,style:const TextStyle(color:Color(0xffb9cad9),fontWeight:FontWeight.w900,fontSize:12)),
         const SizedBox(height:9),Text(p?.name??'Not selected',maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:17)),
         const SizedBox(height:10),Text(detail,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800,fontSize:19)),
-        if(heading=='ON STRIKE')Text('4s ${p?.fours??0} · 6s ${p?.sixes??0} · SR ${p==null||p.balls==0?'0.0':(p.runs*100/p.balls).toStringAsFixed(1)}',style:const TextStyle(color:Color(0xffc4d1dd),fontSize:11)),
-        if(heading=='BOWLER')Text('Runs ${p?.bowlRuns??0} · Dots ${p?.dots??0} · Econ ${p==null||p.bowlBalls==0?'0.00':(p.bowlRuns/(p.bowlBalls/6)).toStringAsFixed(2)}',style:const TextStyle(color:Color(0xffc4d1dd),fontSize:11))
+        if(heading.contains('STRIKER'))Text('4s ${p?.fours??0} · 6s ${p?.sixes??0} · SR ${p==null||p.balls==0?'0.0':(p.runs*100/p.balls).toStringAsFixed(1)}',style:const TextStyle(color:Color(0xffc4d1dd),fontSize:11)),
+        if(heading.contains('BOWLER'))Text('Runs ${p?.bowlRuns??0} · Dots ${p?.dots??0} · Econ ${p==null||p.bowlBalls==0?'0.00':(p.bowlRuns/(p.bowlBalls/6)).toStringAsFixed(2)}',style:const TextStyle(color:Color(0xffc4d1dd),fontSize:11))
       ])));
     }
     Widget actionButton(String label,VoidCallback? fn,{IconData? icon})=>OutlinedButton.icon(onPressed:fn,icon:Icon(icon??Icons.tune,size:17),label:Text(label,maxLines:1));
