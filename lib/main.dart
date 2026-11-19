@@ -296,20 +296,20 @@ class _SportzHomeState extends State<SportzHome>{
           const SizedBox(height:7),
           Align(alignment:Alignment.centerLeft,child:Wrap(spacing:6,children:inn.overBalls.map((b)=>Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:8),decoration:BoxDecoration(color:accent,borderRadius:BorderRadius.circular(10)),child:Text(b,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900)))).toList())),
           const SizedBox(height:6),
-          Align(alignment:Alignment.centerLeft,child:Text('This over: ${inn.overRuns} runs',style:const TextStyle(color:Colors.white70,fontStyle:FontStyle.italic))),
+          Align(alignment:Alignment.centerLeft,child:Text('BALL-BY-BALL SUMMARY',style:const TextStyle(color:Colors.white70,fontStyle:FontStyle.italic))),
         ]
       ]))),
       if(m.status=='Live')...[
         const SizedBox(height:12),
         section('SCORING PAD','BALL BY BALL'),
         GridView.count(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),crossAxisCount:3,childAspectRatio:2.2,children:[
-          for(final n in [0,1,2,3,4,6])Padding(padding:const EdgeInsets.all(4),child:FilledButton(style:buttonStyle(n==4||n==6?accent:const Color(0xff245bd6)),onPressed:()=>score(n),child:Text('$n'))),
+          for(final n in [0,1,2,3,4,6])Padding(padding:const EdgeInsets.all(4),child:FilledButton(style:buttonStyle(accent),onPressed:()=>score(n),child:Text('$n'))),
         ]),
         Wrap(spacing:8,runSpacing:8,children:[
           OutlinedButton(onPressed:()=>extraDelivery(DeliveryType.wide),style:OutlinedButton.styleFrom(foregroundColor:accent,side:BorderSide(color:accent),minimumSize:const Size(0,44)),child:const Text('WIDE')),
           OutlinedButton(onPressed:()=>extraDelivery(DeliveryType.noBall),style:OutlinedButton.styleFrom(foregroundColor:accent,side:BorderSide(color:accent),minimumSize:const Size(0,44)),child:const Text('NO BALL')),
           OutlinedButton(onPressed:()=>extraDelivery(DeliveryType.legBye),style:OutlinedButton.styleFrom(foregroundColor:accent,side:BorderSide(color:accent),minimumSize:const Size(0,44)),child:const Text('LEG BYE')),
-          FilledButton(style:buttonStyle(const Color(0xffc62828)),onPressed:wicket,child:const Text('WICKET')),
+          FilledButton(style:buttonStyle(accent),onPressed:wicket,child:const Text('WICKET')),
         ]),
       ],
       const SizedBox(height:10),
