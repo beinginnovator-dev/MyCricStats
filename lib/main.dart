@@ -126,7 +126,51 @@ class _SportzHomeState extends State<SportzHome>{
       const Text('Completed matches saved',style:TextStyle(color:Color(0xffb9cad9))),
     ])),
     const SizedBox(height:16),
-    Container(height:76,padding:const EdgeInsets.all(4),decoration:BoxDecoration(color:Theme.of(context).colorScheme.surface,borderRadius:BorderRadius.circular(18),border:Border.all(color:Theme.of(context).dividerColor)),child:Row(children:[for(final item in [(0,'Squad',Icons.groups),(1,'Match Settings',Icons.tune),(2,'Toss',Icons.monetization_on),(3,'Tournament',Icons.emoji_events)])Expanded(child:Padding(padding:const EdgeInsets.symmetric(horizontal:2),child:InkWell(borderRadius:BorderRadius.circular(13),onTap:()=>setState(()=>homeSubtab=item.$1),child:Container(height:66,padding:const EdgeInsets.symmetric(horizontal:3,vertical:6),decoration:BoxDecoration(color:homeSubtab==item.$1?const Color(0xffdcefe9):Colors.transparent,borderRadius:BorderRadius.circular(13)),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[Icon(item.$3,size:18,color:homeSubtab==item.$1?const Color(0xff087f68):Theme.of(context).colorScheme.onSurface),const SizedBox(height:4),FittedBox(fit:BoxFit.scaleDown,child:Text(item.$2,maxLines:1,style:TextStyle(fontSize:10,fontWeight:FontWeight.w800,color:Theme.of(context).colorScheme.onSurface)))]))))]))),
+    Container(
+      height: 76,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Row(
+        children: List.generate(4, (index) {
+          const labels = ['Squad', 'Match Settings', 'Toss', 'Tournament'];
+          const icons = [Icons.groups, Icons.tune, Icons.monetization_on, Icons.emoji_events];
+          final selected = homeSubtab == index;
+          return Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => setState(() => homeSubtab = index),
+              child: Container(
+                height: 66,
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 5),
+                decoration: BoxDecoration(
+                  color: selected ? const Color(0xffdcefe9) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icons[index], size: 18),
+                    const SizedBox(height: 4),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        labels[index],
+                        maxLines: 1,
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    ),
     const SizedBox(height:14),
     if(homeSubtab==0)...[
       section('TEAM SETUP','SQUADS'),
