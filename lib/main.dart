@@ -47,6 +47,21 @@ class _SportzHomeState extends State<SportzHome>{
   Future<void> shareLive()async{final m=match;if(m==null){msg('Create a match first');return;}await publishLive();final url='${Uri.base.origin}/live.html?id=${Uri.encodeComponent(m.id)}';await Share.share(url,subject:'${m.teamA} vs ${m.teamB} - Live Score');}
   Future<void> reselectBatter(bool striker)async{final e=engine!;final options=e.battingSquad.where((p)=>!p.isOut&&p.id!=(striker?e.match.current.nonStriker:e.match.current.striker)).toList();final id=await choosePlayer(striker?'Select striker':'Select non-striker',options);if(id==null)return;try{e.changeBatter(playerId:id,striker:striker);setState((){});await publishLive();}catch(x){msg(x.toString());}}
   Future<void> reselectBowler()async{final e=engine!;final options=e.bowlingSquad.where((p)=>p.id!=e.match.current.bowler).toList();final id=await choosePlayer('Select bowler',options);if(id==null)return;try{e.changeBowler(id);setState((){});await publishLive();}catch(x){msg(x.toString());}}
+  Future<void> changePlayerUnified()async{
+    final role=await showModalBottomSheet<String>(context:context,builder:(d)=>SafeArea(child:Wrap(children:[
+      ListTile(leading:const Icon(Icons.sports_cricket),title:const Text('Change striker'),onTap:()=>Navigator.pop(d,'striker')),
+      ListTile(leading:const Icon(Icons.swap_horiz),title:const Text('Change non-striker'),onTap:()=>Navigator.pop(d,'non')),
+      ListTile(leading:const Icon(Icons.sports_baseball),title:const Text('Change bowler'),onTap:()=>Navigator.pop(d,'bowler')),
+      if(engine?.requireBatterChange==true)ListTile(leading:const Icon(Icons.person_add),title:const Text('Select next batter'),onTap:()=>Navigator.pop(d,'next')),
+      if(engine?.requireBowlerChange==true)ListTile(leading:const Icon(Icons.sports),title:const Text('Select next-over bowler'),onTap:()=>Navigator.pop(d,'nextBowler')),
+    ])));
+    if(role==null)return;
+    if(role=='striker'){await reselectBatter(true);}
+    else if(role=='non'){await reselectBatter(false);}
+    else if(role=='bowler'){await reselectBowler();}
+    else if(role=='next'){await nextBatter();}
+    else if(role=='nextBowler'){await nextBowler();}
+  }
   Future<void> extraDelivery(DeliveryType type)async{final choices=type==DeliveryType.noBall?[0,1,2,3,4,6]:type==DeliveryType.wide?[1,2,3,4,5]:[1,2,3,4];final n=await showDialog<int>(context:context,builder:(d)=>AlertDialog(title:Text(type==DeliveryType.wide?'Wide runs (total) ':type==DeliveryType.noBall?'Runs off the bat on no-ball':'Leg-bye runs'),content:Wrap(spacing:8,children:choices.map((v)=>FilledButton(onPressed:()=>Navigator.pop(d,v),child:Text('$v'))).toList()),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('Cancel'))]));if(n!=null)await score(n,type:type);}
   Future<void> score(int runs,{DeliveryType type=DeliveryType.legal})async{final e=engine!;try{e.record(runs:runs,type:type);setState((){});await publishLive();if(e.match.status=='Innings Break'){msg('Innings complete. Select openers for the chase.');}if(e.match.status=='Completed'){msg('Match completed. Review the scorecard, then save it to history.');}}catch(x){msg(x.toString());}}
   Future<void> wicket()async{final e=engine!;final d=await showDialog<DismissalType>(context:context,builder:(c)=>AlertDialog(title:const Text('Dismissal type'),content:Column(mainAxisSize:MainAxisSize.min,children:DismissalType.values.map((v)=>ListTile(title:Text(v.name),onTap:()=>Navigator.pop(c,v))).toList())));if(d==null)return;String? fielder;if(d==DismissalType.caught||d==DismissalType.runOut){final f=await choosePlayer('Select fielder',e.bowlingSquad);if(f==null)return;fielder=e.players[f]!.name;}String? out;if(d==DismissalType.runOut){final inn=e.match.current;out=await showDialog<String>(context:context,builder:(c)=>AlertDialog(title:const Text('Who was run out?'),content:Column(mainAxisSize:MainAxisSize.min,children:[ListTile(title:Text(e.players[inn.striker]?.name??'Striker'),onTap:()=>Navigator.pop(c,inn.striker)),ListTile(title:Text(e.players[inn.nonStriker]?.name??'Non-striker'),onTap:()=>Navigator.pop(c,inn.nonStriker))])));if(out==null)return;}try{e.record(runs:0,wicket:true,dismissal:d,fielder:fielder,runOutBatterId:out);setState((){});await publishLive();if(e.match.status=='Completed'){msg('Match completed. Review the scorecard, then save it to history.');}else if(e.requireBatterChange){await nextBatter();}}catch(x){msg(x.toString());}}
@@ -95,49 +110,27 @@ class _SportzHomeState extends State<SportzHome>{
         const SizedBox(height:14),Row(children:[Expanded(child:Text('NON-STRIKER  ${non?.name??'—'}   ${non?.runs??0} (${non?.balls??0})',style:const TextStyle(color:Color(0xffd8e3ec),fontWeight:FontWeight.w700))),Text('THIS OVER',style:TextStyle(color:Color(0xff9db0c1),fontWeight:FontWeight.w900,fontSize:11))]),
         const SizedBox(height:7),Align(alignment:Alignment.centerLeft,child:Wrap(spacing:5,children:inn.overBalls.map((b)=>Container(padding:const EdgeInsets.symmetric(horizontal:11,vertical:8),decoration:BoxDecoration(color:b=='W'?const Color(0xffd8323e):const Color(0xff13a980),shape:BoxShape.circle),child:Text(b,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:12)))).toList()))
       ]))),
-      const SizedBox(height:12),section('PLAYER SELECTION','EDIT ON SCOREBOARD'),
-      Wrap(spacing:7,runSpacing:7,children:[
-        actionButton('STRIKER',m.status=='Live'?()=>reselectBatter(true):null,icon:Icons.sports_cricket),
-        actionButton('NON-STRIKER',m.status=='Live'?()=>reselectBatter(false):null,icon:Icons.swap_horiz),
-        actionButton('BOWLER',m.status=='Live'?reselectBowler:null,icon:Icons.sports_baseball),
-        if(e.requireBatterChange)actionButton('NEXT BATTER',nextBatter,icon:Icons.person_add),
-        if(e.requireBowlerChange)actionButton('NEXT OVER BOWLER',nextBowler,icon:Icons.sports),
-        if(m.status=='Ready'||m.status=='Innings Break')actionButton('SELECT OPENERS',pickOpeners,icon:Icons.groups)
-      ]),
-      const SizedBox(height:12),section('BATTING SCORECARD','CURRENT INNINGS'),
-      Card(color:const Color(0xff101d2b),child:Column(children:[
-        tableHeader(['BATSMAN','R','B','4s','6s','SR','STATUS']),
-        for(final p in batting.where((p)=>p.balls>0||p.isOut||p.id==inn.striker||p.id==inn.nonStriker))Container(padding:const EdgeInsets.symmetric(horizontal:7,vertical:9),decoration:const BoxDecoration(border:Border(bottom:BorderSide(color:Color(0xff293b4d)))),child:Row(children:[
-          Expanded(flex:3,child:Text('${p.name}${p.id==inn.striker?' *':''}',style:const TextStyle(fontSize:11,fontWeight:FontWeight.w800))),
-          for(final v in [p.runs,p.balls,p.fours,p.sixes])Expanded(child:Text('$v',style:const TextStyle(fontSize:11))),
-          Expanded(child:Text(p.balls==0?'—':(p.runs*100/p.balls).toStringAsFixed(1),style:const TextStyle(fontSize:10))),
-          Expanded(child:Text(p.isOut?'OUT':'NOT OUT',style:TextStyle(fontSize:9,color:p.isOut?const Color(0xffff6b6b):const Color(0xff45d5a5))))
-        ]))
-      ])),
-      const SizedBox(height:10),section('BOWLING SCORECARD','CURRENT INNINGS'),
-      Card(color:const Color(0xff101d2b),child:Column(children:[
-        tableHeader(['BOWLER','O','R','W','DOTS','WD/NB','ECON']),
-        for(final p in bowling.where((p)=>p.bowlBalls>0||p.wickets>0||p.id==inn.bowler))Container(padding:const EdgeInsets.symmetric(horizontal:7,vertical:9),decoration:const BoxDecoration(border:Border(bottom:BorderSide(color:Color(0xff293b4d)))),child:Row(children:[
-          Expanded(flex:3,child:Text(p.name,style:const TextStyle(fontSize:11,fontWeight:FontWeight.w800))),
-          Expanded(child:Text('${p.bowlBalls~/6}.${p.bowlBalls%6}',style:const TextStyle(fontSize:10))),
-          for(final v in [p.bowlRuns,p.wickets,p.dots,p.wides+p.noBalls])Expanded(child:Text('$v',style:const TextStyle(fontSize:10))),
-          Expanded(child:Text(p.bowlBalls==0?'—':(p.bowlRuns/(p.bowlBalls/6)).toStringAsFixed(2),style:const TextStyle(fontSize:10)))
-        ]))
-      ])),
-      const SizedBox(height:10),section('FALL OF WICKETS','PARTNERSHIP'),
-      Card(child:Padding(padding:const EdgeInsets.all(10),child:inn.fallOfWickets.isEmpty?const Text('No wickets yet'):Column(children:inn.fallOfWickets.asMap().entries.map((x)=>ListTile(dense:true,title:Text('${x.value['score']}-${x.key+1}  ${x.value['batter']}'),subtitle:Text('${x.value['dismissal']} · ${x.value['bowler']} · ${x.value['over']} ov'))).toList()))),
-      const SizedBox(height:10),section('BALL-BY-BALL','CURRENT INNINGS'),
-      Card(child:Padding(padding:const EdgeInsets.all(10),child:Wrap(spacing:6,runSpacing:6,children:inn.deliveries.map((d)=>Chip(label:Text(d.label),backgroundColor:d.label=='W'?const Color(0xffffd9d9):null)).toList()))),
+      const SizedBox(height:12),
+      if(m.status=='Live'||m.status=='Ready'||m.status=='Innings Break')
+        SingleChildScrollView(scrollDirection:Axis.horizontal,child:Row(children:[
+          OutlinedButton.icon(onPressed:changePlayerUnified,icon:const Icon(Icons.manage_accounts),label:const Text('CHANGE PLAYER')),
+          if(m.status=='Ready'||m.status=='Innings Break')Padding(padding:const EdgeInsets.only(left:8),child:OutlinedButton.icon(onPressed:pickOpeners,icon:const Icon(Icons.groups),label:const Text('OPENERS'))),
+        ])),
       const SizedBox(height:10),section('MATCH CONTROL','LIVE VIEWER & CORRECTIONS'),
-      Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(children:[
-        Wrap(spacing:7,runSpacing:7,alignment:WrapAlignment.center,children:[
-          OutlinedButton.icon(onPressed:shareLive,icon:const Icon(Icons.share),label:const Text('SHARE VIEWER LINK')),
-          OutlinedButton.icon(onPressed:()async{await publishLive();await Clipboard.setData(ClipboardData(text:liveUrl));if(context.mounted)msg('Viewer link copied: $liveUrl');},icon:const Icon(Icons.link),label:const Text('COPY VIEWER LINK')),
-          OutlinedButton.icon(onPressed:()async{await publishLive();await Share.share(liveUrl,subject:'Live score: ${m.teamA} vs ${m.teamB}');},icon:const Icon(Icons.tv),label:const Text('VIEWER'))
-        ]),
-        const Divider(),Row(children:[Expanded(child:FilledButton.icon(onPressed:(){setState((){e.undo();});publishLive();},icon:const Icon(Icons.undo),label:const Text('UNDO'))),const SizedBox(width:8),Expanded(child:FilledButton.icon(onPressed:(){setState((){e.redo();});publishLive();},icon:const Icon(Icons.redo),label:const Text('REDO')))]),
-        if(m.status=='Completed')Padding(padding:const EdgeInsets.only(top:8),child:SizedBox(width:double.infinity,child:FilledButton(onPressed:saveCompletedMatch,child:const Text('SAVE MATCH TO HISTORY'))))
-      ]))),
+      SingleChildScrollView(scrollDirection:Axis.horizontal,child:Row(children:[
+        OutlinedButton.icon(onPressed:shareLive,icon:const Icon(Icons.share),label:const Text('SHARE LIVE PAGE')),
+        const SizedBox(width:8),
+        OutlinedButton.icon(onPressed:()async{await publishLive();await Clipboard.setData(ClipboardData(text:liveUrl));if(context.mounted)msg('Viewer link copied');},icon:const Icon(Icons.link),label:const Text('COPY LINK')),
+        const SizedBox(width:8),
+        OutlinedButton.icon(onPressed:()async{await publishLive();await Share.share(liveUrl,subject:'Live score: ${m.teamA} vs ${m.teamB}');},icon:const Icon(Icons.tv),label:const Text('VIEWER')),
+      ])),
+      const SizedBox(height:8),
+      SingleChildScrollView(scrollDirection:Axis.horizontal,child:Row(children:[
+        FilledButton.tonalIcon(onPressed:(){setState((){e.undo();});publishLive();},icon:const Icon(Icons.undo),label:const Text('UNDO')),
+        const SizedBox(width:8),
+        FilledButton.tonalIcon(onPressed:(){setState((){e.redo();});publishLive();},icon:const Icon(Icons.redo),label:const Text('REDO')),
+        if(m.status=='Completed')Padding(padding:const EdgeInsets.only(left:8),child:FilledButton(onPressed:saveCompletedMatch,child:const Text('SAVE MATCH TO HISTORY')))
+      ])),
       if(m.status=='Live')...[const SizedBox(height:12),section('SCORING PAD','BALL BY BALL'),GridView.count(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),crossAxisCount:3,childAspectRatio:2.2,children:[for(final n in [0,1,2,3,4,6])Padding(padding:const EdgeInsets.all(4),child:FilledButton(onPressed:()=>score(n),child:Text('$n')))]),Wrap(spacing:8,runSpacing:8,children:[OutlinedButton(onPressed:()=>extraDelivery(DeliveryType.wide),child:const Text('WIDE')),OutlinedButton(onPressed:()=>extraDelivery(DeliveryType.noBall),child:const Text('NO BALL')),OutlinedButton(onPressed:()=>extraDelivery(DeliveryType.legBye),child:const Text('LEG BYE')),FilledButton.tonal(onPressed:wicket,child:const Text('WICKET'))])],
       if(settings.adEnabled&&settings.adPosition=='Below scoreboard')Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(children:[const Text('ADVERTISEMENT',style:TextStyle(fontSize:10,fontWeight:FontWeight.w900)),Text(settings.adText.isEmpty?'Sponsor placement':settings.adText),if(settings.adImageUrl.isNotEmpty)Text(settings.adImageUrl,style:const TextStyle(fontSize:10))])))
     ]);
