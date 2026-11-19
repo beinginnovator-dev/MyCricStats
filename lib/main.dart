@@ -327,7 +327,7 @@ class _SportzHomeState extends State<SportzHome>{
     ]);
   });
   Widget _scoreboardStatsTable(List<String> headers,List<List<dynamic>> rows){
-    return SingleChildScrollView(scrollDirection:Axis.horizontal,child=DataTable(columnSpacing:18,horizontalMargin:8,headingRowHeight:32,dataRowMinHeight:34,dataRowMaxHeight:40,headingTextStyle:const TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900),dataTextStyle:const TextStyle(color:Colors.white,fontSize:11,fontWeight:FontWeight.w700),columns:headers.map((h)=>DataColumn(label:Text(h))).toList(),rows:rows.map((r)=>DataRow(cells:List.generate(headers.length,(i)=>DataCell(Text(i<r.length?'${r[i]}':'—'))))).toList()));
+    return SingleChildScrollView(scrollDirection:Axis.horizontal,child:DataTable(columnSpacing:18,horizontalMargin:8,headingRowHeight:32,dataRowMinHeight:34,dataRowMaxHeight:40,headingTextStyle:const TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900),dataTextStyle:const TextStyle(color:Colors.white,fontSize:11,fontWeight:FontWeight.w700),columns:headers.map((h)=>DataColumn(label:Text(h))).toList(),rows:rows.map((r)=>DataRow(cells:List.generate(headers.length,(i)=>DataCell(Text(i<r.length?'${r[i]}':'—'))))).toList()));
   }
   Widget stats()=>ListView(padding:const EdgeInsets.all(14),children:[
     SegmentedButton<int>(segments:const [ButtonSegment(value:0,label:Text('Current Match')),ButtonSegment(value:1,label:Text('Cumulative'))],selected:{statsSubtab},onSelectionChanged:(v)=>setState(()=>statsSubtab=v.first)),
