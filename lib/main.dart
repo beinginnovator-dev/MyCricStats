@@ -20,7 +20,7 @@ class _SportzFlutterAppState extends State<SportzFlutterApp>{
 
 class SportzHome extends StatefulWidget{const SportzHome({super.key,required this.mode,required this.onMode});final ThemeMode mode;final ValueChanged<ThemeMode> onMode;@override State<SportzHome> createState()=>_SportzHomeState();}
 class _SportzHomeState extends State<SportzHome>{
-  int tab=0,homeSubtab=0,statsSubtab=0,liveViewerCount=0;bool loading=true,showScoreboardStats=true,showMatchControls=false;Timer? viewerPoll;
+  int tab=0,homeSubtab=0,statsSubtab=0,liveViewerCount=0;bool loading=true,showScoreboardStats=true,showMatchControls=false;Timer? viewerPoll,celebrationTimer;String? celebrationMessage;int celebrationSequence=0;
   String selectedTeamAId='',selectedTeamBId='',tournamentName='Tournament',scheduleId='';
   final tournamentFixtures=<Map<String,dynamic>>[];
   final teams=<TeamRecord>[];final history=<Map<String,dynamic>>[];
@@ -33,7 +33,7 @@ class _SportzHomeState extends State<SportzHome>{
   final teamNameC=TextEditingController(),playerNameC=TextEditingController();
   String teamCountry='India',teamFlag='🇮🇳',playerRole='All-rounder';
   @override void initState(){super.initState();_load();viewerPoll=Timer.periodic(const Duration(seconds:15),(_)=>_refreshViewerCount());}
-  @override void dispose(){viewerPoll?.cancel();titleC.dispose();venueC.dispose();adTextC.dispose();adImageC.dispose();adLinkC.dispose();tournamentNameC.dispose();teamNameC.dispose();playerNameC.dispose();super.dispose();}
+  @override void dispose(){viewerPoll?.cancel();celebrationTimer?.cancel();titleC.dispose();venueC.dispose();adTextC.dispose();adImageC.dispose();adLinkC.dispose();tournamentNameC.dispose();teamNameC.dispose();playerNameC.dispose();super.dispose();}
   Future<void> _refreshViewerCount()async{final m=match;if(m==null)return;try{final r=await http.get(Uri.parse('${Uri.base.origin}/api/viewers/${Uri.encodeComponent(m.id)}'),headers:{'Cache-Control':'no-store'});if(r.statusCode==200){final data=jsonDecode(r.body) as Map<String,dynamic>;if(mounted)setState(()=>liveViewerCount=(data['count'] as num? ??0).toInt());}}catch(e){debugPrint('Viewer count refresh failed: $e');}}
   Future<void> _load()async{final p=await SharedPreferences.getInstance();try{final t=jsonDecode(p.getString('sportz_teams')??'[]') as List;teams..clear()..addAll(t.map((e)=>TeamRecord.fromJson(Map<String,dynamic>.from(e))));history..clear()..addAll((jsonDecode(p.getString('sportz_history')??'[]') as List).map((e)=>Map<String,dynamic>.from(e)));settings=MatchSettings.fromJson(Map<String,dynamic>.from(jsonDecode(p.getString('sportz_settings')??'{}')));sponsors..clear()..addAll((jsonDecode(p.getString('sportz_sponsors')??'[]') as List).map((x)=>Map<String,String>.from(x)));popupAds..clear()..addAll((jsonDecode(p.getString('sportz_popup_ads')??'[]') as List).map((x)=>Map<String,String>.from(x)));tournamentName=p.getString('sportz_tournament_name')??'Tournament';scheduleId=p.getString('sportz_schedule_id')??'sch${DateTime.now().millisecondsSinceEpoch}';tournamentFixtures..clear()..addAll((jsonDecode(p.getString('sportz_tournament_fixtures')??'[]') as List).map((x)=>Map<String,dynamic>.from(x)));selectedTeamAId=p.getString('sportz_match_team_a')??'';selectedTeamBId=p.getString('sportz_match_team_b')??'';}catch(_){}if(mounted)setState(()=>loading=false);}
   Future<void> _save()async{final p=await SharedPreferences.getInstance();await p.setString('sportz_teams',jsonEncode(teams.map((e)=>e.toJson()).toList()));await p.setString('sportz_history',jsonEncode(history));await p.setString('sportz_settings',jsonEncode(settings.toJson()));await p.setString('sportz_sponsors',jsonEncode(sponsors));await p.setString('sportz_popup_ads',jsonEncode(popupAds));await p.setString('sportz_tournament_name',tournamentName);await p.setString('sportz_schedule_id',scheduleId);await p.setString('sportz_tournament_fixtures',jsonEncode(tournamentFixtures));await p.setString('sportz_match_team_a',selectedTeamAId);await p.setString('sportz_match_team_b',selectedTeamBId);}
@@ -117,8 +117,8 @@ class _SportzHomeState extends State<SportzHome>{
     else if(role=='nextBowler'){await nextBowler();}
   }
   Future<void> extraDelivery(DeliveryType type)async{if(type==DeliveryType.wide){await score(1,type:type);return;}final choices=type==DeliveryType.noBall?[0,1,2,3,4,6]:[1,2,3,4];final n=await showDialog<int>(context:context,builder:(d)=>AlertDialog(title:Text(type==DeliveryType.noBall?'Runs off the bat on no-ball':'Leg-bye runs'),content:Wrap(spacing:8,children:choices.map((v)=>FilledButton(onPressed:()=>Navigator.pop(d,v),child:Text('$v'))).toList()),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('Cancel'))]));if(n!=null)await score(n,type:type);}
-  Future<void> score(int runs,{DeliveryType type=DeliveryType.legal})async{final e=engine!;try{e.record(runs:runs,type:type);setState((){});await publishLive();if(e.match.status=='Innings Break'){msg('Innings complete. Select openers for the chase.');}if(e.match.status=='Completed'){msg('Match completed. Review the scorecard, then save it to history.');}}catch(x){msg(x.toString());}}
-  Future<void> wicket()async{final e=engine!;final d=await showDialog<DismissalType>(context:context,builder:(c)=>AlertDialog(title:const Text('Dismissal type'),content:Column(mainAxisSize:MainAxisSize.min,children:DismissalType.values.map((v)=>ListTile(title:Text(v.name),onTap:()=>Navigator.pop(c,v))).toList())));if(d==null)return;String? fielder;if(d==DismissalType.caught||d==DismissalType.runOut){final f=await choosePlayer('Select fielder',e.bowlingSquad);if(f==null)return;fielder=e.players[f]!.name;}String? out;if(d==DismissalType.runOut){final inn=e.match.current;out=await showDialog<String>(context:context,builder:(c)=>AlertDialog(title:const Text('Who was run out?'),content:Column(mainAxisSize:MainAxisSize.min,children:[ListTile(title:Text(e.players[inn.striker]?.name??'Striker'),onTap:()=>Navigator.pop(c,inn.striker)),ListTile(title:Text(e.players[inn.nonStriker]?.name??'Non-striker'),onTap:()=>Navigator.pop(c,inn.nonStriker))])));if(out==null)return;}try{e.record(runs:0,wicket:true,dismissal:d,fielder:fielder,runOutBatterId:out);setState((){});await publishLive();if(e.match.status=='Completed'){msg('Match completed. Review the scorecard, then save it to history.');}else if(e.requireBatterChange){await nextBatter();}}catch(x){msg(x.toString());}}
+  void _showCelebration(String message){celebrationTimer?.cancel();final seq=++celebrationSequence;setState(()=>celebrationMessage=message);celebrationTimer=Timer(const Duration(seconds:5),(){if(mounted&&seq==celebrationSequence)setState(()=>celebrationMessage=null);});}\n  Future<void> score(int runs,{DeliveryType type=DeliveryType.legal})async{final e=engine!;try{e.record(runs:runs,type:type);final inn=e.match.current;final last=inn.deliveries.isEmpty?null:inn.deliveries.last;final batter=last==null?null:e.players.values.where((p)=>p.name==last.batter).firstOrNull;if(last?.label=='4')_showCelebration('FOUR!');else if(last?.label=='6')_showCelebration('SIX!');else if(batter?.runs==50)_showCelebration('FIFTY! ${batter!.name}');else if(batter?.runs==100)_showCelebration('CENTURY! ${batter!.name}');setState((){});await publishLive();if(e.match.status=='Innings Break'){msg('Innings complete. Select openers for the chase.');}else if(e.match.status=='Completed'){msg('Match completed. Review the scorecard, then save it to history.');}else if(e.requireBowlerChange){await nextBowler();}}catch(x){msg(x.toString());}}
+  Future<void> wicket()async{final e=engine!;final d=await showDialog<DismissalType>(context:context,builder:(c)=>AlertDialog(title:const Text('Dismissal type'),content:Column(mainAxisSize:MainAxisSize.min,children:DismissalType.values.map((v)=>ListTile(title:Text(v.name),onTap:()=>Navigator.pop(c,v))).toList())));if(d==null)return;String? fielder;if(d==DismissalType.caught||d==DismissalType.runOut){final f=await choosePlayer('Select fielder',e.bowlingSquad);if(f==null)return;fielder=e.players[f]!.name;}String? out;if(d==DismissalType.runOut){final inn=e.match.current;out=await showDialog<String>(context:context,builder:(c)=>AlertDialog(title:const Text('Who was run out?'),content:Column(mainAxisSize:MainAxisSize.min,children:[ListTile(title:Text(e.players[inn.striker]?.name??'Striker'),onTap:()=>Navigator.pop(c,inn.striker)),ListTile(title:Text(e.players[inn.nonStriker]?.name??'Non-striker'),onTap:()=>Navigator.pop(c,inn.nonStriker))])));if(out==null)return;}try{e.record(runs:0,wicket:true,dismissal:d,fielder:fielder,runOutBatterId:out);_showCelebration('WICKET!');setState((){});await publishLive();if(e.match.status=='Completed'){msg('Match completed. Review the scorecard, then save it to history.');}else if(e.match.status=='Live'&&e.requireBatterChange){await nextBatter();}}catch(x){msg(x.toString());}}
   Future<void> saveCompletedMatch()async{final m=match!,e=engine!;final playerRows=allPlayers.map((p)=>p.toJson()).toList();final first=m.inningsList.first;final second=m.inningsList.length>1?m.inningsList[1]:null;history.add({'id':m.id,'title':m.settings.title,'teamA':m.teamA,'teamB':m.teamB,'result':m.result,'firstRuns':first.runs,'firstWickets':first.wickets,'firstOvers':first.overs,'secondRuns':second?.runs??0,'secondWickets':second?.wickets??0,'secondOvers':second?.overs??'0.0','players':playerRows,'completedAt':DateTime.now().toIso8601String(),'deliveries':m.allDeliveries.map((d)=>d.toJson()).toList()});await _save();match=null;engine=null;setState(()=>tab=4);}
   Widget teamCard(TeamRecord t)=>Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[Text(t.flag,style:const TextStyle(fontSize:26)),const SizedBox(width:10),Expanded(child:Text(t.name,style:const TextStyle(fontWeight:FontWeight.w900,fontSize:16))),IconButton(tooltip:'Edit team',onPressed:()async{final n=await textDialog('Edit team name',t.name);if(n!=null&&n.trim().isNotEmpty){setState(()=>t.name=n.trim());await _save();}},icon:const Icon(Icons.edit_outlined)),IconButton(onPressed:()=>addPlayer(t),icon:const Icon(Icons.person_add_alt_1)),IconButton(tooltip:'Delete team',onPressed:()async{final ok=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(title:const Text('Delete team?'),content:Text('Delete '+t.name+' and its squad?'),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Delete'))]));if(ok==true){setState(()=>teams.remove(t));await _save();}},icon:const Icon(Icons.delete_outline))]),Text('${t.country} · ${t.players.length} players',style:TextStyle(color:Theme.of(context).colorScheme.secondary)),const Divider(),...t.players.map((p)=>ListTile(dense:true,title:Text(p.name),subtitle:Text(p.role),trailing:PopupMenuButton<String>(onSelected:(v)async{if(v=='edit'){final n=await textDialog('Edit player name',p.name);if(n!=null&&n.trim().isNotEmpty){setState(()=>p.name=n.trim());await _save();}}else if(v=='delete'){setState(()=>t.players.remove(p));await _save();}},itemBuilder:(c)=>const [PopupMenuItem(value:'edit',child:Text('Edit player')),PopupMenuItem(value:'delete',child:Text('Delete player'))]))) ])));
   Widget home()=>ListView(padding:const EdgeInsets.all(16),children:[
@@ -268,32 +268,30 @@ class _SportzHomeState extends State<SportzHome>{
     final nonStriker=e.players[inn.nonStriker];
     final bowler=e.players[inn.bowler];
     Widget playerLine(IconData icon,String name,String figures){
-      return Padding(padding:const EdgeInsets.only(top:7),child:Row(children:[
-        Icon(icon,size:15,color:const Color(0xffffd166)),
-        const SizedBox(width:6),
+      return Padding(padding:const EdgeInsets.only(top:5),child:Row(children:[
+        Icon(icon,size:15,color:const Color(0xffffd166)),const SizedBox(width:6),
         Expanded(child:Text(name,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white,fontSize:12,fontWeight:FontWeight.w800))),
         Text(figures,style:const TextStyle(color:Color(0xffd6e0e9),fontSize:11,fontWeight:FontWeight.w700)),
       ]));
     }
-    Widget teamScore(TeamRecord? team,InningsRecord? score,{required bool battingSide}){
-      final bowlOvers=bowler==null?'0.0':'${bowler.bowlBalls~/6}.${bowler.bowlBalls%6}';
-      return Expanded(child:InkWell(
-        borderRadius:BorderRadius.circular(12),
-        onTap:(){if(team!=null)showDialog(context:context,builder:(d)=>AlertDialog(title:Text('${team.flag} ${team.name} · Squad'),content:Text(team.players.map((p)=>p.name).join('\\n')),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('Close'))]));},
-        child:Padding(padding:const EdgeInsets.fromLTRB(9,13,9,12),child:Column(children:[
-          Row(mainAxisAlignment:MainAxisAlignment.center,children:[
-            Text(team?.flag??'🏏',style:const TextStyle(fontSize:23)),
-            const SizedBox(width:7),
-            Flexible(child:Text(team?.name??'TEAM',maxLines:1,overflow:TextOverflow.ellipsis,textAlign:TextAlign.center,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:16))),
-          ]),
-          const SizedBox(height:8),
-          Text(score==null?'Yet to bat':'${score.runs}/${score.wickets}',maxLines:1,style:TextStyle(color:score==null?const Color(0xffa9bac9):Colors.white,fontWeight:FontWeight.w900,fontSize:score==null?19:30)),
-          if(score!=null)Text('(${score.overs})',style:const TextStyle(color:Colors.white,fontSize:13,fontWeight:FontWeight.w800)),
-          if(battingSide&&striker!=null)playerLine(Icons.sports_cricket,'${striker.name} *','${striker.runs} (${striker.balls})'),
-          if(battingSide&&settings.dualBatting&&nonStriker!=null)playerLine(Icons.sports_cricket,nonStriker.name,'${nonStriker.runs} (${nonStriker.balls})'),
-          if(!battingSide&&bowler!=null)playerLine(Icons.sports_baseball,bowler.name,'${bowler.bowlRuns} ($bowlOvers) / ${bowler.wickets}'),
-        ])),
-      ));
+    Widget teamScore(TeamRecord? team,InningsRecord? score){
+      return Expanded(child:Padding(padding:const EdgeInsets.fromLTRB(9,13,9,12),child:Column(children:[
+        Row(mainAxisAlignment:MainAxisAlignment.center,children:[
+          Text(team?.flag??'🏏',style:const TextStyle(fontSize:27)),
+          const SizedBox(width:8),
+          Flexible(child:Text(team?.name??'TEAM',maxLines:1,overflow:TextOverflow.ellipsis,textAlign:TextAlign.center,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:18))),
+        ]),
+        const SizedBox(height:8),
+        Text(score==null?'Yet to bat':'${score.runs}/${score.wickets}',maxLines:1,style:TextStyle(color:score==null?const Color(0xffa9bac9):Colors.white,fontWeight:FontWeight.w900,fontSize:score==null?19:30)),
+        if(score!=null)Text('(${score.overs})',style:const TextStyle(color:Colors.white,fontSize:13,fontWeight:FontWeight.w800)),
+      ])));
+    }
+    Widget teamPlayerInfo({required bool battingSide}){
+      return Expanded(child:Padding(padding:const EdgeInsets.fromLTRB(10,7,10,2),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        if(battingSide&&striker!=null)playerLine(Icons.sports_cricket,'${striker.name} *','${striker.runs} (${striker.balls})'),
+        if(battingSide&&settings.dualBatting&&nonStriker!=null)playerLine(Icons.sports_cricket,nonStriker.name,'${nonStriker.runs} (${nonStriker.balls})'),
+        if(!battingSide&&bowler!=null)playerLine(Icons.sports_baseball,bowler.name,'${bowler.bowlRuns} / ${bowler.wickets}'),
+      ])));
     }
     final last=inn.deliveries.isEmpty?null:inn.deliveries.last;
     PlayerRecord? lastBatter;
@@ -308,23 +306,18 @@ class _SportzHomeState extends State<SportzHome>{
         Row(mainAxisAlignment:MainAxisAlignment.center,children:[Text(m.status.toUpperCase(),style:const TextStyle(color:Color(0xffffd166),fontWeight:FontWeight.w900,fontSize:11)),const SizedBox(width:12),const Icon(Icons.circle,size:7,color:Color(0xffe52b50)),const SizedBox(width:4),Text('FANS ONLINE · $liveViewerCount',style:const TextStyle(color:Color(0xffd1dbe5),fontWeight:FontWeight.w900,fontSize:10))]),
         const SizedBox(height:12),
         Container(decoration:BoxDecoration(border:Border.all(color:edgeColor,width:1.4),borderRadius:BorderRadius.circular(16),color:Colors.black.withValues(alpha:.18)),child:Row(children:[
-          teamScore(ta,teamAScore,battingSide:m.teamAId==battingTeamId),
+          teamScore(ta,teamAScore),
           Container(width:1,height:112,color:edgeColor),
           const Padding(padding:EdgeInsets.symmetric(horizontal:7),child:Text('VS',style:TextStyle(color:Colors.white70,fontWeight:FontWeight.w900,fontSize:12))),
           Container(width:1,height:112,color:edgeColor),
-          teamScore(tb,teamBScore,battingSide:m.teamBId==battingTeamId),
+          teamScore(tb,teamBScore),
         ])),
+        Row(crossAxisAlignment:CrossAxisAlignment.start,children:[teamPlayerInfo(battingSide:m.teamAId==battingTeamId),const SizedBox(width:28),teamPlayerInfo(battingSide:m.teamBId==battingTeamId)]),
         const SizedBox(height:10),
         Text('${inn.overs} OV  ·  CRR ${inn.crr.toStringAsFixed(2)}  ·  EXTRAS ${inn.extras}',textAlign:TextAlign.center,style:const TextStyle(color:Color(0xffc1ced9),fontWeight:FontWeight.w800,fontSize:12)),
         if(m.innings==2)Padding(padding:const EdgeInsets.only(top:7),child:Text('TARGET ${inn.target??first.runs+1}  ·  NEED ${((inn.target??first.runs+1)-inn.runs).clamp(0,99999)} RUNS',style:const TextStyle(color:Color(0xffffc857),fontWeight:FontWeight.w900))),
-        if(last!=null&&(['4','6','W'].contains(last.label)||(lastBatter?.runs==50)||(lastBatter?.runs==100)))
-          Builder(builder:(ctx){
-            final batterNow=lastBatter;
-            final milestone=batterNow?.runs==100?'CENTURY! ${batterNow!.name} 100':batterNow?.runs==50?'FIFTY! ${batterNow!.name} 50':'';
-            final message=milestone.isNotEmpty?milestone:last.label=='W'?'WICKET!':last.label=='6'?'SIX!':'FOUR!';
-            final colour=last.label=='W'?const Color(0xffb91c1c):accent;
-            return TweenAnimationBuilder<double>(key:ValueKey('${inn.deliveries.length}-$message'),tween:Tween(begin:.55,end:1),duration:const Duration(milliseconds:750),curve:Curves.elasticOut,builder:(context,value,child)=>Transform.scale(scale:value,child:Opacity(opacity:value.clamp(0,1),child:child)),child:Container(margin:const EdgeInsets.only(top:10),padding:const EdgeInsets.symmetric(horizontal:20,vertical:12),decoration:BoxDecoration(color:colour,borderRadius:BorderRadius.circular(24),boxShadow:[BoxShadow(color:colour.withValues(alpha:.45),blurRadius:18,spreadRadius:2)]),child:Text(message,textAlign:TextAlign.center,style:const TextStyle(color:Colors.white,fontSize:17,fontWeight:FontWeight.w900,letterSpacing:1.1))));
-          }),
+        if(celebrationMessage!=null)
+          SizedBox(height:0,child:OverflowBox(alignment:Alignment.center,child:TweenAnimationBuilder<double>(key:ValueKey(celebrationSequence),tween:Tween(begin:105,end:-105),duration:const Duration(seconds:5),curve:Curves.easeInOut,builder:(context,offset,child)=>Transform.translate(offset:Offset(0,offset),child:child),child:Container(padding:const EdgeInsets.symmetric(horizontal:20,vertical:12),decoration:BoxDecoration(color:celebrationMessage=='WICKET!'?const Color(0xffb91c1c):accent,borderRadius:BorderRadius.circular(24),boxShadow:[BoxShadow(color:accent.withValues(alpha:.45),blurRadius:18,spreadRadius:2)]),child:Text(celebrationMessage!,textAlign:TextAlign.center,style:const TextStyle(color:Colors.white,fontSize:18,fontWeight:FontWeight.w900,letterSpacing:1.1))))),),
         if(inn.overBalls.isNotEmpty)...[
           const Divider(color:Color(0xff526273),height:22),
           Align(alignment:Alignment.centerLeft,child:Text('THIS OVER',style:TextStyle(color:Colors.white.withValues(alpha:.7),fontWeight:FontWeight.w900,fontSize:12))),
