@@ -1,0 +1,9 @@
+name = "mycricstats-flutter-test"
+pages_build_output_dir = "./build/web"
+compatibility_date = "2026-11-18"
+
+[[d1_databases]]
+binding = "LIVE_DB"
+database_name = "mycricstats-live"
+database_id = "23be551a-a573-4d10-bcbe-c8b1128293e3"
+preview_database_id = "23be551a-a573-4d10-bcbe-c8b1128293e3"
