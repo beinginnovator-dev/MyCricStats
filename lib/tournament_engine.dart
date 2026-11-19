@@ -23,12 +23,12 @@ class TeamRecord {
 }
 
 class MatchSettings {
-  MatchSettings({this.title='MATCH DAY',this.overs=8,this.playersPerSide=11,this.venue='',this.matchType='Limited Overs',this.superOvers=false,this.dualBatting=false,this.adEnabled=true,this.adPosition='Below scoreboard',this.adText='',this.adImageUrl='',this.adLink='',this.adPopup=false});
-  String title, venue, matchType, adPosition, adText, adImageUrl, adLink;
+  MatchSettings({this.title='MATCH DAY',this.overs=8,this.playersPerSide=11,this.venue='',this.matchType='Limited Overs',this.superOvers=false,this.dualBatting=false,this.adEnabled=true,this.adPosition='Below scoreboard',this.adText='',this.adImageUrl='',this.adLink='',this.adPopup=false,this.scoreboardTheme='Black'});
+  String title, venue, matchType, adPosition, adText, adImageUrl, adLink, scoreboardTheme;
   int overs, playersPerSide;
   bool superOvers, dualBatting, adEnabled, adPopup;
-  Map<String,dynamic> toJson()=>{'title':title,'overs':overs,'playersPerSide':playersPerSide,'venue':venue,'matchType':matchType,'superOvers':superOvers,'dualBatting':dualBatting,'adEnabled':adEnabled,'adPosition':adPosition,'adText':adText,'adImageUrl':adImageUrl,'adLink':adLink,'adPopup':adPopup};
-  factory MatchSettings.fromJson(Map<String,dynamic> j)=>MatchSettings(title:j['title']??'MATCH DAY',overs:j['overs']??8,playersPerSide:j['playersPerSide']??11,venue:j['venue']??'',matchType:j['matchType']??'Limited Overs',superOvers:j['superOvers']??false,dualBatting:j['dualBatting']??false,adEnabled:j['adEnabled']??true,adPosition:j['adPosition']??'Below scoreboard',adText:j['adText']??'',adImageUrl:j['adImageUrl']??'',adLink:j['adLink']??'',adPopup:j['adPopup']??false);
+  Map<String,dynamic> toJson()=>{'title':title,'overs':overs,'playersPerSide':playersPerSide,'venue':venue,'matchType':matchType,'superOvers':superOvers,'dualBatting':dualBatting,'adEnabled':adEnabled,'adPosition':adPosition,'adText':adText,'adImageUrl':adImageUrl,'adLink':adLink,'adPopup':adPopup,'scoreboardTheme':scoreboardTheme};
+  factory MatchSettings.fromJson(Map<String,dynamic> j)=>MatchSettings(title:j['title']??'MATCH DAY',overs:j['overs']??8,playersPerSide:j['playersPerSide']??11,venue:j['venue']??'',matchType:j['matchType']??'Limited Overs',superOvers:j['superOvers']??false,dualBatting:j['dualBatting']??false,adEnabled:j['adEnabled']??true,adPosition:j['adPosition']??'Below scoreboard',adText:j['adText']??'',adImageUrl:j['adImageUrl']??'',adLink:j['adLink']??'',adPopup:j['adPopup']??false,scoreboardTheme:j['scoreboardTheme']??'Black');
 }
 
 class BallRecord {
