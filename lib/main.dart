@@ -76,16 +76,22 @@ class _SportzHomeState extends State<SportzHome>{
     final batting=e.battingSquad,bowling=e.bowlingSquad;
     final striker=e.players[inn.striker],non=e.players[inn.nonStriker],bowler=e.players[inn.bowler];
     final first=m.inningsList.first;
+    final inningsBreak=m.status=='Innings Break';
+    final displayInn=inningsBreak?first:inn;
+    final firstTeamIsA=e.actualFirstBattingTeamId==m.teamAId;
     final liveUrl='${Uri.base.origin}/live.html?id=${Uri.encodeComponent(m.id)}';
-    Widget teamPanel(TeamRecord? t,bool isBatting){
-      final runs=isBatting?inn.runs:first.runs;
-      final wkts=isBatting?inn.wickets:first.wickets;
-      final overs=isBatting?inn.overs:first.overs;
+    Widget teamPanel(TeamRecord? t,bool isTeamA){
+      final isFirstBattingTeam=isTeamA==firstTeamIsA;
+      final showScore=isFirstBattingTeam||!inningsBreak;
+      final scoreInn=isFirstBattingTeam?first:inn;
+      final runs=scoreInn.runs;
+      final wkts=scoreInn.wickets;
+      final overs=scoreInn.overs;
       return Expanded(child:Container(padding:const EdgeInsets.all(13),decoration:BoxDecoration(color:const Color(0xff101d2b),border:Border.all(color:const Color(0xff26394c)),borderRadius:BorderRadius.circular(14)),child:Column(children:[
         Text('${t?.flag??'🏏'}  ${t?.name??'TEAM'}',maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Color(0xffd9e5ef),fontWeight:FontWeight.w900,fontSize:13)),
-        const SizedBox(height:10),Text(isBatting?'$runs/$wkts':'Yet to bat',style:TextStyle(color:isBatting?const Color(0xff38d5a0):const Color(0xff9eb2c5),fontSize:24,fontWeight:FontWeight.w900)),
-        Text(isBatting?'($overs)':'Bowling',style:const TextStyle(color:Color(0xffa9bac9),fontSize:12,fontWeight:FontWeight.w700)),
-        if(isBatting)Text('CRR ${inn.crr.toStringAsFixed(2)}',style:const TextStyle(color:Color(0xffa9bac9),fontSize:11))
+        const SizedBox(height:10),Text(showScore?'$runs/$wkts':'Yet to bat',style:TextStyle(color:showScore?const Color(0xff38d5a0):const Color(0xff9eb2c5),fontSize:24,fontWeight:FontWeight.w900)),
+        Text(showScore?'($overs)':(inningsBreak?'Batting next':'Bowling'),style:const TextStyle(color:Color(0xffa9bac9),fontSize:12,fontWeight:FontWeight.w700)),
+        if(showScore)Text('CRR ${scoreInn.crr.toStringAsFixed(2)}',style:const TextStyle(color:Color(0xffa9bac9),fontSize:11))
       ])));
     }
     Widget playerPanel(String heading,PlayerRecord? p,String detail){
@@ -102,19 +108,20 @@ class _SportzHomeState extends State<SportzHome>{
     return ListView(padding:const EdgeInsets.fromLTRB(12,12,12,24),children:[
       Container(padding:const EdgeInsets.all(16),decoration:BoxDecoration(gradient:const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xff14283a),Color(0xff07111e)]),borderRadius:BorderRadius.circular(20),border:Border.all(color:const Color(0xff26394c))),child:DefaultTextStyle.merge(style:const TextStyle(color:Colors.white),child:Column(children:[
         Row(children:[const Text('MYCRICSTATS  •  MATCH CENTRE',style:TextStyle(color:Color(0xffb6c6d4),fontWeight:FontWeight.w900,fontSize:11,letterSpacing:1)),const Spacer(),Text(m.status.toUpperCase(),style:const TextStyle(color:Color(0xffffc857),fontWeight:FontWeight.w900,fontSize:10))]),
-        const SizedBox(height:16),Row(children:[teamPanel(ta,m.innings==1?e.battingTeamId==m.teamAId:e.battingTeamId==m.teamAId),const SizedBox(width:10),teamPanel(tb,m.innings==1?e.battingTeamId==m.teamBId:e.battingTeamId==m.teamBId)]),
-        const SizedBox(height:14),Text('${inn.runs}/${inn.wickets}',style:const TextStyle(fontSize:56,fontWeight:FontWeight.w900,height:1.05,letterSpacing:-2)),Text('${inn.overs} OV   •   CRR ${inn.crr.toStringAsFixed(2)}   •   EXTRAS ${inn.extras}',style:const TextStyle(color:Color(0xffc1ced9),fontWeight:FontWeight.w800,fontSize:12)),
+        const SizedBox(height:16),Row(children:[teamPanel(ta,true),const SizedBox(width:10),teamPanel(tb,false)]),
+        const SizedBox(height:14),Text('${displayInn.runs}/${displayInn.wickets}',style:const TextStyle(fontSize:56,fontWeight:FontWeight.w900,height:1.05,letterSpacing:-2)),Text('${displayInn.overs} OV   •   CRR ${displayInn.crr.toStringAsFixed(2)}   •   EXTRAS ${displayInn.extras}',style:const TextStyle(color:Color(0xffc1ced9),fontWeight:FontWeight.w800,fontSize:12)),
         if(m.innings==2)Padding(padding:const EdgeInsets.only(top:8),child:Text('TARGET ${inn.target??first.runs+1}  •  NEED ${((inn.target??first.runs+1)-inn.runs).clamp(0,99999)} RUNS',style:const TextStyle(color:Color(0xffffc857),fontWeight:FontWeight.w900))),
         const Divider(color:Color(0xff304253),height:26),
-        Row(crossAxisAlignment:CrossAxisAlignment.start,children:[playerPanel('ON STRIKE',striker,'${striker?.runs??0} (${striker?.balls??0})'),const SizedBox(width:10),playerPanel('BOWLER',bowler,'${bowler?.bowlRuns??0} (${bowler?.bowlBalls??0})/${bowler?.wickets??0}')]),
+        Row(crossAxisAlignment:CrossAxisAlignment.start,children:[playerPanel(inningsBreak?'NEXT BATTER / STRIKER':'ON STRIKE',striker,'${striker?.runs??0} (${striker?.balls??0})'),const SizedBox(width:10),playerPanel(inningsBreak?'OPENING BOWLER':'BOWLER',bowler,'${bowler?.bowlRuns??0} (${bowler?.bowlBalls??0})/${bowler?.wickets??0}')]),
         const SizedBox(height:14),Row(children:[Expanded(child:Text('NON-STRIKER  ${non?.name??'—'}   ${non?.runs??0} (${non?.balls??0})',style:const TextStyle(color:Color(0xffd8e3ec),fontWeight:FontWeight.w700))),Text('THIS OVER',style:TextStyle(color:Color(0xff9db0c1),fontWeight:FontWeight.w900,fontSize:11))]),
         const SizedBox(height:7),Align(alignment:Alignment.centerLeft,child:Wrap(spacing:5,children:inn.overBalls.map((b)=>Container(padding:const EdgeInsets.symmetric(horizontal:11,vertical:8),decoration:BoxDecoration(color:b=='W'?const Color(0xffd8323e):const Color(0xff13a980),shape:BoxShape.circle),child:Text(b,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:12)))).toList()))
       ]))),
       const SizedBox(height:12),
       if(m.status=='Live'||m.status=='Ready'||m.status=='Innings Break')
         SingleChildScrollView(scrollDirection:Axis.horizontal,child:Row(children:[
+          OutlinedButton.icon(onPressed:pickOpeners,icon:const Icon(Icons.groups),label:Text(inningsBreak?'SELECT CHASE PLAYERS':'SELECT OPENERS')),
+          const SizedBox(width:8),
           OutlinedButton.icon(onPressed:changePlayerUnified,icon:const Icon(Icons.manage_accounts),label:const Text('CHANGE PLAYER')),
-          if(m.status=='Ready'||m.status=='Innings Break')Padding(padding:const EdgeInsets.only(left:8),child:OutlinedButton.icon(onPressed:pickOpeners,icon:const Icon(Icons.groups),label:const Text('OPENERS'))),
         ])),
       const SizedBox(height:10),section('MATCH CONTROL','LIVE VIEWER & CORRECTIONS'),
       SingleChildScrollView(scrollDirection:Axis.horizontal,child:Row(children:[
