@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
@@ -19,7 +20,7 @@ class _SportzFlutterAppState extends State<SportzFlutterApp>{
 
 class SportzHome extends StatefulWidget{const SportzHome({super.key,required this.mode,required this.onMode});final ThemeMode mode;final ValueChanged<ThemeMode> onMode;@override State<SportzHome> createState()=>_SportzHomeState();}
 class _SportzHomeState extends State<SportzHome>{
-  int tab=0,homeSubtab=0,statsSubtab=0;bool loading=true,showScoreboardStats=true,showMatchControls=false;
+  int tab=0,homeSubtab=0,statsSubtab=0,liveViewerCount=0;bool loading=true,showScoreboardStats=true,showMatchControls=false;Timer? viewerPoll;
   String selectedTeamAId='',selectedTeamBId='',tournamentName='Tournament',scheduleId='';
   final tournamentFixtures=<Map<String,dynamic>>[];
   final teams=<TeamRecord>[];final history=<Map<String,dynamic>>[];
@@ -31,7 +32,9 @@ class _SportzHomeState extends State<SportzHome>{
   final titleC=TextEditingController(),venueC=TextEditingController(),adTextC=TextEditingController(),adImageC=TextEditingController(),adLinkC=TextEditingController(),tournamentNameC=TextEditingController();
   final teamNameC=TextEditingController(),playerNameC=TextEditingController();
   String teamCountry='India',teamFlag='🇮🇳',playerRole='All-rounder';
-  @override void initState(){super.initState();_load();}
+  @override void initState(){super.initState();_load();viewerPoll=Timer.periodic(const Duration(seconds:15),(_)=>_refreshViewerCount());}
+  @override void dispose(){viewerPoll?.cancel();titleC.dispose();venueC.dispose();adTextC.dispose();adImageC.dispose();adLinkC.dispose();tournamentNameC.dispose();teamNameC.dispose();playerNameC.dispose();super.dispose();}
+  Future<void> _refreshViewerCount()async{final m=match;if(m==null)return;try{final r=await http.get(Uri.parse('${Uri.base.origin}/api/viewers/${Uri.encodeComponent(m.id)}'),headers:{'Cache-Control':'no-store'});if(r.statusCode==200){final data=jsonDecode(r.body) as Map<String,dynamic>;if(mounted)setState(()=>liveViewerCount=(data['count'] as num? ??0).toInt());}}catch(e){debugPrint('Viewer count refresh failed: $e');}}
   Future<void> _load()async{final p=await SharedPreferences.getInstance();try{final t=jsonDecode(p.getString('sportz_teams')??'[]') as List;teams..clear()..addAll(t.map((e)=>TeamRecord.fromJson(Map<String,dynamic>.from(e))));history..clear()..addAll((jsonDecode(p.getString('sportz_history')??'[]') as List).map((e)=>Map<String,dynamic>.from(e)));settings=MatchSettings.fromJson(Map<String,dynamic>.from(jsonDecode(p.getString('sportz_settings')??'{}')));sponsors..clear()..addAll((jsonDecode(p.getString('sportz_sponsors')??'[]') as List).map((x)=>Map<String,String>.from(x)));popupAds..clear()..addAll((jsonDecode(p.getString('sportz_popup_ads')??'[]') as List).map((x)=>Map<String,String>.from(x)));tournamentName=p.getString('sportz_tournament_name')??'Tournament';scheduleId=p.getString('sportz_schedule_id')??'sch${DateTime.now().millisecondsSinceEpoch}';tournamentFixtures..clear()..addAll((jsonDecode(p.getString('sportz_tournament_fixtures')??'[]') as List).map((x)=>Map<String,dynamic>.from(x)));selectedTeamAId=p.getString('sportz_match_team_a')??'';selectedTeamBId=p.getString('sportz_match_team_b')??'';}catch(_){}if(mounted)setState(()=>loading=false);}
   Future<void> _save()async{final p=await SharedPreferences.getInstance();await p.setString('sportz_teams',jsonEncode(teams.map((e)=>e.toJson()).toList()));await p.setString('sportz_history',jsonEncode(history));await p.setString('sportz_settings',jsonEncode(settings.toJson()));await p.setString('sportz_sponsors',jsonEncode(sponsors));await p.setString('sportz_popup_ads',jsonEncode(popupAds));await p.setString('sportz_tournament_name',tournamentName);await p.setString('sportz_schedule_id',scheduleId);await p.setString('sportz_tournament_fixtures',jsonEncode(tournamentFixtures));await p.setString('sportz_match_team_a',selectedTeamAId);await p.setString('sportz_match_team_b',selectedTeamBId);}
   TeamRecord? get a {if(teams.isEmpty)return null;final id=selectedTeamAId.isEmpty?teams.first.id:selectedTeamAId;for(final t in teams){if(t.id==id)return t;}return teams.first;} TeamRecord? get b {if(teams.length<2)return null;final id=selectedTeamBId.isEmpty?teams[1].id:selectedTeamBId;for(final t in teams){if(t.id==id)return t;}return teams.firstWhere((t)=>t.id!=a?.id,orElse:()=>teams[1]);}
@@ -302,7 +305,7 @@ class _SportzHomeState extends State<SportzHome>{
         const SizedBox(height:4),
         Text('${settings.matchType.toUpperCase()}  ·  ${settings.venue.trim().isEmpty?'VENUE TBC':settings.venue.toUpperCase()}',textAlign:TextAlign.center,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Color(0xffd1dbe5),fontWeight:FontWeight.w800,fontSize:11,letterSpacing:.5)),
         const SizedBox(height:6),
-        Row(mainAxisAlignment:MainAxisAlignment.center,children:[Text(m.status.toUpperCase(),style:const TextStyle(color:Color(0xffffd166),fontWeight:FontWeight.w900,fontSize:11))]),
+        Row(mainAxisAlignment:MainAxisAlignment.center,children:[Text(m.status.toUpperCase(),style:const TextStyle(color:Color(0xffffd166),fontWeight:FontWeight.w900,fontSize:11)),const SizedBox(width:12),const Icon(Icons.circle,size:7,color:Color(0xffe52b50)),const SizedBox(width:4),Text('FANS ONLINE · $liveViewerCount',style:const TextStyle(color:Color(0xffd1dbe5),fontWeight:FontWeight.w900,fontSize:10))]),
         const SizedBox(height:12),
         Container(decoration:BoxDecoration(border:Border.all(color:edgeColor,width:1.4),borderRadius:BorderRadius.circular(16),color:Colors.black.withValues(alpha:.18)),child:Row(children:[
           teamScore(ta,teamAScore,battingSide:m.teamAId==battingTeamId),
