@@ -185,6 +185,8 @@ class TournamentEngine {
     inn.striker=striker?playerId:inn.striker;inn.nonStriker=striker?inn.nonStriker:playerId;
   }
 
+  void swapBatters(){final inn=match.current;if(match.status!='Live'||inn.striker.isEmpty||inn.nonStriker.isEmpty)throw StateError('Both batters must be selected before swapping ends');final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;}
+
   void changeBowler(String playerId) {
     final p=players[playerId];
     if(match.status!='Live'||p==null||p.teamId!=bowlingTeamId) throw StateError('Choose a bowler from the fielding team');
