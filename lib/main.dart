@@ -301,7 +301,7 @@ class _SportzHomeState extends State<SportzHome>{
     if(last!=null){for(final p in e.players.values){if(p.name==last.batter){lastBatter=p;break;}}}
     final buttonStyle=(Color color)=>FilledButton.styleFrom(backgroundColor:color,foregroundColor:Colors.white,minimumSize:const Size(0,48),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(12)),textStyle:const TextStyle(fontWeight:FontWeight.w900));
     return ListView(padding:const EdgeInsets.fromLTRB(12,12,12,24),children:[
-      Container(padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:mainColor,borderRadius:BorderRadius.circular(20),border:Border.all(color:edgeColor,width:1.5)),child:DefaultTextStyle.merge(style:const TextStyle(color:Colors.white),child:Column(children:[
+      Container(padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:mainColor,borderRadius:BorderRadius.circular(20),border:Border.all(color:edgeColor,width:2.2),boxShadow:[BoxShadow(color:edgeColor.withValues(alpha:.28),blurRadius:18,spreadRadius:1)]),child:DefaultTextStyle.merge(style:const TextStyle(color:Colors.white),child:Column(children:[
         if(m.status=='Completed') Container(width:double.infinity,margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(14),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xff122f50),Color(0xff087f68),Color(0xff122f50)]),borderRadius:BorderRadius.circular(16),border:Border.all(color:const Color(0xffffd166),width:1.5),boxShadow:[BoxShadow(color:const Color(0xffffd166).withValues(alpha:.25),blurRadius:18)]),child:Column(children:[const Text('🏆  FULL TIME · MATCH RESULT  🏆',style:TextStyle(color:Color(0xffffd166),fontWeight:FontWeight.w900,fontSize:16)),Text('${m.teamA}  vs  ${m.teamB}',style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:15),textAlign:TextAlign.center),Text('${first.runs}/${first.wickets}  ·  ${m.inningsList.length>1?m.inningsList[1].runs:0}/${m.inningsList.length>1?m.inningsList[1].wickets:0}',style:const TextStyle(color:Colors.white,fontSize:20,fontWeight:FontWeight.w900)),Text(m.result,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800)),const Text('🎆  ✨  🎇  ✨  🎆',style:TextStyle(fontSize:24))])),
         Text(settings.title.isEmpty?'MATCH CENTRE':settings.title.toUpperCase(),textAlign:TextAlign.center,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:16,letterSpacing:1.1)),
         const SizedBox(height:4),
@@ -344,9 +344,9 @@ class _SportzHomeState extends State<SportzHome>{
           for(final n in [0,1,2,3,4,6])Padding(padding:const EdgeInsets.all(4),child:FilledButton(style:buttonStyle(n==4?const Color(0xff0b8f66):n==6?const Color(0xffe49a16):accent),onPressed:()=>score(n),child:Text('$n'))),
         ]),
         Wrap(spacing:8,runSpacing:8,children:[
-          OutlinedButton(onPressed:()=>extraDelivery(DeliveryType.wide),style:OutlinedButton.styleFrom(foregroundColor:const Color(0xff9333ea),side:const BorderSide(color:Color(0xff9333ea)),minimumSize:const Size(0,44)),child:const Text('WIDE')),
-          OutlinedButton(onPressed:()=>extraDelivery(DeliveryType.noBall),style:OutlinedButton.styleFrom(foregroundColor:const Color(0xff9333ea),side:const BorderSide(color:Color(0xff9333ea)),minimumSize:const Size(0,44)),child:const Text('NO BALL')),
-          OutlinedButton(onPressed:()=>extraDelivery(DeliveryType.legBye),style:OutlinedButton.styleFrom(foregroundColor:const Color(0xff9333ea),side:const BorderSide(color:Color(0xff9333ea)),minimumSize:const Size(0,44)),child:const Text('LEG BYE')),
+          FilledButton(onPressed:()=>extraDelivery(DeliveryType.wide),style:buttonStyle(const Color(0xff9333ea)),child:const Text('WIDE')),
+          FilledButton(onPressed:()=>extraDelivery(DeliveryType.noBall),style:buttonStyle(const Color(0xff9333ea)),child:const Text('NO BALL')),
+          FilledButton(onPressed:()=>extraDelivery(DeliveryType.legBye),style:buttonStyle(const Color(0xff9333ea)),child:const Text('LEG BYE')),
           FilledButton(style:buttonStyle(accent),onPressed:wicket,child:const Text('WICKET')),
         ]),
       ],
