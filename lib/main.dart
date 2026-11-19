@@ -293,6 +293,8 @@ class _SportzHomeState extends State<SportzHome>{
       ));
     }
     final last=inn.deliveries.isEmpty?null:inn.deliveries.last;
+    PlayerRecord? lastBatter;
+    if(last!=null){for(final p in e.players.values){if(p.name==last.batter){lastBatter=p;break;}}}
     final buttonStyle=(Color color)=>FilledButton.styleFrom(backgroundColor:color,foregroundColor:Colors.white,minimumSize:const Size(0,48),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(12)),textStyle:const TextStyle(fontWeight:FontWeight.w900));
     return ListView(padding:const EdgeInsets.fromLTRB(12,12,12,24),children:[
       Container(padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:mainColor,borderRadius:BorderRadius.circular(20),border:Border.all(color:edgeColor,width:1.5)),child:DefaultTextStyle.merge(style:const TextStyle(color:Colors.white),child:Column(children:[
@@ -312,9 +314,9 @@ class _SportzHomeState extends State<SportzHome>{
         const SizedBox(height:10),
         Text('${inn.overs} OV  ·  CRR ${inn.crr.toStringAsFixed(2)}  ·  EXTRAS ${inn.extras}',textAlign:TextAlign.center,style:const TextStyle(color:Color(0xffc1ced9),fontWeight:FontWeight.w800,fontSize:12)),
         if(m.innings==2)Padding(padding:const EdgeInsets.only(top:7),child:Text('TARGET ${inn.target??first.runs+1}  ·  NEED ${((inn.target??first.runs+1)-inn.runs).clamp(0,99999)} RUNS',style:const TextStyle(color:Color(0xffffc857),fontWeight:FontWeight.w900))),
-        if(last!=null&&(['4','6','W'].contains(last.label)||((e.players.values.where((p)=>p.name==last.batter).firstOrNull?.runs??0)==50)||((e.players.values.where((p)=>p.name==last.batter).firstOrNull?.runs??0)==100)))
+        if(last!=null&&(['4','6','W'].contains(last.label)||(lastBatter?.runs==50)||(lastBatter?.runs==100)))
           Builder(builder:(ctx){
-            final batterNow=e.players.values.where((p)=>p.name==last.batter).firstOrNull;
+            final batterNow=lastBatter;
             final milestone=batterNow?.runs==100?'CENTURY! ${batterNow!.name} 100':batterNow?.runs==50?'FIFTY! ${batterNow!.name} 50':'';
             final message=milestone.isNotEmpty?milestone:last.label=='W'?'WICKET!':last.label=='6'?'SIX!':'FOUR!';
             final colour=last.label=='W'?const Color(0xffb91c1c):accent;
