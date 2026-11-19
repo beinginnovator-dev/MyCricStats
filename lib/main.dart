@@ -63,7 +63,15 @@ class _SportzHomeState extends State<SportzHome>{
     try{if(match!.innings==1)e.selectOpeners(strikerId:st,nonStrikerId:ns,bowlerId:bw);else e.startSecondInnings(strikerId:st,nonStrikerId:ns,bowlerId:bw);setState((){});await publishLive();}
     catch(x){msg(x.toString());}
   }
-  Future<void> nextBatter()async{final e=engine!,inn=e.match.current;final p=await choosePlayer('Select next batter',e.battingSquad.where((x)=>!x.isOut&&x.id!=inn.striker&&x.id!=inn.nonStriker).toList());if(p==null)return;try{e.selectNextBatter(p);setState((){});await publishLive();}catch(x){msg(x.toString());}}
+  Future<void> nextBatter()async{
+    final e=engine!,inn=e.match.current;
+    final available=e.battingSquad.where((x)=>!x.isOut&&x.id!=inn.striker&&x.id!=inn.nonStriker).toList();
+    if(available.isNotEmpty){final p=await choosePlayer('Select next batter',available);if(p==null)return;try{e.selectNextBatter(p);setState((){});await publishLive();}catch(x){msg(x.toString());}return;}
+    final dismissed=e.battingSquad.where((x)=>x.isOut).toList();
+    if(dismissed.isEmpty){msg('No eligible batter remains. Add players to the batting squad or use the re-bat option.');return;}
+    final p=await choosePlayer('Squad exhausted — select a dismissed player to re-bat',dismissed);if(p==null)return;
+    try{e.reBatPlayer(p);setState((){});await publishLive();msg('Selected player has returned to bat.');}catch(x){msg(x.toString());}
+  }
   Future<void> nextBowler()async{final e=engine!;final p=await choosePlayer('Select next bowler',e.bowlingSquad.where((x)=>x.id!=e.match.current.bowler&&x.id!=e.lastOverBowler).toList());if(p==null)return;try{e.selectNextBowler(p);setState((){});await publishLive();}catch(x){msg(x.toString());}}
   TeamRecord? _team(String id){for(final t in teams){if(t.id==id)return t;}return null;}
   Future<void> publishLive()async{final m=match;if(m==null)return;try{final payload={'match':{...m.toJson(),'firstBattingTeamId':engine?.actualFirstBattingTeamId??m.firstBattingTeamId},'players':allPlayers.map((p)=>p.toJson()).toList(),'teamA':{'name':m.teamA,'flag':_team(m.teamAId)?.flag??'🏏'},'teamB':{'name':m.teamB,'flag':_team(m.teamBId)?.flag??'🏏'},'sponsors':sponsors,'popupAds':popupAds,'advertising':{'enabled':settings.adEnabled}};final url=Uri.parse('${Uri.base.origin}/api/live/${m.id}');final r=await http.put(url,headers:{'Content-Type':'application/json'},body:jsonEncode(payload));if(r.statusCode<200||r.statusCode>=300)throw Exception('Live sync HTTP ${r.statusCode}');}catch(e){debugPrint('Live sync failed: $e');}}
@@ -76,7 +84,7 @@ class _SportzHomeState extends State<SportzHome>{
       ListTile(leading:const Icon(Icons.star),title:const Text('Select striker'),onTap:()=>Navigator.pop(d,'striker')),
       ListTile(leading:const Icon(Icons.person_outline),title:const Text('Select non-striker'),onTap:()=>Navigator.pop(d,'non')),
       if(engine?.requireBatterChange==true)ListTile(leading:const Icon(Icons.person_add),title:const Text('Select next batter'),onTap:()=>Navigator.pop(d,'next')),
-      if(engine?.requireBatterChange==true&&engine!.battingSquad.any((p)=>p.isOut))ListTile(leading:const Icon(Icons.replay),title:const Text('Re-bat a dismissed player (short squad)'),onTap:()=>Navigator.pop(d,'rebat')),
+      if(engine?.requireBatterChange==true&&engine!.battingSquad.where((p)=>!p.isOut&&p.id!=engine!.match.current.striker&&p.id!=engine!.match.current.nonStriker).isEmpty&&engine!.battingSquad.any((p)=>p.isOut))ListTile(leading:const Icon(Icons.replay),title:const Text('Re-bat dismissed player (squad exhausted)'),onTap:()=>Navigator.pop(d,'rebat')),
       ListTile(leading:const Icon(Icons.swap_horiz),title:const Text('Swap striker / non-striker ends'),onTap:()=>Navigator.pop(d,'swap')),
     ])));
     if(choice==null)return;
@@ -92,7 +100,7 @@ class _SportzHomeState extends State<SportzHome>{
       if(settings.dualBatting)ListTile(leading:const Icon(Icons.swap_horiz),title:const Text('Change non-striker'),onTap:()=>Navigator.pop(d,'non')),
       ListTile(leading:const Icon(Icons.sports_baseball),title:const Text('Change bowler'),onTap:()=>Navigator.pop(d,'bowler')),
       if(engine?.requireBatterChange==true)ListTile(leading:const Icon(Icons.person_add),title:const Text('Select next batter'),onTap:()=>Navigator.pop(d,'next')),
-      if(engine?.requireBatterChange==true&&engine!.battingSquad.any((p)=>p.isOut))ListTile(leading:const Icon(Icons.replay),title:const Text('Re-bat dismissed player'),onTap:()=>Navigator.pop(d,'rebat')),
+      if(engine?.requireBatterChange==true&&engine!.battingSquad.where((p)=>!p.isOut&&p.id!=engine!.match.current.striker&&p.id!=engine!.match.current.nonStriker).isEmpty&&engine!.battingSquad.any((p)=>p.isOut))ListTile(leading:const Icon(Icons.replay),title:const Text('Re-bat dismissed player'),onTap:()=>Navigator.pop(d,'rebat')),
       if(engine?.requireBowlerChange==true)ListTile(leading:const Icon(Icons.sports),title:const Text('Select next-over bowler'),onTap:()=>Navigator.pop(d,'nextBowler')),
     ])));
     if(role==null)return;
