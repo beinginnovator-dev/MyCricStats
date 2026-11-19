@@ -173,7 +173,7 @@ class _SportzHomeState extends State<SportzHome>{
   }
   Widget sponsorPage()=>ListView(padding:const EdgeInsets.all(16),children:[
     section('SPONSOR CENTRE','LIVE VIEWER PAGE'),
-    Card(child:SwitchListTile(title:const Text('Show sponsors and advertisements to viewers'),value:settings.adEnabled,onChanged:(v)async{setState(()=>settings.adEnabled=v);await _save();})),
+    Card(child:SwitchListTile(title:const Text('Show sponsors and advertisements to viewers'),value:settings.adEnabled,onChanged:(v)async{setState(()=>settings.adEnabled=v);await _save();if(match!=null)await publishLive();})),
     _adList('Scoreboard sponsors',sponsors),
     _adList('Popup advertisements',popupAds),
     Card(child:ListTile(title:const Text('Viewer delivery'),subtitle:const Text('Sponsors and pop-up ads are included in the live match payload. The viewer page must load the matching live record from the Live DB.'),trailing:const Icon(Icons.info_outline))),
