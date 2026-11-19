@@ -104,16 +104,17 @@ class TournamentEngine {
 
   void selectOpeners({required String strikerId,required String nonStrikerId,required String bowlerId}) {
     if(match.tossWinner.isEmpty) throw StateError('Complete toss before selecting players');
-    if(strikerId==nonStrikerId) throw StateError('Striker and non-striker must be different');
+    if(match.settings.dualBatting&&strikerId==nonStrikerId) throw StateError('Striker and non-striker must be different');
     final st=players[strikerId], ns=players[nonStrikerId], bw=players[bowlerId];
-    if(st==null||ns==null||bw==null||st.teamId!=battingTeamId||ns.teamId!=battingTeamId||bw.teamId!=bowlingTeamId) throw StateError('Select players from the correct teams');
-    match.current.striker=strikerId;match.current.nonStriker=nonStrikerId;match.current.bowler=bowlerId;match.status='Live';
+    if(st==null||bw==null||st.teamId!=battingTeamId||bw.teamId!=bowlingTeamId||(match.settings.dualBatting&&(ns==null||ns.teamId!=battingTeamId))) throw StateError('Select players from the correct teams');
+    if(!match.settings.dualBatting&&nonStrikerId.isNotEmpty&&ns!=null&&ns.teamId!=battingTeamId) throw StateError('Select a batter from the batting team');
+    match.current.striker=strikerId;match.current.nonStriker=match.settings.dualBatting?nonStrikerId:'';match.current.bowler=bowlerId;match.status='Live';
   }
 
   void record({required int runs,DeliveryType type=DeliveryType.legal,bool wicket=false,DismissalType? dismissal,String? fielder,String? runOutBatterId,String? runsCreditedTo}) {
     final inn=match.current;
     if(match.status!='Live'||inn.complete) throw StateError('Match is not accepting deliveries');
-    if(inn.striker.isEmpty||inn.nonStriker.isEmpty||inn.bowler.isEmpty) throw StateError('Select striker, non-striker and bowler');
+    if(inn.striker.isEmpty||inn.bowler.isEmpty||(match.settings.dualBatting&&inn.nonStriker.isEmpty)) throw StateError(match.settings.dualBatting?'Select striker, non-striker and bowler':'Select striker and bowler');
     if(requireBatterChange&&inn.striker==lastDismissedBatter) throw StateError('Select a new batter before the next ball');
     if(requireBowlerChange&&inn.bowler==lastOverBowler) throw StateError('Select a different bowler for the new over');
     if(inn.overBalls.isNotEmpty&&inn.overBalls.length>0){
@@ -163,8 +164,8 @@ class TournamentEngine {
     // Change ends for odd completed runs on every delivery type. A run-out
     // requires an explicit crossing decision, so do not guess its end change.
     final completedRuns=type==DeliveryType.wide?(runs-1).clamp(0,99):runs;
-    if(!wicket&&completedRuns.isOdd){final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;}
-    if(legal&&inn.legalBalls>0&&inn.legalBalls%6==0){final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;requireBowlerChange=true;lastOverBowler=inn.bowler;inn.overBalls=[];}
+    if(!wicket&&match.settings.dualBatting&&completedRuns.isOdd){final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;}
+    if(legal&&inn.legalBalls>0&&inn.legalBalls%6==0){if(match.settings.dualBatting){final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;}requireBowlerChange=true;lastOverBowler=inn.bowler;inn.overBalls=[];}
     final maxWickets=(match.settings.playersPerSide<battingSquad.length?match.settings.playersPerSide:battingSquad.length)-1;
     final chaseDone=match.innings==2&&inn.target!=null&&inn.runs>=inn.target!;
     if(inn.wickets>=maxWickets||inn.legalBalls>=match.settings.overs*6||chaseDone){inn.complete=true;_finishInnings();}
@@ -182,10 +183,11 @@ class TournamentEngine {
     if(playerId==current) return;
     if(playerId==(striker?inn.nonStriker:inn.striker)) throw StateError('A batter cannot occupy both positions');
     if(striker&&inn.striker.isEmpty||!striker&&inn.nonStriker.isEmpty) throw StateError('Use Select Next Batter to fill a dismissed batter position');
+    if(!match.settings.dualBatting&&!striker) throw StateError('Non-striker selection is disabled in single-batter mode');
     inn.striker=striker?playerId:inn.striker;inn.nonStriker=striker?inn.nonStriker:playerId;
   }
 
-  void swapBatters(){final inn=match.current;if(match.status!='Live'||inn.striker.isEmpty||inn.nonStriker.isEmpty)throw StateError('Both batters must be selected before swapping ends');final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;}
+  void swapBatters(){final inn=match.current;if(!match.settings.dualBatting)throw StateError('End swapping is available only in dual-batting mode');if(match.status!='Live'||inn.striker.isEmpty||inn.nonStriker.isEmpty)throw StateError('Both batters must be selected before swapping ends');final x=inn.striker;inn.striker=inn.nonStriker;inn.nonStriker=x;}
 
   void changeBowler(String playerId) {
     final p=players[playerId];
@@ -203,6 +205,14 @@ class TournamentEngine {
     requireBatterChange=false;lastDismissedBatter='';
   }
   void selectNextBowler(String playerId) => changeBowler(playerId);
+
+  void reBatPlayer(String playerId){
+    final inn=match.current;final p=players[playerId];
+    if(match.status!='Live'||!requireBatterChange||p==null||p.teamId!=battingTeamId||!p.isOut)throw StateError('Choose a dismissed batter to re-bat');
+    p.isOut=false;
+    if(lastDismissedAtStriker||inn.striker.isEmpty)inn.striker=playerId;else inn.nonStriker=playerId;
+    requireBatterChange=false;lastDismissedBatter='';
+  }
   void _finishInnings(){
     final inn=match.current;
     if(match.innings==1){
