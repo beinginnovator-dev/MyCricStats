@@ -350,7 +350,7 @@ class _SportzHomeState extends State<SportzHome>{
           final margin=chase==null?'':secondRuns>firstRuns
             ? 'WON BY ${(settings.playersPerSide-1-chase.wickets).clamp(0,settings.playersPerSide-1)} WICKETS IN ${chase.overs} OVERS'
             : secondRuns<firstRuns?'WON BY ${firstRuns-secondRuns} RUNS IN ${chase.overs} OVERS':'MATCH TIED';
-          final statusText=abandoned?'ABANDONED · ${m.abandonedReason}':finished?'FINISHED · ${winnerName.toUpperCase()} ${margin.isEmpty?'':margin}':(tournamentName.isEmpty?'MATCH CENTRE':tournamentName.toUpperCase());
+          final statusText=abandoned?'ABANDONED · ${m.abandonedReason}':finished?(chase!=null&&secondRuns==firstRuns?'FINISHED · MATCH TIED':'FINISHED · ${winnerName.toUpperCase()} ${margin.isEmpty?'':margin}'):(tournamentName.isEmpty?'MATCH CENTRE':tournamentName.toUpperCase());
           return AnimatedOpacity(opacity:(finished||abandoned)?(statusPulse?1:.42):1,duration:const Duration(milliseconds:180),child:Text(statusText,textAlign:TextAlign.center,maxLines:2,overflow:TextOverflow.ellipsis,style:TextStyle(color:(finished||abandoned)?const Color(0xffffd166):Colors.white,fontWeight:FontWeight.w900,fontSize:14,letterSpacing:1.0)));
         }),
         const SizedBox(height:4),
