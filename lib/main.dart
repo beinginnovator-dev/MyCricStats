@@ -66,7 +66,7 @@ class _SportzHomeState extends State<SportzHome>{
     String ns='';
     if(settings.dualBatting){final selected=await choosePlayer('Select non-striker',bat.where((p)=>!p.isOut&&p.id!=st).toList());if(selected==null)return;ns=selected;}
     final bw=await choosePlayer('Select opening bowler',bowl);if(bw==null)return;
-    try{if(match!.innings==1)e.selectOpeners(strikerId:st,nonStrikerId:ns,bowlerId:bw);else e.startSecondInnings(strikerId:st,nonStrikerId:ns,bowlerId:bw);setState((){});await publishLive();}
+    try{if(match!.innings==1)e.selectOpeners(strikerId:st,nonStrikerId:ns,bowlerId:bw);else e.startSecondInnings(strikerId:st,nonStrikerId:ns,bowlerId:bw);setState(()=>tab=2);await publishLive();}
     catch(x){msg(x.toString());}
   }
   Future<void> nextBatter()async{
@@ -126,13 +126,11 @@ class _SportzHomeState extends State<SportzHome>{
   Future<void> saveCompletedMatch()async{final m=match!,e=engine!;final playerRows=allPlayers.map((p)=>p.toJson()).toList();final first=m.inningsList.first;final second=m.inningsList.length>1?m.inningsList[1]:null;history.add({'id':m.id,'title':m.settings.title,'teamA':m.teamA,'teamB':m.teamB,'result':m.result,'firstRuns':first.runs,'firstWickets':first.wickets,'firstOvers':first.overs,'secondRuns':second?.runs??0,'secondWickets':second?.wickets??0,'secondOvers':second?.overs??'0.0','players':playerRows,'completedAt':DateTime.now().toIso8601String(),'deliveries':m.allDeliveries.map((d)=>d.toJson()).toList()});await _save();match=null;engine=null;setState(()=>tab=4);}
   Widget teamCard(TeamRecord t)=>Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[Text(t.flag,style:const TextStyle(fontSize:26)),const SizedBox(width:10),Expanded(child:Text(t.name,style:const TextStyle(fontWeight:FontWeight.w900,fontSize:16))),IconButton(tooltip:'Edit team',onPressed:()async{final n=await textDialog('Edit team name',t.name);if(n!=null&&n.trim().isNotEmpty){setState(()=>t.name=n.trim());await _save();}},icon:const Icon(Icons.edit_outlined)),IconButton(onPressed:()=>addPlayer(t),icon:const Icon(Icons.person_add_alt_1)),IconButton(tooltip:'Delete team',onPressed:()async{final ok=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(title:const Text('Delete team?'),content:Text('Delete '+t.name+' and its squad?'),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Delete'))]));if(ok==true){setState(()=>teams.remove(t));await _save();}},icon:const Icon(Icons.delete_outline))]),Text('${t.country} · ${t.players.length} players',style:TextStyle(color:Theme.of(context).colorScheme.secondary)),const Divider(),...t.players.map((p)=>ListTile(dense:true,title:Text(p.name),subtitle:Text(p.role),trailing:PopupMenuButton<String>(onSelected:(v)async{if(v=='edit'){final n=await textDialog('Edit player name',p.name);if(n!=null&&n.trim().isNotEmpty){setState(()=>p.name=n.trim());await _save();}}else if(v=='delete'){setState(()=>t.players.remove(p));await _save();}},itemBuilder:(c)=>const [PopupMenuItem(value:'edit',child:Text('Edit player')),PopupMenuItem(value:'delete',child:Text('Delete player'))]))) ])));
   Widget home()=>ListView(padding:const EdgeInsets.all(16),children:[
-    Container(padding:const EdgeInsets.all(18),decoration:BoxDecoration(color:const Color(0xff101d2b),borderRadius:BorderRadius.circular(18),border:Border.all(color:const Color(0xff26394c))),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      const Text('MYCRICSTATS',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,letterSpacing:1.5,fontSize:20)),
-      const SizedBox(height:5),const Text('CRICKET TOURNAMENT CENTRE',style:TextStyle(color:Color(0xffb9cad9),fontSize:12)),
-      const SizedBox(height:12),Text('${history.length}',style:const TextStyle(color:Colors.white,fontSize:32,fontWeight:FontWeight.w900)),
-      const Text('Completed matches saved',style:TextStyle(color:Color(0xffb9cad9))),
-    ])),
-    const SizedBox(height:16),
+    Row(children:[
+      const Expanded(child:Text('CRICKET TOURNAMENT CENTRE',style:TextStyle(fontSize:12,fontWeight:FontWeight.w900,letterSpacing:.8))),
+      Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:7),decoration:BoxDecoration(color:Theme.of(context).colorScheme.primaryContainer,borderRadius:BorderRadius.circular(18)),child:Row(mainAxisSize:MainAxisSize.min,children:[Icon(Icons.emoji_events,size:15,color:Theme.of(context).colorScheme.onPrimaryContainer),const SizedBox(width:6),Text('${history.length} MATCHES',style:TextStyle(fontWeight:FontWeight.w900,fontSize:11,color:Theme.of(context).colorScheme.onPrimaryContainer))])),
+    ]),
+    const SizedBox(height:12),
     Container(
       height: 76,
       padding: const EdgeInsets.all(4),
@@ -154,7 +152,7 @@ class _SportzHomeState extends State<SportzHome>{
                 height: 66,
                 padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 5),
                 decoration: BoxDecoration(
-                  color: selected ? const Color(0xffdcefe9) : Colors.transparent,
+                  color: selected ? Theme.of(context).colorScheme.primary.withValues(alpha: .18) : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -198,7 +196,11 @@ class _SportzHomeState extends State<SportzHome>{
       else ...[
         Card(child:ListTile(title:Text('${match!.teamA}  vs  ${match!.teamB}'),subtitle:Text(match!.status),leading:const Icon(Icons.sports_cricket))),
         if(match!.tossWinner.isEmpty)FilledButton.icon(onPressed:completeToss,icon:const Icon(Icons.casino),label:const Text('CALL THE TOSS'))
-         else if(match!.status=='Ready')TextButton.icon(onPressed:completeToss,icon:const Icon(Icons.refresh),label:const Text('RE-TOSS / CORRECT TOSS'))
+         else if(match!.status=='Ready')...[
+           TextButton.icon(onPressed:completeToss,icon:const Icon(Icons.refresh),label:const Text('RE-TOSS / CORRECT TOSS')),
+           const SizedBox(height:8),
+           SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:pickOpeners,icon:const Icon(Icons.play_arrow),label:const Text('PROCEED TO SCORING'))),
+         ]
         else ...[
           Card(child:ListTile(title:Text('Toss won by ${_team(match!.tossWinner)?.name??'Team'}'),subtitle:Text('Elected to ${tossDecision.toUpperCase()}'))),
           if(match!.status=='Ready')FilledButton.icon(onPressed:pickOpeners,icon:const Icon(Icons.people),label:const Text('START MATCH · SELECT OPENERS')),
