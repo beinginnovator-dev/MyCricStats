@@ -64,3 +64,18 @@ This register is the source of truth for requested behaviour on the Flutter bran
 - [x] Add Red, Black and Blue viewer theme settings, sound on/off and share-link controls.
 - [ ] Verify source syntax, Cloudflare build/deployment, event trigger timing and multi-match switching on a device.
 - Note: stadium-style effects are generated locally with Web Audio (not external stadium audio recordings); browser audio requires a user gesture to unlock.
+
+
+## Live viewer and scorer sponsor/schedule updates — 2026-11-20
+- [x] Reduce live scoreboard top spacing and move sound/share/settings controls to the scoreboard's top-left corner.
+- [x] Add scorer sponsor size control for +1 pt through +5 pt and publish the selected size to the viewer.
+- [x] Add optional scoreboard background image URL and opacity controls in Sponsor Management; publish the settings to the viewer.
+- [x] Show striker and non-striker runs, balls, strike rate, boundaries and batter-specific dot-ball counts.
+- [x] Show bowler extras split into wides, no-balls and byes, plus total extras.
+- [x] Pin a manually selected History match so periodic refresh does not switch back to the newest match.
+- [x] Add fixture match name, venue, optional sponsor name/logo and show these fields in scorer and viewer schedule lists.
+- [x] Add optional top and bottom caption text for popup advertisements and apply a thin translucent white border on a dark translucent popup.
+- [x] Extend event animation to five seconds, reduce its display size, and delay configured popup display until the animation ends.
+- [x] Improve TTS voice configuration and unlock stadium audio from the sound toggle user gesture.
+- [ ] Run Flutter analyzer/build, verify Cloudflare test deployment, and device-test history navigation, audio, sponsor background/size, fixture display and popup timing.
+- Note: browser TTS and Web Audio still require the viewer to be opened and enabled through a user gesture; device/browser permissions can affect playback.
