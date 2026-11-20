@@ -50,3 +50,17 @@ This register is the source of truth for requested behaviour on the Flutter bran
 - [x] Add a same-day Match History tab, with match selection loading that match's scoreboard, stats, commentary, info and squads.
 - [x] Live match directory now exposes the match's created/completed date separately from last update time.
 - [ ] Verify the final Cloudflare test deployment and test multi-match navigation on a device.
+
+
+## Live viewer upgrades — 2026-11-20
+- [x] Overlay the completed-match result banner over the scoreboard with an animated sky-shot gradient.
+- [x] Display each team flag beside its team name.
+- [x] Display striker, non-striker and bowler as three full-width rows with live figures.
+- [x] Automatically switch the unpinned live viewer to the newest live match when a new match starts.
+- [x] Read squad figures from the live player-stat payload, with squad roster values as fallback.
+- [x] Show each commentary delivery with an event badge (W, 4, 6, 0, extras) and over.ball stamp.
+- [x] Retain TTS commentary and add toggleable stadium-style sound effects for boundaries, wickets and the start of an over; over-start sound is deliberately low-volume/low-frequency.
+- [x] Trigger configured pop-up ads for their selected boundary, wicket or over-end events after the event animation; retain selected size and duration and omit static ad cards from tabs.
+- [x] Add Red, Black and Blue viewer theme settings, sound on/off and share-link controls.
+- [ ] Verify source syntax, Cloudflare build/deployment, event trigger timing and multi-match switching on a device.
+- Note: stadium-style effects are generated locally with Web Audio (not external stadium audio recordings); browser audio requires a user gesture to unlock.
