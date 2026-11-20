@@ -104,7 +104,7 @@ function commentaryFor(d,i,all,inn,players){
  const bowlLine=d.dismissal&&bowler.name
   ? (commentaryLanguage==='hi'?' '+bowlName+' के विकेट अब '+(bowler.wickets||0)+'।':' '+bowlName+' now has '+(bowler.wickets||0)+' wicket(s).')
   :'';
- const prefix=commentaryLanguage==='hi'?overBall+' · '+bowlName+' से '+batName को ':' '+overBall+' · '+bowlName+' to '+batName+', ';
+ const prefix=commentaryLanguage==='hi'?overBall+' · '+bowlName+' से '+batName+' को, ':' '+overBall+' · '+bowlName+' to '+batName+', ';
  const scoreLine=commentaryLanguage==='hi'?' स्कोर '+scoreRuns+'/'+wicketCount+' ('+scoreOvers+' ओवर)।':' Score: '+scoreRuns+'/'+wicketCount+' after '+scoreOvers+' overs.';
  return prefix+event+batLine+bowlLine+scoreLine;
 }
