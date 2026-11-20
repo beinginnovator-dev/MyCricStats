@@ -79,3 +79,16 @@ This register is the source of truth for requested behaviour on the Flutter bran
 - [x] Improve TTS voice configuration and unlock stadium audio from the sound toggle user gesture.
 - [ ] Run Flutter analyzer/build, verify Cloudflare test deployment, and device-test history navigation, audio, sponsor background/size, fixture display and popup timing.
 - Note: browser TTS and Web Audio still require the viewer to be opened and enabled through a user gesture; device/browser permissions can affect playback.
+
+
+## Live viewer refinement — 2026-11-20
+- [x] Replace text-labelled Sound, Share and Settings controls with compact transparent icon-only buttons at the top of the scoreboard.
+- [x] Place batter/bowler stats inline beside each player name with role icons; remove Striker, Non-striker and Bowler text labels.
+- [x] Keep regular ball-by-ball commentary concise; include batter strike rate only on boundaries and bowler economy only on wickets.
+- [x] Add English/Hindi commentary language selection in viewer settings and use the selected speech locale for TTS.
+- [x] Restyle popup advertisements with sponsor/company name centered above the centered image and a single X close control.
+- [x] Expand the result banner to cover the scoreboard, include both team flags and names, animate a sky-style gradient, and show one Save & Start New Match action.
+- [x] Change scorer Sponsor Management name/logo size choices to 2 pt, 4 pt and 6 pt.
+- [x] Add generated crowd-like ambience, whistle-like tones and applause-like sound layers for boundaries, wickets and 50/100 milestones; low-volume ambience at over start.
+- [ ] Verify on real mobile browsers: TTS language voice availability, audio unlock/autoplay policy, popup close/timing, result overlay and sponsor sizing.
+- Note: stadium effects are synthesized locally with Web Audio; they are not licensed crowd/stadium recordings. Browser autoplay policies require a user gesture (tap Sound) before audio can play reliably. Commentary wording is original broadcast-style writing, not copied from Cricbuzz/ESPNcricinfo.
