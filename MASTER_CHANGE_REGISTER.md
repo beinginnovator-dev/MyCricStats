@@ -116,3 +116,6 @@ This register is the source of truth for requested behaviour on the Flutter bran
 - [x] Improve Hindi/English ball-by-ball commentary using a factual sequence: over.ball, bowler to batter, delivery outcome, fielding/dismissal context where available, and score after the delivery. Use original wording rather than copying ESPNcricinfo text.
 - [x] Hide the viewer result overlay for completed/history matches; show a flashing Finished/Abandoned result line in the tournament-title position, including winning margin and overs where score data supports it.
 - [x] Set scorer and viewer default scoreboard theme to Black.
+
+- [x] Abandoned matches remain on the scorer scoreboard with an animated Abandoned status and reason, and publish that state to the viewer.
+- [x] Reset any old viewer theme preference to Black on load so existing devices also open with the requested default.
