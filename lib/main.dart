@@ -236,25 +236,52 @@ class _SportzHomeState extends State<SportzHome>{
   Future<void> _addAdEntry(List<Map<String,String>> list,String title)async{
     if(list.length>=10){msg('Maximum 10 entries allowed');return;}
     final name=TextEditingController(),logo=TextEditingController(),link=TextEditingController();
-    final ok=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(title:Text('Add $title'),content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[TextField(controller:name,decoration:const InputDecoration(labelText:'Sponsor / advertisement name')),TextField(controller:logo,decoration:const InputDecoration(labelText:'Logo / image URL')),TextField(controller:link,decoration:const InputDecoration(labelText:'Click-through URL'))])),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Save'))]));
-    if(ok==true&&name.text.trim().isNotEmpty){setState(()=>list.add({'name':name.text.trim(),'image':logo.text.trim(),'link':link.text.trim()}));await _save();if(match!=null)await publishLive();}
+    String effect='none',duration='5',size='medium',events='boundaries,wickets,overEnd';
+    final isSponsor=list==sponsors;
+    final ok=await showDialog<bool>(context:context,builder:(d)=>StatefulBuilder(builder:(d,setD)=>AlertDialog(title:Text('Add $title'),content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
+      TextField(controller:name,decoration:const InputDecoration(labelText:'Sponsor / advertisement name')),
+      TextField(controller:logo,decoration:const InputDecoration(labelText:'Logo / image URL')),
+      TextField(controller:link,decoration:const InputDecoration(labelText:'Click-through URL')),
+      if(isSponsor)DropdownButtonFormField<String>(value:effect,decoration:const InputDecoration(labelText:'Sponsor animation effect'),items:const [DropdownMenuItem(value:'none',child:Text('None')),DropdownMenuItem(value:'breathing',child:Text('Breathing')),DropdownMenuItem(value:'pulse',child:Text('Pulse')),DropdownMenuItem(value:'glow',child:Text('Glow')),DropdownMenuItem(value:'shine',child:Text('Shine'))],onChanged:(v)=>setD(()=>effect=v??'none')),
+      if(!isSponsor)...[
+        DropdownButtonFormField<String>(value:duration,decoration:const InputDecoration(labelText:'Display time'),items:const ['3','5','6','8'].map((v)=>DropdownMenuItem(value:v,child:Text('$v seconds'))).toList(),onChanged:(v)=>setD(()=>duration=v??'5')),
+        DropdownButtonFormField<String>(value:size,decoration:const InputDecoration(labelText:'Pop-up size'),items:const [DropdownMenuItem(value:'small',child:Text('Small')),DropdownMenuItem(value:'medium',child:Text('Medium')),DropdownMenuItem(value:'large',child:Text('Large'))],onChanged:(v)=>setD(()=>size=v??'medium')),
+        const Align(alignment:Alignment.centerLeft,child:Padding(padding:EdgeInsets.only(top:10,bottom:4),child:Text('Show pop-up after these events',style:TextStyle(fontWeight:FontWeight.w800)))),
+        CheckboxListTile(dense:true,contentPadding:EdgeInsets.zero,title:const Text('Boundary (4 or 6)'),value:events.split(',').contains('boundaries'),onChanged:(v)=>setD(()=>events=_setEvent(events,'boundaries',v==true))),
+        CheckboxListTile(dense:true,contentPadding:EdgeInsets.zero,title:const Text('Wicket'),value:events.split(',').contains('wickets'),onChanged:(v)=>setD(()=>events=_setEvent(events,'wickets',v==true))),
+        CheckboxListTile(dense:true,contentPadding:EdgeInsets.zero,title:const Text('End of over'),value:events.split(',').contains('overEnd'),onChanged:(v)=>setD(()=>events=_setEvent(events,'overEnd',v==true))),
+      ]
+    ]))),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Save'))])));
+    if(ok==true&&name.text.trim().isNotEmpty){final item={'name':name.text.trim(),'image':logo.text.trim(),'link':link.text.trim()};if(isSponsor)item['effect']=effect;else{item['duration']=duration;item['size']=size;item['events']=events;}setState(()=>list.add(item));await _save();if(match!=null)await publishLive();}
   }
-  Future<void> _editAdEntry(List<Map<String,String>> list,int index,String title)async{final item=list[index];final name=TextEditingController(text:item['name']);final image=TextEditingController(text:item['image']);final link=TextEditingController(text:item['link']);final ok=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(title:Text('Edit $title'),content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[TextField(controller:name,decoration:const InputDecoration(labelText:'Name')),TextField(controller:image,decoration:const InputDecoration(labelText:'Logo / image URL')),TextField(controller:link,decoration:const InputDecoration(labelText:'Click-through URL'))])),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Save'))]));if(ok==true&&name.text.trim().isNotEmpty){setState(()=>list[index]={'name':name.text.trim(),'image':image.text.trim(),'link':link.text.trim()});await _save();if(match!=null)await publishLive();}}
+  String _setEvent(String current,String key,bool enabled){final values=current.split(',').where((x)=>x.isNotEmpty).toSet();if(enabled){values.add(key);}else{values.remove(key);}return values.join(',');}
+  Future<void> _editAdEntry(List<Map<String,String>> list,int index,String title)async{
+    final item=list[index],name=TextEditingController(text:item['name']),image=TextEditingController(text:item['image']),link=TextEditingController(text:item['link']);
+    String effect=item['effect']??'none',duration=item['duration']??'5',size=item['size']??'medium',events=item['events']??'boundaries,wickets,overEnd';
+    final isSponsor=list==sponsors;
+    final ok=await showDialog<bool>(context:context,builder:(d)=>StatefulBuilder(builder:(d,setD)=>AlertDialog(title:Text('Edit $title'),content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
+      TextField(controller:name,decoration:const InputDecoration(labelText:'Name')),
+      TextField(controller:image,decoration:const InputDecoration(labelText:'Logo / image URL')),
+      TextField(controller:link,decoration:const InputDecoration(labelText:'Click-through URL')),
+      if(isSponsor)DropdownButtonFormField<String>(value:effect,decoration:const InputDecoration(labelText:'Sponsor animation effect'),items:const [DropdownMenuItem(value:'none',child:Text('None')),DropdownMenuItem(value:'breathing',child:Text('Breathing')),DropdownMenuItem(value:'pulse',child:Text('Pulse')),DropdownMenuItem(value:'glow',child:Text('Glow')),DropdownMenuItem(value:'shine',child:Text('Shine'))],onChanged:(v)=>setD(()=>effect=v??'none')),
+      if(!isSponsor)...[
+        DropdownButtonFormField<String>(value:duration,decoration:const InputDecoration(labelText:'Display time'),items:const ['3','5','6','8'].map((v)=>DropdownMenuItem(value:v,child:Text('$v seconds'))).toList(),onChanged:(v)=>setD(()=>duration=v??'5')),
+        DropdownButtonFormField<String>(value:size,decoration:const InputDecoration(labelText:'Pop-up size'),items:const [DropdownMenuItem(value:'small',child:Text('Small')),DropdownMenuItem(value:'medium',child:Text('Medium')),DropdownMenuItem(value:'large',child:Text('Large'))],onChanged:(v)=>setD(()=>size=v??'medium')),
+        const Align(alignment:Alignment.centerLeft,child:Padding(padding:EdgeInsets.only(top:10,bottom:4),child:Text('Show pop-up after these events',style:TextStyle(fontWeight:FontWeight.w800)))),
+        CheckboxListTile(dense:true,contentPadding:EdgeInsets.zero,title:const Text('Boundary (4 or 6)'),value:events.split(',').contains('boundaries'),onChanged:(v)=>setD(()=>events=_setEvent(events,'boundaries',v==true))),
+        CheckboxListTile(dense:true,contentPadding:EdgeInsets.zero,title:const Text('Wicket'),value:events.split(',').contains('wickets'),onChanged:(v)=>setD(()=>events=_setEvent(events,'wickets',v==true))),
+        CheckboxListTile(dense:true,contentPadding:EdgeInsets.zero,title:const Text('End of over'),value:events.split(',').contains('overEnd'),onChanged:(v)=>setD(()=>events=_setEvent(events,'overEnd',v==true))),
+      ]
+    ]))),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Save'))])));
+    if(ok==true&&name.text.trim().isNotEmpty){final updated={'name':name.text.trim(),'image':image.text.trim(),'link':link.text.trim()};if(isSponsor)updated['effect']=effect;else{updated['duration']=duration;updated['size']=size;updated['events']=events;}setState(()=>list[index]=updated);await _save();if(match!=null)await publishLive();}
+  }
   Widget _adList(String title,List<Map<String,String>> list){
     return Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       Row(children:[Expanded(child:Text('$title (${list.length}/10)',style:const TextStyle(fontWeight:FontWeight.w900))),IconButton(onPressed:()=>_addAdEntry(list,title),icon:const Icon(Icons.add_circle))]),
       if(list.isEmpty)const Text('No entries added yet.'),
-      ...list.asMap().entries.map((entry)=>ListTile(leading:entry.value['image']?.isNotEmpty==true?const Icon(Icons.image):const Icon(Icons.campaign),title:Text(entry.value['name']??''),subtitle:Text(entry.value['image']??'No logo/image URL'),trailing:Wrap(spacing:0,children:[IconButton(icon:const Icon(Icons.edit_outlined),onPressed:()=>_editAdEntry(list,entry.key,title)),IconButton(icon:const Icon(Icons.delete_outline),onPressed:()async{setState(()=>list.removeAt(entry.key));await _save();if(match!=null)await publishLive();})])))
+      ...list.asMap().entries.map((entry)=>ListTile(leading:entry.value['image']?.isNotEmpty==true?const Icon(Icons.image):const Icon(Icons.campaign),title:Text(entry.value['name']??''),subtitle:Text(list==sponsors?'Effect: ${entry.value['effect']??'none'}':'${entry.value['duration']??'5'} sec · ${entry.value['size']??'medium'} · ${entry.value['events']??'boundaries,wickets,overEnd'}'),trailing:Wrap(spacing:0,children:[IconButton(icon:const Icon(Icons.edit_outlined),onPressed:()=>_editAdEntry(list,entry.key,title)),IconButton(icon:const Icon(Icons.delete_outline),onPressed:()async{setState(()=>list.removeAt(entry.key));await _save();if(match!=null)await publishLive();})])))
     ])));
   }
-  Widget sponsorPage()=>ListView(padding:const EdgeInsets.all(16),children:[
-    section('SPONSOR CENTRE','LIVE VIEWER PAGE'),
-    Card(child:SwitchListTile(title:const Text('Show sponsors and advertisements to viewers'),value:settings.adEnabled,onChanged:(v)async{setState(()=>settings.adEnabled=v);await _save();if(match!=null)await publishLive();})),
-    _adList('Scoreboard sponsors',sponsors),
-    _adList('Popup advertisements',popupAds),
-    Card(child:ListTile(title:const Text('Viewer delivery'),subtitle:const Text('Sponsors and pop-up ads are included in the live match payload. The viewer page must load the matching live record from the Live DB.'),trailing:const Icon(Icons.info_outline))),
-    if(match!=null)FilledButton.icon(onPressed:shareLive,icon:const Icon(Icons.share),label:const Text('SHARE LIVE VIEWER PAGE'))
-  ]);
   Widget section(String title,String sub)=>Padding(padding:const EdgeInsets.only(bottom:10),child:Row(children:[Expanded(child:Text(title,style:const TextStyle(fontWeight:FontWeight.w900,letterSpacing:1.1))),Text(sub,style:const TextStyle(fontSize:9,fontWeight:FontWeight.w800,color:Colors.grey))]));
   Widget matchFlow()=>sponsorPage();
   Widget scoreboard()=>engine==null?const Center(child:Text('Create a match and complete the toss first.')):Builder(builder:(c){
