@@ -39,3 +39,14 @@ This register is the source of truth for requested behaviour on the Flutter bran
 
 ## Change log
 - 2026-11-20: Added sponsor animation controls, pop-up ad size/duration/event-trigger controls, multi-sponsor live rendering, event-first pop-up flow, latest same-day live-match selection, and removed the old match sequence from the live page. Re-toss code intentionally preserved.
+
+## Live viewer updates — 2026-11-20
+- [x] Remove static advertisement card from every live viewer tab.
+- [x] Disable pop-up advertisement rendering on the live viewer; scorer-side ad configuration remains stored and editable.
+- [x] Rotate sponsor presentation one sponsor at a time at 3-second intervals.
+- [x] Expand Match Info with match format, venue, toss, innings score, run rate, target and result.
+- [x] Expand Squad presentation with player role and current batting/bowling figures.
+- [x] Expand commentary using recorded delivery type, dismissal/fielder, batter figures, bowler figures and innings state; no unsupported shot descriptions are fabricated.
+- [x] Add a same-day Match History tab, with match selection loading that match's scoreboard, stats, commentary, info and squads.
+- [x] Live match directory now exposes the match's created/completed date separately from last update time.
+- [ ] Verify the final Cloudflare test deployment and test multi-match navigation on a device.
