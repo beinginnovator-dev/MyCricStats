@@ -283,7 +283,7 @@ class _SportzHomeState extends State<SportzHome>{
     ])));
   }
   Widget section(String title,String sub)=>Padding(padding:const EdgeInsets.only(bottom:10),child:Row(children:[Expanded(child:Text(title,style:const TextStyle(fontWeight:FontWeight.w900,letterSpacing:1.1))),Text(sub,style:const TextStyle(fontSize:9,fontWeight:FontWeight.w800,color:Colors.grey))]));
-  Widget matchFlow()=>sponsorPage();
+  Widget sponsorPage()=>ListView(padding:const EdgeInsets.all(14),children:[section('SPONSOR MANAGEMENT','LIVE BRANDING & EVENT ADS'),_adList('Sponsors',sponsors),const SizedBox(height:12),_adList('Pop-up advertisements',popupAds)]);\n  Widget matchFlow()=>sponsorPage();
   Widget scoreboard()=>engine==null?const Center(child:Text('Create a match and complete the toss first.')):Builder(builder:(c){
     final e=engine!,m=e.match,inn=m.current;
     final ta=_team(m.teamAId),tb=_team(m.teamBId);
