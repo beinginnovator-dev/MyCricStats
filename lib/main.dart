@@ -343,15 +343,31 @@ class _SportzHomeState extends State<SportzHome>{
       if(m.status=='Live')...[
         const SizedBox(height:12),
         section('SCORING PAD','BALL BY BALL'),
-        GridView.count(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),crossAxisCount:3,childAspectRatio:2.2,children:[
-          for(final n in [0,1,2,3,4,6])Padding(padding:const EdgeInsets.all(4),child:FilledButton(style:buttonStyle(n==4?const Color(0xff2563eb):n==6?const Color(0xffe49a16):accent),onPressed:()=>score(n),child:Text('$n'))),
-        ]),
-        Wrap(spacing:8,runSpacing:8,children:[
-          SizedBox(width:132,height:46,child:FilledButton(onPressed:()=>extraDelivery(DeliveryType.wide),style:buttonStyle(const Color(0xff9333ea)),child:const Text('WIDE'))),
-          SizedBox(width:132,height:46,child:FilledButton(onPressed:()=>extraDelivery(DeliveryType.noBall),style:buttonStyle(const Color(0xff9333ea)),child:const Text('NO BALL'))),
-          SizedBox(width:132,height:46,child:FilledButton(onPressed:()=>extraDelivery(DeliveryType.legBye),style:buttonStyle(const Color(0xff9333ea)),child:const Text('LEG BYE'))),
-          SizedBox(width:132,height:46,child:FilledButton(style:buttonStyle(const Color(0xffd9485f)),onPressed:wicket,child:const Text('WICKET'))),
-        ]),
+        GridView.count(
+          shrinkWrap:true,
+          physics:const NeverScrollableScrollPhysics(),
+          crossAxisCount:3,
+          childAspectRatio:2.2,
+          mainAxisSpacing:2,
+          crossAxisSpacing:2,
+          children:[
+            for(final n in [0,1,2,3,4,6])
+              Padding(
+                padding:const EdgeInsets.all(4),
+                child:SizedBox.expand(
+                  child:FilledButton(
+                    style:buttonStyle(n==4?const Color(0xff2563eb):n==6?const Color(0xffe49a16):accent),
+                    onPressed:()=>score(n),
+                    child:Text('$n'),
+                  ),
+                ),
+              ),
+            Padding(padding:const EdgeInsets.all(4),child:SizedBox.expand(child:FilledButton(onPressed:()=>extraDelivery(DeliveryType.wide),style:buttonStyle(const Color(0xff9333ea)),child:const Text('WIDE')))),
+            Padding(padding:const EdgeInsets.all(4),child:SizedBox.expand(child:FilledButton(onPressed:()=>extraDelivery(DeliveryType.noBall),style:buttonStyle(const Color(0xff9333ea)),child:const Text('NO BALL')))),
+            Padding(padding:const EdgeInsets.all(4),child:SizedBox.expand(child:FilledButton(onPressed:()=>extraDelivery(DeliveryType.legBye),style:buttonStyle(const Color(0xff9333ea)),child:const Text('LEG BYE')))),
+            Padding(padding:const EdgeInsets.all(4),child:SizedBox.expand(child:FilledButton(style:buttonStyle(const Color(0xffd9485f)),onPressed:wicket,child:const Text('WICKET')))),
+          ],
+        ),
       ],
       const SizedBox(height:10),
       Card(child:Column(children:[
