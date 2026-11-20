@@ -102,3 +102,10 @@ This register is the source of truth for requested behaviour on the Flutter bran
 - [x] Improve praise for boundaries and dot balls in commentary.
 - [ ] Add over summaries with over runs and bowler stamp; verify audio/autoplay on mobile.
 - Note: browser autoplay restrictions may require a user gesture before audio playback.
+
+
+## Viewer and scoreboard refinements — 2026-11-20 (requested follow-up)
+- [x] Replace non-striker glyph with a detailed three-stump and bails icon; replace bowler red dot with a red leather ball and white seam.
+- [x] Show bowler extras as one total only, without wide/no-ball/bye breakdown in brackets.
+- [x] Increase scorer scoreboard player-name and player-figures font sizes by 2 pt; increase matching viewer player-name and inline-stat text by 2 pt.
+- [x] Remove the Start New Match action from the viewer result banner; add a cup logo, winning team and margin line, innings overs, and Man of the Match line.
