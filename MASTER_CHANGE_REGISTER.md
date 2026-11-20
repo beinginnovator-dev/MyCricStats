@@ -92,3 +92,13 @@ This register is the source of truth for requested behaviour on the Flutter bran
 - [x] Add generated crowd-like ambience, whistle-like tones and applause-like sound layers for boundaries, wickets and 50/100 milestones; low-volume ambience at over start.
 - [ ] Verify on real mobile browsers: TTS language voice availability, audio unlock/autoplay policy, popup close/timing, result overlay and sponsor sizing.
 - Note: stadium effects are synthesized locally with Web Audio; they are not licensed crowd/stadium recordings. Browser autoplay policies require a user gesture (tap Sound) before audio can play reliably. Commentary wording is original broadcast-style writing, not copied from Cricbuzz/ESPNcricinfo.
+
+
+## Live viewer refinements — 2026-11-20 (requested follow-up)
+- [x] Bowler stats remain inline by the bowler name; non-striker uses a stumps-like cricket icon and bowler a red-ball icon.
+- [x] Increase scoreboard stats typography by 2 pt and player names by 1 pt.
+- [x] Default TTS commentary and stadium sound to enabled; remove standalone TTS button and move both controls into Settings.
+- [x] Keep Settings and Share icons at top-left; show tournament name below controls; label schedule KNOCKOUT MATCH.
+- [x] Improve praise for boundaries and dot balls in commentary.
+- [ ] Add over summaries with over runs and bowler stamp; verify audio/autoplay on mobile.
+- Note: browser autoplay restrictions may require a user gesture before audio playback.
