@@ -197,8 +197,7 @@ class _SportzHomeState extends State<SportzHome>{
         Card(child:ListTile(title:Text('${match!.teamA}  vs  ${match!.teamB}'),subtitle:Text(match!.status),leading:const Icon(Icons.sports_cricket))),
         if(match!.tossWinner.isEmpty)FilledButton.icon(onPressed:completeToss,icon:const Icon(Icons.casino),label:const Text('CALL THE TOSS'))
          else if(match!.status=='Ready')...[
-           TextButton.icon(onPressed:completeToss,icon:const Icon(Icons.refresh),label:const Text('RE-TOSS / CORRECT TOSS')),
-           const SizedBox(height:8),
+           TextButton.icon(onPressed:completeToss,icon:const Icon(Icons.refresh),label:const Text('RE-TOSS / CORRECT TOSS')),           const SizedBox(height:8),
            SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:pickOpeners,icon:const Icon(Icons.play_arrow),label:const Text('PROCEED TO SCORING'))),
          ]
         else ...[
@@ -328,7 +327,40 @@ class _SportzHomeState extends State<SportzHome>{
         const SizedBox(height:10),
         Text('${inn.overs} OV  ·  CRR ${inn.crr.toStringAsFixed(2)}  ·  EXTRAS ${inn.extras}',textAlign:TextAlign.center,style:const TextStyle(color:Color(0xffc1ced9),fontWeight:FontWeight.w800,fontSize:12)),
         if(m.innings==2)Padding(padding:const EdgeInsets.only(top:7),child:Text('TARGET ${inn.target??first.runs+1}  ·  NEED ${((inn.target??first.runs+1)-inn.runs).clamp(0,99999)} RUNS',style:const TextStyle(color:Color(0xffffc857),fontWeight:FontWeight.w900))),
-        if(celebrationMessage!=null) SizedBox(height:0,child:OverflowBox(alignment:Alignment.center,minHeight:0,maxHeight:72,child:TweenAnimationBuilder<double>(key:ValueKey(celebrationSequence),tween:Tween(begin:38,end:-110),duration:const Duration(milliseconds:1800),curve:Curves.easeOutCubic,builder:(context,offset,child)=>Transform.translate(offset:Offset(0,offset),child:child),child:Center(child:Container(padding:const EdgeInsets.symmetric(horizontal:18,vertical:8),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xff7c3aed),Color(0xffdb2777)]),borderRadius:BorderRadius.circular(24),boxShadow:[BoxShadow(color:const Color(0xffa855f7).withValues(alpha:.65),blurRadius:20,spreadRadius:4)]),child:Row(mainAxisSize:MainAxisSize.min,children:[const Text('✨  ',style:TextStyle(fontSize:18)),Text(celebrationMessage!,style:const TextStyle(color:Colors.white,fontSize:17,fontWeight:FontWeight.w900,letterSpacing:1.0)),const Text('  ✨',style:TextStyle(fontSize:18))]))))),
+        if (celebrationMessage != null)
+          SizedBox(
+            height: 0,
+            child: OverflowBox(
+              alignment: Alignment.center,
+              minHeight: 0,
+              maxHeight: 72,
+              child: TweenAnimationBuilder<double>(
+                key: ValueKey(celebrationSequence),
+                tween: Tween(begin: 38, end: -110),
+                duration: const Duration(milliseconds: 1800),
+                curve: Curves.easeOutCubic,
+                builder: (context, offset, child) => Transform.translate(
+                  offset: Offset(0, offset),
+                  child: child,
+                ),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xff7c3aed), Color(0xffdb2777)]),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [BoxShadow(color: const Color(0xffa855f7).withValues(alpha: .65), blurRadius: 20, spreadRadius: 4)],
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Text('✨  ', style: TextStyle(fontSize: 18)),
+                      Text(celebrationMessage!, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900, letterSpacing: 1.0)),
+                      const Text('  ✨', style: TextStyle(fontSize: 18)),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ),
         if(inn.overBalls.isNotEmpty)...[
           const Divider(color:Color(0xff526273),height:22),
           Align(alignment:Alignment.centerLeft,child:Text('THIS OVER',style:TextStyle(color:Colors.white.withValues(alpha:.7),fontWeight:FontWeight.w900,fontSize:12))),
@@ -397,8 +429,7 @@ class _SportzHomeState extends State<SportzHome>{
   }
   Widget stats()=>ListView(padding:const EdgeInsets.all(14),children:[
     SegmentedButton<int>(segments:const [ButtonSegment(value:0,label:Text('Current Match')),ButtonSegment(value:1,label:Text('Cumulative'))],selected:{statsSubtab},onSelectionChanged:(v)=>setState(()=>statsSubtab=v.first)),
-    if(statsSubtab==0&&engine!=null)...[
-      section('LIVE MATCH SCORECARD','DETAILED INNINGS STATISTICS'),
+    if(statsSubtab==0&&engine!=null)...[      section('LIVE MATCH SCORECARD','DETAILED INNINGS STATISTICS'),
       Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
         Text('${match!.teamA} vs ${match!.teamB} · Innings ${match!.innings}',style:const TextStyle(fontWeight:FontWeight.w900)),
         const SizedBox(height:5),Text('${match!.current.runs}/${match!.current.wickets}  (${match!.current.overs} ov) · CRR ${match!.current.crr.toStringAsFixed(2)} · Extras ${match!.current.extras}',style:const TextStyle(fontWeight:FontWeight.w800)),
