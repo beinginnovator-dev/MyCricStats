@@ -1,0 +1,41 @@
+# MyCricStats Flutter — Master Change Register
+
+This register is the source of truth for requested behaviour on the Flutter branch `testing/google-mix-ui`. Before every future edit or deployment, compare the branch against this list. Do not remove, move, rename, or change an existing feature unless the user explicitly requests it. After each change, verify each affected item in source/build/live deployment and update its status here.
+
+## Preserve existing behaviour (regression checks)
+- [ ] Re-toss / Correct Toss remains available in the pre-match Ready state; do not remove it.
+- [ ] Active match, innings, ball-by-ball state and scoring data restore after minimising/reopening the app.
+- [ ] Reopen the last viewed page/tab.
+- [ ] Scoring pad keeps its existing layout and button actions; extras remain purple.
+- [ ] Existing scorer flow, toss gating, opener selection, batter/bowler change rules, undo/redo, innings transition and match completion remain intact.
+- [ ] Match history and cumulative statistics remain intact.
+- [ ] Existing scoreboard, live commentary, player stats, 50/100 milestones, boundary/wicket animations and result banner remain intact.
+- [ ] Do not modify the original HTML app, MySportzStats, Expense Tracker, production project, or unrelated branches unless specifically requested.
+
+## Sponsors and advertisements
+- [ ] Live page renders every sponsor configured in the scorer (not only the first sponsor).
+- [ ] Each sponsor has name, logo/image URL, click-through URL and selectable animation: None, Breathing, Pulse, Glow, Shine.
+- [ ] Sponsor animation settings are published with the live payload and applied on the live page.
+- [ ] Pop-up ad editor supports duration choices of 3, 5, 6 and 8 seconds.
+- [ ] Pop-up ad editor supports Small, Medium and Large size.
+- [ ] Pop-up ad editor supports event triggers: boundaries (4/6), wickets and end of each over.
+- [ ] Event animation appears first; the selected pop-up appears only after the event animation.
+- [ ] Pop-ups auto-close after the selected duration.
+- [ ] Existing advertisement enable/disable setting is respected.
+
+## Live page match selection
+- [ ] Remove the old-match tab/list/sequence from the live page.
+- [ ] Show only matches updated on the current day when selecting the live display.
+- [ ] Automatically show the latest live match of the day as soon as it starts; otherwise show the latest updated match for that day.
+- [ ] Continue refreshing the selected match score without requiring a manual reload.
+- [ ] Keep the live scoreboard, stats, commentary, squads, match info and result presentation.
+
+## Release verification
+- [ ] Flutter web build completes successfully.
+- [ ] Cloudflare Pages build and deploy stages both report success.
+- [ ] Confirm the deployed commit SHA and test URL.
+- [ ] Verify the live page and scorer page load from the deployed artifact.
+- [ ] Report any behaviour that could not be device-tested; do not claim it is verified when only source/build checks passed.
+
+## Change log
+- 2026-11-20: Added sponsor animation controls, pop-up ad size/duration/event-trigger controls, multi-sponsor live rendering, event-first pop-up flow, latest same-day live-match selection, and removed the old match sequence from the live page. Re-toss code intentionally preserved.
