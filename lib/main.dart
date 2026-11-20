@@ -251,7 +251,7 @@ class _SportzHomeState extends State<SportzHome>{
         CheckboxListTile(dense:true,contentPadding:EdgeInsets.zero,title:const Text('Wicket'),value:events.split(',').contains('wickets'),onChanged:(v)=>setD(()=>events=_setEvent(events,'wickets',v==true))),
         CheckboxListTile(dense:true,contentPadding:EdgeInsets.zero,title:const Text('End of over'),value:events.split(',').contains('overEnd'),onChanged:(v)=>setD(()=>events=_setEvent(events,'overEnd',v==true))),
       ]
-    ]))),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Save'))])));
+    ])),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Save'))])));
     if(ok==true&&name.text.trim().isNotEmpty){final item={'name':name.text.trim(),'image':logo.text.trim(),'link':link.text.trim()};if(isSponsor)item['effect']=effect;else{item['duration']=duration;item['size']=size;item['events']=events;}setState(()=>list.add(item));await _save();if(match!=null)await publishLive();}
   }
   String _setEvent(String current,String key,bool enabled){final values=current.split(',').where((x)=>x.isNotEmpty).toSet();if(enabled){values.add(key);}else{values.remove(key);}return values.join(',');}
@@ -272,7 +272,7 @@ class _SportzHomeState extends State<SportzHome>{
         CheckboxListTile(dense:true,contentPadding:EdgeInsets.zero,title:const Text('Wicket'),value:events.split(',').contains('wickets'),onChanged:(v)=>setD(()=>events=_setEvent(events,'wickets',v==true))),
         CheckboxListTile(dense:true,contentPadding:EdgeInsets.zero,title:const Text('End of over'),value:events.split(',').contains('overEnd'),onChanged:(v)=>setD(()=>events=_setEvent(events,'overEnd',v==true))),
       ]
-    ]))),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Save'))])));
+    ])),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Save'))])));
     if(ok==true&&name.text.trim().isNotEmpty){final updated={'name':name.text.trim(),'image':image.text.trim(),'link':link.text.trim()};if(isSponsor)updated['effect']=effect;else{updated['duration']=duration;updated['size']=size;updated['events']=events;}setState(()=>list[index]=updated);await _save();if(match!=null)await publishLive();}
   }
   Widget _adList(String title,List<Map<String,String>> list){
@@ -283,7 +283,8 @@ class _SportzHomeState extends State<SportzHome>{
     ])));
   }
   Widget section(String title,String sub)=>Padding(padding:const EdgeInsets.only(bottom:10),child:Row(children:[Expanded(child:Text(title,style:const TextStyle(fontWeight:FontWeight.w900,letterSpacing:1.1))),Text(sub,style:const TextStyle(fontSize:9,fontWeight:FontWeight.w800,color:Colors.grey))]));
-  Widget sponsorPage()=>ListView(padding:const EdgeInsets.all(14),children:[section('SPONSOR MANAGEMENT','LIVE BRANDING & EVENT ADS'),_adList('Sponsors',sponsors),const SizedBox(height:12),_adList('Pop-up advertisements',popupAds)]);\n  Widget matchFlow()=>sponsorPage();
+  Widget sponsorPage()=>ListView(padding:const EdgeInsets.all(14),children:[section('SPONSOR MANAGEMENT','LIVE BRANDING & EVENT ADS'),_adList('Sponsors',sponsors),const SizedBox(height:12),_adList('Pop-up advertisements',popupAds)]);
+  Widget matchFlow()=>sponsorPage();
   Widget scoreboard()=>engine==null?const Center(child:Text('Create a match and complete the toss first.')):Builder(builder:(c){
     final e=engine!,m=e.match,inn=m.current;
     final ta=_team(m.teamAId),tb=_team(m.teamBId);
