@@ -109,3 +109,10 @@ This register is the source of truth for requested behaviour on the Flutter bran
 - [x] Show bowler extras as one total only, without wide/no-ball/bye breakdown in brackets.
 - [x] Increase scorer scoreboard player-name and player-figures font sizes by 2 pt; increase matching viewer player-name and inline-stat text by 2 pt.
 - [x] Remove the Start New Match action from the viewer result banner; add a cup logo, winning team and margin line, innings overs, and Man of the Match line.
+
+
+## Scoreboard, commentary and finish-status refinement — 2026-11-20
+- [x] Reduce the non-striker palette icon size and increase all scorer scoreboard player-name text by 1 pt.
+- [x] Improve Hindi/English ball-by-ball commentary using a factual sequence: over.ball, bowler to batter, delivery outcome, fielding/dismissal context where available, and score after the delivery. Use original wording rather than copying ESPNcricinfo text.
+- [x] Hide the viewer result overlay for completed/history matches; show a flashing Finished/Abandoned result line in the tournament-title position, including winning margin and overs where score data supports it.
+- [x] Set scorer and viewer default scoreboard theme to Black.
