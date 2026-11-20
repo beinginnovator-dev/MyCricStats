@@ -70,6 +70,8 @@ class MatchRecord {
   DateTime? completedAt;
   InningsRecord get current => inningsList.last;
   Map<String,dynamic> toJson()=>{'id':id,'teamAId':teamAId,'teamBId':teamBId,'teamA':teamA,'teamB':teamB,'settings':settings.toJson(),'firstBattingTeamId':firstBattingTeamId,'tossWinner':tossWinner,'tossDecision':tossDecision,'status':status,'result':result,'manOfMatch':manOfMatch,'abandonedReason':abandonedReason,'innings':innings,'inningsList':inningsList.map((x)=>x.toJson()).toList(),'createdAt':createdAt.toIso8601String(),'completedAt':completedAt?.toIso8601String()};
+  factory MatchRecord.fromJson(Map<String,dynamic> j){final m=MatchRecord(id:j['id']??'',teamAId:j['teamAId']??'',teamBId:j['teamBId']??'',teamA:j['teamA']??'',teamB:j['teamB']??'',settings:MatchSettings.fromJson(Map<String,dynamic>.from(j['settings']??{})),firstBattingTeamId:j['firstBattingTeamId']??'');m.tossWinner=j['tossWinner']??'';m.tossDecision=j['tossDecision']??'';m.status=j['status']??'Setup';m.result=j['result']??'';m.manOfMatch=j['manOfMatch']??'';m.abandonedReason=j['abandonedReason']??'';m.innings=j['innings']??1;m.inningsList=((j['inningsList'] as List?)??[]).map((v)=>InningsRecord.fromJson(Map<String,dynamic>.from(v))).toList();if(m.inningsList.isEmpty)m.inningsList=[InningsRecord()];m.allDeliveries=m.inningsList.expand((x)=>x.deliveries).toList();m.createdAt=DateTime.tryParse(j['createdAt']??'')??DateTime.now();m.completedAt=j['completedAt']==null?null:DateTime.tryParse(j['completedAt']);return m;}
+
 }
 
 class TournamentEngine {
@@ -174,6 +176,9 @@ class TournamentEngine {
 
   Map<String,dynamic> _snapshot()=>{'match':match.toJson(),'players':players.values.map((p)=>p.toJson()).toList(),'requireBatterChange':requireBatterChange,'requireBowlerChange':requireBowlerChange,'lastDismissedBatter':lastDismissedBatter,'lastOverBowler':lastOverBowler,'lastDismissedAtStriker':lastDismissedAtStriker,'firstBattingOverride':_firstBattingOverride};
   void _restore(Map<String,dynamic> s){final m=Map<String,dynamic>.from(s['match']);match.tossWinner=m['tossWinner']??'';match.tossDecision=m['tossDecision']??'';match.status=m['status']??'Setup';match.result=m['result']??'';match.manOfMatch=m['manOfMatch']??'';match.abandonedReason=m['abandonedReason']??'';match.innings=m['innings']??1;match.inningsList=((m['inningsList'] as List?)??[]).map((v)=>InningsRecord.fromJson(Map<String,dynamic>.from(v))).toList();if(match.inningsList.isEmpty)match.inningsList=[InningsRecord()];match.allDeliveries=match.inningsList.expand((x)=>x.deliveries).toList();match.completedAt=m['completedAt']==null?null:DateTime.tryParse(m['completedAt']);for(final v in (s['players'] as List? ??[])){final j=Map<String,dynamic>.from(v);final p=players[j['id']];if(p!=null){final q=PlayerRecord.fromJson(j);p.isOut=q.isOut;p.runs=q.runs;p.balls=q.balls;p.fours=q.fours;p.sixes=q.sixes;p.bowlRuns=q.bowlRuns;p.bowlBalls=q.bowlBalls;p.wickets=q.wickets;p.dots=q.dots;p.wides=q.wides;p.noBalls=q.noBalls;}}requireBatterChange=s['requireBatterChange']??false;requireBowlerChange=s['requireBowlerChange']??false;lastDismissedBatter=s['lastDismissedBatter']??'';lastOverBowler=s['lastOverBowler']??'';lastDismissedAtStriker=s['lastDismissedAtStriker']??true;_firstBattingOverride=s['firstBattingOverride'];}
+
+  Map<String,dynamic> exportState()=>_snapshot();
+  void restoreState(Map<String,dynamic> state)=>_restore(state);
   bool undo(){if(undoStack.isEmpty)return false;redoStack.add(_snapshot());_restore(undoStack.removeLast());return true;}
   bool redo(){if(redoStack.isEmpty)return false;undoStack.add(_snapshot());_restore(redoStack.removeLast());return true;}
 
