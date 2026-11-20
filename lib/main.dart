@@ -309,8 +309,8 @@ class _SportzHomeState extends State<SportzHome>{
     Widget playerLine(IconData icon,String name,String figures,VoidCallback onTap){
       return Padding(padding:const EdgeInsets.only(top:5),child:InkWell(onTap:onTap,child:Row(children:[
         Icon(icon,size:16,color:const Color(0xffffd166)),const SizedBox(width:6),
-        Expanded(child:Text(name,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white,fontSize:13,fontWeight:FontWeight.w800))),
-        Text(figures,style:const TextStyle(color:Color(0xffd6e0e9),fontSize:12,fontWeight:FontWeight.w700)),
+        Expanded(child:Text(name,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white,fontSize:15,fontWeight:FontWeight.w800))),
+        Text(figures,style:const TextStyle(color:Color(0xffd6e0e9),fontSize:14,fontWeight:FontWeight.w700)),
       ])));
     }
     Widget teamScore(TeamRecord? team,InningsRecord? score){
