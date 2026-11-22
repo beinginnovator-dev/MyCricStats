@@ -1450,6 +1450,29 @@ function groupIntoOvers(balls){
   list.forEach(function(b){cur.balls.push(b);cur.runs+=ballRuns(b);if(ballIsWicket(b))cur.wickets++;if(ballIsLegal(b))cur.legal++;if(cur.legal>=6){overs.push(cur);cur={overNo:overs.length+1,inningsKey:inningsKey(b),balls:[],runs:0,wickets:0,legal:0};}});
   if(cur.balls.length)overs.push(cur);return overs;
 }
+
+/* Read only explicit commentary fields returned by SportMonks.
+   Never convert score events into prose in this provider-only view. */
+function sportmonksCommentaryRows(source){
+  var rows=[],seen=new Set();
+  var keys=/^(commentary|commentaries|commentary_text|commentary_line|commentarytext|commentaryline|comment)$/i;
+  function add(value,meta){
+    if(typeof value==='string'){
+      var line=value.trim();if(!line)return;
+      var key=(meta.ball||'')+'|'+line;if(seen.has(key))return;seen.add(key);
+      rows.push({text:line,ball:meta.ball||'',over:meta.over||'',inning:meta.inning||'',time:meta.time||''});
+    }else if(Array.isArray(value)){value.forEach(function(v){add(v,meta);});}
+    else if(value&&typeof value==='object'){walk(value,meta);}
+  }
+  function walk(obj,meta){
+    if(!obj||typeof obj!=='object')return;
+    var next={ball:obj.ball||obj.ball_number||meta.ball,over:obj.over||obj.over_number||meta.over,inning:obj.inning||obj.innings||meta.inning,time:obj.created_at||obj.updated_at||obj.timestamp||meta.time};
+    Object.keys(obj).forEach(function(k){if(keys.test(k))add(obj[k],next);else if(obj[k]&&typeof obj[k]==='object')walk(obj[k],next);});
+  }
+  walk(source,{});
+  return rows;
+}
+
 function chipClass(b){
   if(ballIsWicket(b))return 'cw';
   if(ballIsExtra(b))return 'cx';
@@ -3016,7 +3039,7 @@ function App(){
     return statusOf(m)===filter;
   });
 
-  var tabs=[['news','Headlines'],['matches','Matches'],['scorecard','Scorecard'],['commentary','Commentary'],['chat','Chat'],['squad','Squad'],['info','Info'],['schedule','Schedule']];
+  var tabs=[['news','Headlines'],['matches','Matches'],['scorecard','Scorecard'],['commentary','Commentary'],['sm-commentary','SM Commentary'],['chat','Chat'],['squad','Squad'],['info','Info'],['schedule','Schedule']];
 
   return h('div',{className:'app'},
     error?h('div',{className:'error-bar'},error):null,
@@ -3513,7 +3536,7 @@ function App(){
       tabs.map(function(p){
         return h('button',{key:p[0],className:tab===p[0]?'on':'',onClick:function(){
           if(p[0]!=='news'){try{window.speechSynthesis.cancel();}catch(e){}}setTab(p[0]);lsSet('mcs_tab',p[0]);
-          if(['scorecard','commentary','batting','bowling','info','squad'].indexOf(p[0])>=0&&selected)loadDetail(selected);
+          if(['scorecard','commentary','sm-commentary','batting','bowling','info','squad'].indexOf(p[0])>=0&&selected)loadDetail(selected);
         }},p[1]);
       })
     )
@@ -3903,6 +3926,36 @@ tab==='bowling'?(!selected?h('div',{className:'empty'},'Select a match'):h('div'
           );
         })()
       )):null,
+
+
+tab==='sm-commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(React.Fragment,null,
+  h('div',{className:'card'},
+    h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}},
+      h('h3',null,'SportMonks original commentary'),
+      h('button',{className:'btn',onClick:function(){if(selected)loadDetail(selected);}},'Refresh')
+    ),
+    h('div',{className:'muted',style:{fontSize:11,marginBottom:10}},'Provider-only feed · No MCS-generated narration or event descriptions are shown here.')
+  ),
+  (function(){
+    var rows=sportmonksCommentaryRows(detail||selected);
+    return rows.length?h('div',{className:'card'},
+      rows.map(function(row,i){
+        return h('div',{key:i,style:{padding:'11px 2px',borderBottom:i===rows.length-1?'0':'1px solid var(--line)'}},
+          h('div',{style:{display:'flex',gap:8,alignItems:'center',justifyContent:'space-between',marginBottom:5}},
+            h('b',{style:{fontSize:11,color:'var(--blue)'}},row.ball?'Ball '+row.ball:(row.over?'Over '+row.over:'SPORTMONKS')),
+            row.time?h('span',{className:'muted',style:{fontSize:10}},String(row.time)):null
+          ),
+          h('div',{style:{fontSize:13,lineHeight:1.55}},row.text),
+          row.inning?h('div',{className:'muted',style:{fontSize:10,marginTop:4}},'Innings '+row.inning):null
+        );
+      })
+    ):h('div',{className:'empty card'},
+      h('div',{style:{fontSize:26,marginBottom:8}},'📡'),
+      h('b',null,'No SportMonks commentary received'),
+      h('div',{className:'muted',style:{marginTop:8,lineHeight:1.5}},'The current SportMonks Cricket API response contains no explicit commentary text fields for this match. This tab will show entries only if SportMonks returns them. Ball-by-ball score data and MCS commentary remain in the separate Commentary tab.')
+    );
+  })()
+)):null,
 
 tab==='squad'?(!selected?h('div',{className:'empty'},'Select a match'):h('div',{className:'card'},
         h('h3',null,'Squad / lineup'),
