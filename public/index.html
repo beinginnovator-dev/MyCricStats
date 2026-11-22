@@ -3931,11 +3931,11 @@ tab==='bowling'?(!selected?h('div',{className:'empty'},'Select a match'):h('div'
 tab==='sm-commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(React.Fragment,null,
   h('div',{className:'card'},
     h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}},
-      h('h3',null,'SportMonks live delivery feed'),
-      h('button',{className:'btn',onClick:function(){if(selected)loadDetail(selected,token,false,true);}},'Sync now')
+      h('h3',null,'Live descriptive commentary'),
+      h('button',{className:'btn',disabled:loading,onClick:function(){if(selected)loadDetail(selected,token,false,true);}},loading?'Syncing…':'Sync now')
     ),
-    h('div',{className:'muted',style:{fontSize:11,marginBottom:8}},'Direct SportMonks Cricket API v2 ball-by-ball records · No MCS-generated narration.'),
-    h('div',{style:{fontSize:11,fontWeight:800,color:'var(--blue)'}},'PROVIDER DELIVERIES · '+normalizeBalls(d&&d.balls||[]).length)
+    h('div',{className:'muted',style:{fontSize:11,marginBottom:8}},'SportMonks Cricket API v2 delivery data · MCS broadcast-style descriptive narration. Genuine provider text is shown separately when available.'),
+    h('div',{style:{fontSize:11,fontWeight:800,color:'var(--blue)'}},'DELIVERIES SYNCED · '+normalizeBalls(d&&d.balls||[]).length)
   ),
   (function(){
     var balls=normalizeBalls(d&&d.balls||[]).slice().reverse();
@@ -3943,29 +3943,31 @@ tab==='sm-commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h
     if(!balls.length&&!editorial.length)return h('div',{className:'empty card'},
       h('div',{style:{fontSize:26,marginBottom:8}},'📡'),
       h('b',null,'Waiting for SportMonks delivery data'),
-      h('div',{className:'muted',style:{marginTop:8,lineHeight:1.5}},'No ball records have arrived for this fixture yet. Tap Sync now to request a fresh fixture response. SportMonks Cricket API v2 documents ball-by-ball delivery records through the balls include; it does not document a separate cricket editorial-commentary endpoint.')
+      h('div',{className:'muted',style:{marginTop:8,lineHeight:1.5}},'No ball records have arrived for this fixture yet. Tap Sync now to request a fresh fixture response.')
     );
     return h(React.Fragment,null,
-      editorial.length?h('div',{className:'card'},h('h3',null,'Provider text commentary'),editorial.map(function(row,i){
+      editorial.length?h('div',{className:'card'},h('h3',null,'Original SportMonks text · when supplied'),editorial.map(function(row,i){
         return h('div',{key:'text-'+i,style:{padding:'9px 2px',borderBottom:i===editorial.length-1?'0':'1px solid var(--line)'}},
           h('b',{style:{fontSize:11,color:'var(--blue)'}},row.ball?'Ball '+row.ball:'SPORTMONKS'),
           h('div',{style:{fontSize:13,lineHeight:1.5,marginTop:4}},row.text)
         );
       })):null,
-      balls.length?h('div',{className:'card'},h('h3',null,'Ball-by-ball · latest first'),
+      balls.length?h('div',{className:'card'},
+        h('h3',null,'Descriptive ball-by-ball commentary · latest first'),
+        h('div',{className:'muted',style:{fontSize:11,marginBottom:8}},'Narration is generated from the actual SportMonks delivery fields. It does not invent shot direction, field placement or events absent from the feed.'),
         balls.map(function(b,i){
           var p=parseBallNotation(b),people=ballParticipants(b),score=b.score||{};
           var event=String(score.name||b.score_name||score.action||'').trim();
-          var label=event|| (ballIsWicket(b)?'Wicket':(ballRuns(b)===0?'No run':String(ballRuns(b))+' runs'));
           var stamp=(b.ball!=null?String(typeof b.ball==='object'?(b.ball.name||b.ball.value||''):b.ball):(p.over!=null?String(p.over)+'.'+String(p.ballInOver||''):'Delivery '+(balls.length-i)));
-          return h('div',{key:ballDedupeKey(b)||i,style:{padding:'10px 2px',borderBottom:i===balls.length-1?'0':'1px solid var(--line)'}},
+          var narrative=professionalCommentaryLine(b,'en',p.over);
+          return h('div',{key:ballDedupeKey(b)||i,style:{padding:'12px 2px',borderBottom:i===balls.length-1?'0':'1px solid var(--line)'}},
             h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}},
               h('b',{style:{fontSize:12,color:'var(--blue)'}},'BALL '+stamp),
               h('span',{style:{fontSize:11,fontWeight:900,color:ballIsWicket(b)?'#ef4444':'var(--text)'}},ballIsWicket(b)?'WICKET':(ballRuns(b)+' RUN'+(ballRuns(b)===1?'':'S')))
             ),
-            h('div',{style:{fontSize:13,fontWeight:800,marginTop:5}},label),
-            h('div',{className:'muted',style:{fontSize:11,marginTop:4}},(people.bowler?people.bowler+' → ':'')+(people.batter||'Batter not supplied')),
-            (people.dismissed&&ballIsWicket(b))?h('div',{className:'muted',style:{fontSize:11,marginTop:3}},'Dismissed: '+people.dismissed):null,
+            h('div',{style:{fontSize:14,lineHeight:1.55,fontWeight:700,marginTop:7}},narrative),
+            (people.bowler||people.batter)?h('div',{className:'muted',style:{fontSize:10,marginTop:5}},'SOURCE DATA · '+(people.bowler||'Bowler unavailable')+' → '+(people.batter||'Batter unavailable')+(event?' · '+event:'')):null,
+            (people.dismissed&&ballIsWicket(b))?h('div',{className:'muted',style:{fontSize:10,marginTop:3}},'Dismissed: '+people.dismissed):null,
             inningsKey(b)?h('div',{className:'muted',style:{fontSize:10,marginTop:3}},'Innings '+inningsKey(b)):null
           );
         })
