@@ -1670,6 +1670,14 @@ function descriptiveLine(b, lang, forceOver){
   if(scoreName&&/^[A-Za-z][A-Za-z -]+$/.test(scoreName.trim())&&!/^(no run|dot ball|four|six|wide|wide ball|no ball|leg bye|bye|wicket)$/i.test(scoreName.trim()))return head+scoreName.trim()+'.';
   return head+(runs||0)+' run'+((runs||0)===1?'':'s')+'.';
 }
+// Professional MCS commentary layer. SportMonks Cricket API v2 supplies structured
+// delivery facts; it does not supply a Cricbuzz-style editorial prose feed. Build
+// broadcast-style wording only from the returned batter, bowler, outcome and dismissal fields.
+function professionalCommentaryLine(b, lang, forceOver){
+  var stamp=ballStampPhrase(b,lang,forceOver);
+  var narrative=liveReactTtsBallLine(b,lang);
+  return stamp?(lang==='hi'?stamp+' — '+narrative:stamp+' · '+narrative):narrative;
+}
 var mcsSpeechPrimed=false;
 var pendingFinishedSpeech=null;
 var pendingAutoCommentary=null;
@@ -3820,8 +3828,8 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
           })()
         ):null,
         h('div',{className:'card'},
-          h('h3',null,'Ball-by-ball · by over'),
-          h('div',{className:'muted',style:{marginBottom:10}},'Each over shows up to 6 legal balls (+ extras). End of over shows runs/wickets in that over.'),
+          h('h3',null,'Professional ball-by-ball commentary'),
+          h('div',{className:'muted',style:{marginBottom:10}},'SPORTMONKS DELIVERY DATA · MCS BROADCAST-STYLE COMMENTARY. SportMonks supplies structured ball events; MCS turns the available batter, bowler, outcome and dismissal fields into readable commentary. This is not provider-authored editorial text. Each over shows legal balls plus extras and an over summary.'),
           !oversDesc.length?h('div',{className:'muted'},loading?'Loading balls…':'No ball-by-ball data returned. Refresh once; if still empty, check fixture ball-data coverage and API plan access.'):null,
           oversDesc.map(function(ov,oi){
             return h('div',{key:oi,className:'over-card'},
@@ -3835,7 +3843,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
                 })
               ),
               ov.balls.map(function(b,bi){
-                var line=descriptiveLine(b,ttsLang,ov.displayOver!=null?ov.displayOver:ov.overNo);
+                var line=professionalCommentaryLine(b,ttsLang,ov.displayOver!=null?ov.displayOver:ov.overNo);
                 var cls=ballIsWicket(b)?'hi-w':(ballRuns(b)===4?'hi-4':(ballRuns(b)===6?'hi-6':(ballRuns(b)>0?'hi-run':'')));
                 return h('div',{key:'d'+bi,className:'ball-detail',ref:oi===0&&bi===0?commentaryLatestRef:null,style:{cursor:'pointer',display:'flex',alignItems:'flex-start',gap:8},onClick:function(){if(ttsOn)speakText(liveReactTtsLine(b,ttsLang,detail||selected),ttsLang);}},
                   h('span',{className:'ball-chip '+chipClass(b),style:{flexShrink:0,marginTop:2}},chipLabel(b)),
