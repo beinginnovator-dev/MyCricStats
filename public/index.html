@@ -170,6 +170,13 @@ body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(
 .scoreboard-body{padding:0 14px 4px;display:flex;flex-direction:column;justify-content:flex-start}
 .sponsor-slot{display:flex;align-items:center;justify-content:center;gap:6px;min-height:28px;margin-bottom:4px;font-size:11px;font-weight:700;color:#fde68a}
 .match-header{text-align:center;padding:2px 4px}
+.mcs-innings-break{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;margin:12px auto 10px;padding:13px 16px;max-width:94%;border:1px solid rgba(255,190,70,.95);border-radius:14px;background:linear-gradient(105deg,rgba(88,48,8,.82),rgba(25,15,36,.96),rgba(88,48,8,.82));color:#fff4ce;font-size:14px;font-weight:900;letter-spacing:.18em;text-align:center;text-shadow:0 0 10px rgba(255,190,70,.75);box-shadow:0 0 8px rgba(255,184,64,.55),0 0 22px rgba(255,150,30,.32),inset 0 0 18px rgba(255,195,90,.16);animation:mcsInningsGlow 1.8s ease-in-out infinite}
+.mcs-innings-break:before,.mcs-innings-break:after{content:'';width:7px;height:7px;border-radius:50%;background:#ffd36e;box-shadow:0 0 10px #ffbd4a,0 0 18px #ff9b28;animation:mcsInningsDot 1.2s ease-in-out infinite alternate}
+.mcs-innings-break:after{animation-delay:.6s}
+@keyframes mcsInningsGlow{0%,100%{box-shadow:0 0 7px rgba(255,184,64,.4),0 0 15px rgba(255,150,30,.2),inset 0 0 12px rgba(255,195,90,.1);transform:scale(1)}50%{box-shadow:0 0 13px rgba(255,220,120,.85),0 0 30px rgba(255,150,30,.55),inset 0 0 22px rgba(255,195,90,.25);transform:scale(1.012)}}
+@keyframes mcsInningsDot{from{opacity:.45;transform:scale(.75)}to{opacity:1;transform:scale(1.25)}}
+@media(prefers-reduced-motion:reduce){.mcs-innings-break,.mcs-innings-break:before,.mcs-innings-break:after{animation:none!important}}
+
 .match-header .title{font-size:13px;font-weight:900;color:var(--gold);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .match-header .sub{font-size:11px;font-weight:700;color:#cbd5e1;margin-top:2px}
 .match-header .status-line{font-size:12px;font-weight:700;color:#e2e8f0;margin-top:4px}
@@ -1716,27 +1723,47 @@ function primeSpeech(){
     window.speechSynthesis.speak(u);
   }catch(e){mcsSpeechPrimed=false;console.warn('Speech unlock failed',e);}
 }
-function speakText(text, lang){
+var mcsAiVoiceQueue=Promise.resolve();
+function speakBrowserMaleFallback(text,lang){
   try{
-    if(!window.speechSynthesis||!text||!window.SpeechSynthesisUtterance)return false;
-    text=String(text).replace(/\*/g,'').replace(/\s+/g,' ').trim();
-    if(!text)return false;
-    var synth=window.speechSynthesis;
-    var u=new SpeechSynthesisUtterance(text);
-    u.lang=lang==='hi'?'hi-IN':'en-IN';
-    u.rate=lang==='hi'?0.95:1;
-    u.volume=1;
+    if(!window.speechSynthesis||!window.SpeechSynthesisUtterance)return false;
+    var synth=window.speechSynthesis,u=new SpeechSynthesisUtterance(text);
+    var locale=lang==='hi'?'hi-IN':'en-IN';u.lang=locale;u.rate=lang==='hi'?0.98:1.06;u.pitch=0.88;u.volume=1;
     var voices=synth.getVoices?synth.getVoices():[];
-    var prefer=voices.find(function(v){return lang==='hi'?/^hi(-|$)/i.test(v.lang):/^en(-|$)/i.test(v.lang);});
-    if(prefer)u.voice=prefer;
-    u.onerror=function(e){console.warn('Commentary TTS error',e&&e.error||e);};
-    // Android Chrome can drop an utterance issued immediately after cancel().
+    var languageVoices=voices.filter(function(v){return String(v.lang||'').toLowerCase().indexOf(lang==='hi'?'hi':'en')===0;});
+    var maleNames=/male|man|david|daniel|george|james|aaron|guy|ryan|thomas|fred|alex|rishi|prabhat|hemant|madhur/i;
+    var male=languageVoices.find(function(v){return maleNames.test(v.name||'')&&!/female|woman/i.test(v.name||'');});
+    var selected=male||languageVoices.find(function(v){return !/female|woman/i.test(v.name||'');})||null;
+    if(selected)u.voice=selected;
+    u.onerror=function(e){console.warn('Male fallback TTS error',e&&e.error||e);};
     synth.cancel();
-    window.setTimeout(function(){
-      try{if(synth.paused)synth.resume();synth.speak(u);}catch(e){console.warn('Commentary TTS start failed',e);}
-    },120);
+    window.setTimeout(function(){try{if(synth.paused)synth.resume();synth.speak(u);}catch(e){console.warn('Fallback TTS start failed',e);}},100);
     return true;
-  }catch(e){console.warn('Commentary TTS failed',e);return false;}
+  }catch(e){console.warn('Fallback TTS failed',e);return false;}
+}
+function speakText(text,lang){
+  text=String(text||'').replace(/\\*/g,'').replace(/\\s+/g,' ').trim();
+  if(!text)return false;
+  if(!window.fetch||!window.Audio)return speakBrowserMaleFallback(text,lang);
+  mcsAiVoiceQueue=mcsAiVoiceQueue.catch(function(){}).then(async function(){
+    try{
+      var response=await fetch('/api/voice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,language:lang==='hi'?'hi':'en'})});
+      if(!response.ok)throw new Error('AI voice unavailable: '+response.status);
+      var blob=await response.blob();
+      if(!blob||!blob.size)throw new Error('Empty AI voice response');
+      var url=URL.createObjectURL(blob),audio=new Audio(url);audio.preload='auto';audio.volume=1;
+      await new Promise(function(resolve,reject){
+        audio.onended=function(){URL.revokeObjectURL(url);resolve();};
+        audio.onerror=function(){URL.revokeObjectURL(url);reject(new Error('AI audio playback failed'));};
+        var play=audio.play();if(play&&play.catch)play.catch(function(e){URL.revokeObjectURL(url);reject(e);});
+      });
+    }catch(e){
+      console.warn('AI commentary voice unavailable; using male device TTS.',e);
+      speakBrowserMaleFallback(text,lang);
+      await new Promise(function(resolve){window.setTimeout(resolve,Math.max(1800,Math.min(9000,text.length*48)));});
+    }
+  });
+  return true;
 }
 var stadCtx=null;
 var stadUnlocked=false;
@@ -3024,6 +3051,7 @@ function App(){
   var venue=d&&d.venue?d.venue.name:'';
   var league=d?(d.league&&d.league.name)||d.type||d.round||'':'';
   var st=d?statusOf(d):'';
+  var inningsBreak=d&&/\\binnings?\\s*break\\b|between\\s+innings|innings\\s+interval/i.test(statusTextOf(d));
   var liveP=d?currentPlayers(d):{striker:'—',nonstriker:'—',bowler:'—',strikerS:{line1:'',line2:'',line3:''},nonstrikerS:{line1:'',line2:'',line3:''},bowlerS:{line1:'',line2:''}};
   var overs=groupIntoOvers(d&&d.balls||[]);
   // newest over first for commentary; ball history itself is chronological.
@@ -3086,7 +3114,8 @@ function App(){
             h('div',{className:'match-header'},
               h('div',{className:'title'},league||'Match'),
               h('div',{className:'sub'},venue),
-              h('div',{className:'status-line'},status||(d.note||''))
+              h('div',{className:'status-line'},status||(d.note||'')),
+              inningsBreak?h('div',{className:'mcs-innings-break','aria-live':'polite'},'INNINGS BREAK'):null
             ),
             h('div',{className:'score-grid'},
               h('div',{className:'side side-left'},
