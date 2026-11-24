@@ -1234,6 +1234,29 @@ function statusTextOf(m){
   if(s&&typeof s==='object')s=s.name||s.short_name||s.code||s.status||'';
   return String(s||'')+' '+String(m&&m.note||'')+' '+String(m&&m.result||'');
 }
+function scoreRunsOnly(value){
+  var match=String(value==null?'':value).replace(/,/g,'').match(/^\s*(\d+)/);
+  return match?Number(match[1]):NaN;
+}
+function isChaseComplete(m){
+  if(!m)return false;
+  var rows=relationRows(m.runs),keys=[];
+  rows.forEach(function(row){var key=inningsKey(row);if(key&&keys.indexOf(key)<0)keys.push(key);});
+  // Only infer a result when both innings have explicit scoreboard records.
+  if(keys.length<2)return false;
+  var scores=scoreLine(m),side=currentBattingSide(m);
+  var chase=scoreRunsOnly(side==='home'?scores.a:scores.b);
+  var first=scoreRunsOnly(side==='home'?scores.b:scores.a);
+  return isFinite(chase)&&isFinite(first)&&chase>first;
+}
+function matchResultLabel(m,side){
+  var result=String(m&&m.result||'').trim();
+  if(result&&!/innings/i.test(result))return result;
+  var note=String(m&&m.note||'').trim();
+  if(note&&!/innings/i.test(note))return note;
+  if(isChaseComplete(m))return teamName(m,side==='home'?'local':'visitor')+' won the chase.';
+  return statusTextOf(m).trim()||'Match completed';
+}
 function statusOf(m){
   var s=statusTextOf(m).toLowerCase().replace(/\s+/g,' ').trim();
   if(/\baban(?:doned)?\b|\baban\.(?=\s|$)|called off|no result|match abandoned/.test(s))return 'abandoned';
@@ -1241,7 +1264,7 @@ function statusOf(m){
   if(/\bcancel(?:led|ed)?\b|\bcancl\.(?=\s|$)|cancelled|canceled/.test(s))return 'cancelled';
   if(/\binterrupted\b|\bint\.(?=\s|$)|interruption|suspended/.test(s))return 'interrupted';
   if(/\bdelayed\b|start delayed/.test(s))return 'delayed';
-  if(/finish|complete|result|ended|\bft\b/.test(s)||m&&m.winner_team_id)return 'finished';
+  if(/finish|complete|result|ended|\bft\b/.test(s)||m&&m.winner_team_id||isChaseComplete(m))return 'finished';
   if(m&&m.live||/1st innings|2nd innings|3rd innings|4th innings|innings break|stump day|\blive\b/.test(s))return 'live';
   return 'upcoming';
 }
@@ -2145,6 +2168,7 @@ function winnerSideForMatch(m){
   var home=teamName(m,'local').toLowerCase(),away=teamName(m,'visitor').toLowerCase();
   if(home&&result.indexOf(home)>=0&&/won|win/.test(result))return'home';
   if(away&&result.indexOf(away)>=0&&/won|win/.test(result))return'away';
+  if(isChaseComplete(m))return currentBattingSide(m);
   return'';
 }
 function loadNewsRss(home,away){
@@ -3724,7 +3748,7 @@ tab==='schedule'?h('div',null,
             flag?h('img',{src:flag,alt:(wt.name||'Winning team')+' flag',style:{width:76,height:50,objectFit:'cover',borderRadius:7,display:'block',margin:'5px auto 9px',border:'2px solid #fde68a',boxShadow:'0 0 24px rgba(250,204,21,.8)'}}):null,
             side?h('div',{className:'mcs-result-line'},(wt.name||'Winning team')+' WON'):null,
             h('div',{className:'mcs-result-score'},teamName(rm,'local')+'  '+scoreLine(rm).a+'  ·  '+teamName(rm,'visitor')+'  '+scoreLine(rm).b),
-            h('div',{className:'mcs-result-line'},rm.result||rm.note||rm.status||'Match completed')
+            h('div',{className:'mcs-result-line'},matchResultLabel(rm,side))
           );
         }():null),
         h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}},
@@ -3866,7 +3890,7 @@ tab==='commentary'?(!selected?h('div',{className:'empty'},'Select a match'):h(Re
             return flag?h('img',{src:flag,alt:(wt.name||'Winning team')+' flag',style:{width:76,height:50,objectFit:'cover',borderRadius:7,display:'block',margin:'5px auto 9px',border:'2px solid #fde68a',boxShadow:'0 0 24px rgba(250,204,21,.8)'}}):null;
           })(),
           h('div',{className:'mcs-result-score'},homeName+'  '+sc.a+'  ·  '+awayName+'  '+sc.b),
-          h('div',{className:'mcs-result-line'},status||d.note||d.result||'Match completed'),
+          h('div',{className:'mcs-result-line'},matchResultLabel(d||selected,winnerSideForMatch(d||selected))),
           (function(){
             var batRows=relationRows(d&&d.batting).slice().sort(function(a,b){return Number(b.score!=null?b.score:b.runs||0)-Number(a.score!=null?a.score:a.runs||0);});
             var bowlRows=relationRows(d&&d.bowling).slice().sort(function(a,b){return Number(b.wickets||0)-Number(a.wickets||0);});
