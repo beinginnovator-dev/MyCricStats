@@ -1742,7 +1742,7 @@ function speakBrowserMaleFallback(text,lang){
   }catch(e){console.warn('Fallback TTS failed',e);return false;}
 }
 function speakText(text,lang){
-  text=String(text||'').replace(/\\*/g,'').replace(/\\s+/g,' ').trim();
+  text=String(text||'').replace(/\*/g,'').replace(/\s+/g,' ').trim();
   if(!text)return false;
   if(!window.fetch||!window.Audio)return speakBrowserMaleFallback(text,lang);
   mcsAiVoiceQueue=mcsAiVoiceQueue.catch(function(){}).then(async function(){
